@@ -187,17 +187,21 @@ async function loadDashboard() {
       setPackBP("#bpMildNum", "#bpMildFill", "#bpMildSub", c.diminishingReturnsPacks, "diminishing returns");
       setPackBP("#bpSteepNum", "#bpSteepFill", "#bpSteepSub", c.diminishingReturnsPacksSteep, "steep diminishing returns");
 
-      // 90% completion breakpoint: cards still needed + bar of collected/target.
+      // 90% completion breakpoint: packs still needed + bar of opened/threshold.
       const target90 = Math.round(0.9 * N);
-      const cardsLeft = Math.max(0, target90 - collected);
-      const fill90 = Math.min(100, Math.round((collected / target90) * 100));
-      const morePacks90 = ms.pct90 == null ? null : Math.max(0, ms.pct90 - opened);
-      $("#bp90Num").textContent = cardsLeft;
-      $("#bp90Fill").style.width = fill90 + "%";
-      $("#bp90Sub").textContent = cardsLeft === 0
-        ? `Reached 90% — ~${collected} of ${N} base-set cards collected.`
-        : `~${collected} of ${target90} cards toward 90% (${fill90}%)` +
-          (morePacks90 == null ? "." : ` · ~${morePacks90} more packs.`);
+      if (ms.pct90 == null) {
+        $("#bp90Num").textContent = "—";
+        $("#bp90Fill").style.width = "0%";
+        $("#bp90Sub").textContent = "";
+      } else {
+        const morePacks90 = Math.max(0, ms.pct90 - opened);
+        const fill90 = Math.min(100, Math.round((opened / ms.pct90) * 100));
+        $("#bp90Num").textContent = morePacks90;
+        $("#bp90Fill").style.width = fill90 + "%";
+        $("#bp90Sub").textContent = morePacks90 === 0
+          ? `Reached 90% — ~${collected} of ${N} base-set cards collected.`
+          : `Opened ${opened} of ~${ms.pct90} packs (${fill90}%) · ~${collected} of ${target90} cards so far.`;
+      }
 
       const fmt = (v) => (v == null ? "—" : v);
       $("#estPct50").textContent = fmt(ms.pct50);
