@@ -142,13 +142,15 @@ table.grid input { width: 100%; }
   /* Stack the order form's top fields full width. */
   .order-form .row label { width: 100%; }
 
-  /* Turn the line-items table into stacked cards (no horizontal squeeze). */
-  .line-items thead { display: none; }
-  .line-items, .line-items tbody, .line-items tr, .line-items td { display: block; width: 100%; }
-  .line-items tr { border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; margin-bottom: 12px; background: var(--panel-2); }
-  .line-items td { border-bottom: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; }
-  .line-items td::before { content: attr(data-label); color: var(--muted); font-size: 0.82rem; flex: 0 0 auto; }
-  .line-items td input, .line-items td select { width: 58%; }
+  /* Turn marked tables into stacked cards (no horizontal squeeze). */
+  .stack-mobile thead { display: none; }
+  .stack-mobile, .stack-mobile tbody, .stack-mobile tr, .stack-mobile td { display: block; width: 100%; }
+  .stack-mobile tr { border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; margin-bottom: 12px; background: var(--panel-2); }
+  .stack-mobile td { border-bottom: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; text-align: right; }
+  .stack-mobile td::before { content: attr(data-label); color: var(--muted); font-size: 0.82rem; flex: 0 0 auto; text-align: left; }
+  .stack-mobile td input, .stack-mobile td select { width: 58%; }
+
+  /* order line-items extras */
   .line-items td.li-total { font-weight: 600; }
   .line-items td.li-remove-cell { padding-top: 4px; }
   .line-items td.li-remove-cell::before { content: ""; }
@@ -156,4 +158,8 @@ table.grid input { width: 100%; }
 
   .order-totals { gap: 14px 22px; }
   .cards { grid-template-columns: repeat(2, 1fr); }
+
+  /* Orders list: stack info above actions. */
+  .order-card .order-head { flex-direction: column; align-items: stretch; }
+  .order-card .order-actions { justify-content: flex-end; }
 }

@@ -199,7 +199,7 @@ async function loadDashboard() {
     const tbody = $("#breakdownTable tbody");
     const entries = Object.entries(s.breakdown);
     tbody.innerHTML = entries.length
-      ? entries.map(([p, b]) => `<tr><td>${p}</td><td>${b.quantity}</td><td>${b.packs}</td><td>${money(b.spend)}</td></tr>`).join("")
+      ? entries.map(([p, b]) => `<tr><td data-label="Product">${p}</td><td data-label="Qty">${b.quantity}</td><td data-label="Packs">${b.packs}</td><td data-label="Spend">${money(b.spend)}</td></tr>`).join("")
       : '<tr><td colspan="4" class="muted">No purchases yet.</td></tr>';
 
     $("#rarityList").innerHTML = (s.set.rarities || [])
@@ -221,10 +221,10 @@ function renderChase(chase) {
   tbody.innerHTML = chase.items.map((it) => {
     const odds = it.perPackProb > 0 ? `~1 in ${Math.round(1 / it.perPackProb)}` : "—";
     return `<tr style="${it.present ? "" : "opacity:.5"}">
-      <td>${raritySymbol(it.rarity)} ${it.abbr} · ${it.rarity}</td>
-      <td>${odds}</td>
-      <td><b>${it.avgPacks}</b></td>
-      <td>${it.present ? "✓" : "not in set"}</td>
+      <td data-label="Chase rarity">${raritySymbol(it.rarity)} ${it.abbr} · ${it.rarity}</td>
+      <td data-label="Per-pack odds">${odds}</td>
+      <td data-label="Avg packs to first"><b>${it.avgPacks}</b></td>
+      <td data-label="In this set?">${it.present ? "✓" : "not in set"}</td>
     </tr>`;
   }).join("");
 }
