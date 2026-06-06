@@ -51,6 +51,12 @@ The D1 database id is already wired into `wrangler.toml`. After deploy the Worke
 `https://pokemon-pack-tracker.<account>.workers.dev` (point a custom subdomain at it from the
 Cloudflare dashboard if desired).
 
+## Continuous deployment
+Connected to **Cloudflare Workers Builds** — every push to `main` on
+`applelators/pokemon-pack-tracker` automatically builds and deploys to packs.nabunan.com.
+Build config: production branch `main`, deploy command `npx wrangler deploy`, no build step.
+No API tokens are stored in GitHub; Workers Builds runs in the Cloudflare account context.
+
 ## How the estimate works
 The base set is treated as a pool of distinct cards grouped by rarity. A 2026 booster is modeled
 as 10 cards: 4 commons, 3 uncommons, 2 reverse holos, and 1 "hit" (Rare or better); the hit
