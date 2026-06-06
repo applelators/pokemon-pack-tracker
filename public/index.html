@@ -49,9 +49,18 @@
           </ul>
 
           <div class="dr-box">
-            <span id="estDiminishing" class="big accent">–</span>
-            <span class="label">packs before <b>diminishing returns</b> — past this, each new pack averages
-              fewer than 1 new base-set card (mostly duplicates)</span>
+            <div class="dr-row">
+              <span id="estDRmild" class="big accent">–</span>
+              <span class="label"><b>more packs</b> until <b>diminishing returns</b> — past this each new pack
+                averages fewer than <b>1</b> new base-set card (mostly duplicates).
+                <span class="muted" id="estDRmildAt"></span></span>
+            </div>
+            <div class="dr-row">
+              <span id="estDRsteep" class="big accent">–</span>
+              <span class="label"><b>more packs</b> until <b>steep diminishing returns</b> — past this you average
+                fewer than <b>1 new card per ~5 packs</b>.
+                <span class="muted" id="estDRsteepAt"></span></span>
+            </div>
           </div>
           <ul class="estimate-detail">
             <li>Packs to reach 50% of the set: <b id="estPct50">–</b></li>

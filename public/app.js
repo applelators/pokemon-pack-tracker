@@ -3,6 +3,25 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 const money = (n) => "$" + (Number(n) || 0).toFixed(2);
 
+// Official-style rarity symbols (S&V era): circle/diamond/stars + colour.
+const RARITY_SYMBOL = {
+  "Common": { glyph: "●", count: 1, cls: "r-black" },            // ●
+  "Uncommon": { glyph: "◆", count: 1, cls: "r-black" },          // ◆
+  "Rare": { glyph: "★", count: 1, cls: "r-black" },              // ★
+  "Double Rare": { glyph: "★", count: 2, cls: "r-black" },       // ★★
+  "Ultra Rare": { glyph: "★", count: 2, cls: "r-silver" },      // ★★ foil
+  "Illustration Rare": { glyph: "★", count: 1, cls: "r-gold" },  // ★ gold
+  "Special Illustration Rare": { glyph: "★", count: 2, cls: "r-gold" }, // ★★ gold
+  "Hyper Rare": { glyph: "★", count: 3, cls: "r-gold" },         // ★★★ gold
+  "Mega Hyper Rare": { glyph: "★", count: 3, cls: "r-mhr" },     // ★★★ etched gold
+  "ACE SPEC Rare": { glyph: "★", count: 1, cls: "r-ace" },       // red
+};
+
+function raritySymbol(rarity) {
+  const r = RARITY_SYMBOL[rarity] || { glyph: "●", count: 1, cls: "r-muted" };
+  return `<span class="rsym ${r.cls}" title="${rarity}">${r.glyph.repeat(r.count)}</span>`;
+}
+
 async function api(path, opts = {}) {
   const res = await fetch("/api" + path, {
     headers: { "Content-Type": "application/json" },
@@ -149,7 +168,18 @@ async function loadDashboard() {
       $("#estTotal").textContent = c.expectedTotalPacks;
       $("#estP50").textContent = c.p50;
       $("#estP90").textContent = c.p90;
-      $("#estDiminishing").textContent = c.diminishingReturnsPacks ?? "–";
+      const opened = c.opened || 0;
+      const more = (threshold) => (threshold == null ? null : Math.max(0, threshold - opened));
+      const setDR = (moreEl, atEl, threshold) => {
+        const m = more(threshold);
+        if (m == null) { $(moreEl).textContent = "—"; $(atEl).textContent = ""; return; }
+        $(moreEl).textContent = m;
+        $(atEl).textContent = m === 0
+          ? `(already past it — reached around pack ${threshold})`
+          : `(at ~${threshold} packs total; you've opened ${opened})`;
+      };
+      setDR("#estDRmild", "#estDRmildAt", c.diminishingReturnsPacks);
+      setDR("#estDRsteep", "#estDRsteepAt", c.diminishingReturnsPacksSteep);
       const ms = c.setMilestones || {};
       const fmt = (v) => (v == null ? "—" : v);
       $("#estPct50").textContent = fmt(ms.pct50);
@@ -173,7 +203,7 @@ async function loadDashboard() {
       : '<tr><td colspan="4" class="muted">No purchases yet.</td></tr>';
 
     $("#rarityList").innerHTML = (s.set.rarities || [])
-      .map((r) => `<span class="chip">${r.rarity} <b>${r.count}</b></span>`)
+      .map((r) => `<span class="chip">${raritySymbol(r.rarity)} ${r.rarity} <b>${r.count}</b></span>`)
       .join("") || '<span class="muted">—</span>';
   } catch (err) {
     toast(err.message, true);
@@ -191,7 +221,7 @@ function renderChase(chase) {
   tbody.innerHTML = chase.items.map((it) => {
     const odds = it.perPackProb > 0 ? `~1 in ${Math.round(1 / it.perPackProb)}` : "—";
     return `<tr style="${it.present ? "" : "opacity:.5"}">
-      <td>${it.abbr} · ${it.rarity}</td>
+      <td>${raritySymbol(it.rarity)} ${it.abbr} · ${it.rarity}</td>
       <td>${odds}</td>
       <td><b>${it.avgPacks}</b></td>
       <td>${it.present ? "✓" : "not in set"}</td>
@@ -211,12 +241,12 @@ function addLineRow(item = {}) {
   const product = item.product_type || Object.keys(state.settings.packs_per_product)[0];
   const ppu = item.packs_per_unit ?? state.settings.packs_per_product[product] ?? 1;
   tr.innerHTML = `
-    <td><select class="li-product">${productOptions(product)}</select></td>
-    <td><input class="li-qty" type="number" min="1" value="${item.quantity ?? 1}" /></td>
-    <td><input class="li-price" type="number" min="0" step="0.01" value="${item.unit_price ?? ""}" placeholder="0.00" /></td>
-    <td><input class="li-ppu" type="number" min="0" value="${ppu}" /></td>
-    <td class="li-total muted">$0.00</td>
-    <td><button type="button" class="ghost li-remove">✕</button></td>`;
+    <td data-label="Product"><select class="li-product">${productOptions(product)}</select></td>
+    <td data-label="Qty"><input class="li-qty" type="number" min="1" value="${item.quantity ?? 1}" /></td>
+    <td data-label="Unit price ($)"><input class="li-price" type="number" min="0" step="0.01" value="${item.unit_price ?? ""}" placeholder="0.00" /></td>
+    <td data-label="Packs/unit"><input class="li-ppu" type="number" min="0" value="${ppu}" /></td>
+    <td data-label="Line total" class="li-total muted">$0.00</td>
+    <td data-label="" class="li-remove-cell"><button type="button" class="ghost li-remove">Remove line</button></td>`;
   tbody.appendChild(tr);
 
   const prodSel = tr.querySelector(".li-product");

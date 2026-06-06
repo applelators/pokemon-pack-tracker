@@ -85,8 +85,19 @@ textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 
 .estimate-headline .big { font-size: 2.4rem; font-weight: 800; }
 .estimate-detail { list-style: none; padding: 0; margin: 14px 0; display: flex; gap: 24px; flex-wrap: wrap; }
 .estimate-detail li { color: var(--muted); }
-.dr-box { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 16px 0 4px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
-.dr-box .big { font-size: 1.9rem; font-weight: 800; }
+.dr-box { display: flex; flex-direction: column; gap: 12px; margin: 16px 0 4px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
+.dr-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.dr-row .big { font-size: 1.9rem; font-weight: 800; min-width: 2ch; }
+.dr-row .label { flex: 1; min-width: 200px; }
+
+/* Rarity symbols (S&V era): black = silver-grey on dark, plus foil/gold/red. */
+.rsym { font-weight: 700; letter-spacing: 1px; }
+.rsym.r-black { color: #b6c0d4; }
+.rsym.r-muted { color: var(--muted); }
+.rsym.r-silver { color: #eaf0ff; text-shadow: 0 0 4px rgba(180,200,255,.6); }
+.rsym.r-gold { color: #ffcb05; text-shadow: 0 0 4px rgba(255,203,5,.5); }
+.rsym.r-ace { color: #f87171; }
+.rsym.r-mhr { background: linear-gradient(90deg,#ffd86b,#ff9d2f,#ffe7a0,#d98a00); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; }
 .progress { height: 14px; background: var(--bg); border-radius: 99px; overflow: hidden; margin: 16px 0 6px; border: 1px solid var(--border); }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--good)); width: 0%; transition: width .4s; }
 
@@ -118,5 +129,31 @@ table.grid input { width: 100%; }
 .result-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px; }
 .result-row .meta { color: var(--muted); font-size: 0.82rem; }
 
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 12px 20px; border-radius: 10px; z-index: 100; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 12px 20px; border-radius: 10px; z-index: 100; max-width: 92vw; }
 .toast.error { border-color: var(--danger); color: var(--danger); }
+
+/* ---- Mobile ---------------------------------------------------------- */
+@media (max-width: 640px) {
+  main { padding: 16px; }
+  header { padding: 12px 16px 0; }
+  .set-bar select { min-width: 0; width: 100%; }
+  .set-bar label { width: 100%; }
+
+  /* Stack the order form's top fields full width. */
+  .order-form .row label { width: 100%; }
+
+  /* Turn the line-items table into stacked cards (no horizontal squeeze). */
+  .line-items thead { display: none; }
+  .line-items, .line-items tbody, .line-items tr, .line-items td { display: block; width: 100%; }
+  .line-items tr { border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; margin-bottom: 12px; background: var(--panel-2); }
+  .line-items td { border-bottom: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; }
+  .line-items td::before { content: attr(data-label); color: var(--muted); font-size: 0.82rem; flex: 0 0 auto; }
+  .line-items td input, .line-items td select { width: 58%; }
+  .line-items td.li-total { font-weight: 600; }
+  .line-items td.li-remove-cell { padding-top: 4px; }
+  .line-items td.li-remove-cell::before { content: ""; }
+  .line-items .li-remove { width: 100%; }
+
+  .order-totals { gap: 14px 22px; }
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}

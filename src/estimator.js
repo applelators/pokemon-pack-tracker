@@ -140,12 +140,18 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
   const curve = new Array(CURVE_CAP + 1);
   for (let k = 0; k <= CURVE_CAP; k++) curve[k] = curveSum[k] / runs;
 
-  // Diminishing returns: first pack whose marginal expected new base-set cards
-  // drops below 1 (i.e. on average the next pack is mostly duplicates).
-  let diminishingReturnsPacks = CURVE_CAP;
-  for (let k = 1; k <= CURVE_CAP; k++) {
-    if (curve[k] - curve[k - 1] < 1) { diminishingReturnsPacks = k; break; }
-  }
+  // Diminishing returns breakpoints: the first pack whose marginal expected new
+  // base-set cards drops below a threshold.
+  //   mild  (< 1.0): the next pack is, on average, mostly duplicates.
+  //   steep (< 0.2): you'd average more than ~5 packs per new card.
+  const firstPackBelow = (threshold) => {
+    for (let k = 1; k <= CURVE_CAP; k++) {
+      if (curve[k] - curve[k - 1] < threshold) return k;
+    }
+    return null;
+  };
+  const diminishingReturnsPacks = firstPackBelow(1) ?? CURVE_CAP;
+  const diminishingReturnsPacksSteep = firstPackBelow(0.2) ?? CURVE_CAP;
   // Packs to collect a given fraction of the whole base set.
   const packsToPct = (frac) => {
     const target = frac * N;
@@ -162,6 +168,7 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
     expectedCollectedAtOpened: Math.round(expectedCollectedAtOpened),
     expectedPctAtOpened: Math.round((expectedCollectedAtOpened / N) * 1000) / 10,
     diminishingReturnsPacks,
+    diminishingReturnsPacksSteep,
     setMilestones: { pct50: packsToPct(0.5), pct90: packsToPct(0.9), pct95: packsToPct(0.95) },
     runs,
     opened,
