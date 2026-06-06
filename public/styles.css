@@ -85,10 +85,11 @@ textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 
 .estimate-headline .big { font-size: 2.4rem; font-weight: 800; }
 .estimate-detail { list-style: none; padding: 0; margin: 14px 0; display: flex; gap: 24px; flex-wrap: wrap; }
 .estimate-detail li { color: var(--muted); }
-.dr-box { display: flex; flex-direction: column; gap: 12px; margin: 16px 0 4px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
-.dr-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.dr-row .big { font-size: 1.9rem; font-weight: 800; min-width: 2ch; }
-.dr-row .label { flex: 1; min-width: 200px; }
+.breakpoints { display: flex; flex-direction: column; gap: 16px; margin: 16px 0 6px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
+.bp-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
+.bp-num { font-size: 1.7rem; font-weight: 800; min-width: 2ch; color: var(--accent); }
+.bp-label { flex: 1; min-width: 180px; }
+.bp .progress { margin: 6px 0 4px; }
 
 /* Rarity symbols (S&V era): black = silver-grey on dark, plus foil/gold/red. */
 .rsym { font-weight: 700; letter-spacing: 1px; }

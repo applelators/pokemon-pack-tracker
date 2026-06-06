@@ -169,21 +169,38 @@ async function loadDashboard() {
       $("#estP50").textContent = c.p50;
       $("#estP90").textContent = c.p90;
       const opened = c.opened || 0;
-      const more = (threshold) => (threshold == null ? null : Math.max(0, threshold - opened));
-      const setDR = (moreEl, atEl, threshold) => {
-        const m = more(threshold);
-        if (m == null) { $(moreEl).textContent = "—"; $(atEl).textContent = ""; return; }
-        $(moreEl).textContent = m;
-        $(atEl).textContent = m === 0
-          ? `(already past it — reached around pack ${threshold})`
-          : `(at ~${threshold} packs total; you've opened ${opened})`;
-      };
-      setDR("#estDRmild", "#estDRmildAt", c.diminishingReturnsPacks);
-      setDR("#estDRsteep", "#estDRsteepAt", c.diminishingReturnsPacksSteep);
+      const N = c.baseSetSize;
+      const collected = c.expectedCollectedAtOpened;
       const ms = c.setMilestones || {};
+
+      // Packs-based breakpoint: packs still needed + bar of opened/threshold.
+      const setPackBP = (numEl, fillEl, subEl, threshold, name) => {
+        if (threshold == null) { $(numEl).textContent = "—"; $(fillEl).style.width = "0%"; $(subEl).textContent = ""; return; }
+        const left = Math.max(0, threshold - opened);
+        const fill = Math.min(100, Math.round((opened / threshold) * 100));
+        $(numEl).textContent = left;
+        $(fillEl).style.width = fill + "%";
+        $(subEl).textContent = left === 0
+          ? `Reached — ${name} kicks in around pack ${threshold} (you've opened ${opened}).`
+          : `Opened ${opened} of ~${threshold} packs (${fill}%).`;
+      };
+      setPackBP("#bpMildNum", "#bpMildFill", "#bpMildSub", c.diminishingReturnsPacks, "diminishing returns");
+      setPackBP("#bpSteepNum", "#bpSteepFill", "#bpSteepSub", c.diminishingReturnsPacksSteep, "steep diminishing returns");
+
+      // 90% completion breakpoint: cards still needed + bar of collected/target.
+      const target90 = Math.round(0.9 * N);
+      const cardsLeft = Math.max(0, target90 - collected);
+      const fill90 = Math.min(100, Math.round((collected / target90) * 100));
+      const morePacks90 = ms.pct90 == null ? null : Math.max(0, ms.pct90 - opened);
+      $("#bp90Num").textContent = cardsLeft;
+      $("#bp90Fill").style.width = fill90 + "%";
+      $("#bp90Sub").textContent = cardsLeft === 0
+        ? `Reached 90% — ~${collected} of ${N} base-set cards collected.`
+        : `~${collected} of ${target90} cards toward 90% (${fill90}%)` +
+          (morePacks90 == null ? "." : ` · ~${morePacks90} more packs.`);
+
       const fmt = (v) => (v == null ? "—" : v);
       $("#estPct50").textContent = fmt(ms.pct50);
-      $("#estPct90").textContent = fmt(ms.pct90);
       $("#estPct95").textContent = fmt(ms.pct95);
       const pct = Math.min(100, c.expectedPctAtOpened);
       $("#estProgressFill").style.width = pct + "%";

@@ -48,23 +48,28 @@
             <li>Unlucky (p90): <b id="estP90">–</b></li>
           </ul>
 
-          <div class="dr-box">
-            <div class="dr-row">
-              <span id="estDRmild" class="big accent">–</span>
-              <span class="label"><b>more packs</b> until <b>diminishing returns</b> — past this each new pack
-                averages fewer than <b>1</b> new base-set card (mostly duplicates).
-                <span class="muted" id="estDRmildAt"></span></span>
+          <div class="breakpoints">
+            <div class="bp">
+              <div class="bp-head"><span id="bp90Num" class="bp-num">–</span>
+                <span class="bp-label">more cards to <b>90% set completion</b></span></div>
+              <div class="progress"><div id="bp90Fill" class="progress-fill"></div></div>
+              <div id="bp90Sub" class="muted small"></div>
             </div>
-            <div class="dr-row">
-              <span id="estDRsteep" class="big accent">–</span>
-              <span class="label"><b>more packs</b> until <b>steep diminishing returns</b> — past this you average
-                fewer than <b>1 new card per ~5 packs</b>.
-                <span class="muted" id="estDRsteepAt"></span></span>
+            <div class="bp">
+              <div class="bp-head"><span id="bpMildNum" class="bp-num">–</span>
+                <span class="bp-label">more packs to <b>diminishing returns</b> (each new pack &lt;1 new base-set card)</span></div>
+              <div class="progress"><div id="bpMildFill" class="progress-fill"></div></div>
+              <div id="bpMildSub" class="muted small"></div>
+            </div>
+            <div class="bp">
+              <div class="bp-head"><span id="bpSteepNum" class="bp-num">–</span>
+                <span class="bp-label">more packs to <b>steep diminishing returns</b> (&lt;1 new card per ~5 packs)</span></div>
+              <div class="progress"><div id="bpSteepFill" class="progress-fill"></div></div>
+              <div id="bpSteepSub" class="muted small"></div>
             </div>
           </div>
           <ul class="estimate-detail">
             <li>Packs to reach 50% of the set: <b id="estPct50">–</b></li>
-            <li>To reach 90%: <b id="estPct90">–</b></li>
             <li>To reach 95%: <b id="estPct95">–</b></li>
           </ul>
 
