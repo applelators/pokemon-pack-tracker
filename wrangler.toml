@@ -2,6 +2,11 @@ name = "pokemon-pack-tracker"
 main = "_worker.js"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+routes = [
+  { pattern = "packs.nabunan.com", custom_domain = true }
+]
 
 [assets]
 directory = "public"

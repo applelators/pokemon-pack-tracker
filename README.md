@@ -4,7 +4,7 @@ A personal web app for casual collectors to track Pokémon TCG product purchases
 expansion set, see how much you've spent, and estimate how many **more booster packs** you'd
 need to open to complete the set's base (numbered) checklist.
 
-**Live:** https://pokemon-pack-tracker.applelators.workers.dev
+**Live:** https://packs.nabunan.com (also https://pokemon-pack-tracker.applelators.workers.dev)
 
 ## Features
 - Track purchases grouped by date — one order can hold multiple product types
