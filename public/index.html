@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokémon Pack Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Pokémon Pack Tracker</h1>
+    <div class="set-bar">
+      <label>Tracking set:
+        <select id="setSelect"><option value="">— none —</option></select>
+      </label>
+      <button id="manageSetsBtn" class="ghost">Add / import a set</button>
+    </div>
+    <nav id="tabs">
+      <button data-tab="dashboard" class="active">Dashboard</button>
+      <button data-tab="orders">Orders</button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="tab active">
+      <div id="dashEmpty" class="empty">Select or import a set to get started.</div>
+      <div id="dashContent" class="hidden">
+        <div class="cards">
+          <div class="card"><div class="big" id="statSpent">$0</div><div class="label">Total spent</div></div>
+          <div class="card"><div class="big" id="statPacks">0</div><div class="label">Packs opened</div></div>
+          <div class="card"><div class="big" id="statOrders">0</div><div class="label">Orders</div></div>
+          <div class="card"><div class="big" id="statBaseSet">0</div><div class="label">Base-set cards</div></div>
+        </div>
+
+        <h2>Completion estimate</h2>
+        <div id="estimateBox" class="estimate">
+          <div class="estimate-headline">
+            <span id="estRemaining" class="big accent">–</span>
+            <span class="label">more packs to complete the base set (avg)</span>
+          </div>
+          <div class="progress"><div id="estProgressFill" class="progress-fill"></div></div>
+          <div id="estProgressText" class="muted"></div>
+          <ul class="estimate-detail">
+            <li>Expected total packs to complete: <b id="estTotal">–</b></li>
+            <li>Typical (median, p50): <b id="estP50">–</b></li>
+            <li>Unlucky (p90): <b id="estP90">–</b></li>
+          </ul>
+          <p class="muted small">Statistical estimate from a Monte-Carlo simulation using editable pull-rate
+            assumptions (Settings). Real results vary — this assumes packs bought are packs opened.</p>
+        </div>
+
+        <h2>Product breakdown</h2>
+        <table id="breakdownTable" class="grid">
+          <thead><tr><th>Product</th><th>Qty</th><th>Packs</th><th>Spend</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h2>Base-set rarity counts</h2>
+        <div id="rarityList" class="chips"></div>
+      </div>
+    </section>
+
+    <!-- ORDERS -->
+    <section id="orders" class="tab">
+      <div id="ordersEmpty" class="empty">Select a set first (top bar).</div>
+      <div id="ordersContent" class="hidden">
+        <h2>Add an order</h2>
+        <form id="orderForm" class="order-form">
+          <div class="row">
+            <label>Purchase date <input type="date" id="orderDate" required /></label>
+            <label>Sales tax % <input type="number" id="orderTax" step="0.001" min="0" /></label>
+            <label class="grow">Note <input type="text" id="orderNote" placeholder="store, online, etc." /></label>
+          </div>
+          <table class="grid line-items">
+            <thead><tr><th>Product</th><th>Qty</th><th>Unit price ($)</th><th>Packs/unit</th><th>Line total</th><th></th></tr></thead>
+            <tbody id="lineItems"></tbody>
+          </table>
+          <button type="button" id="addLineBtn" class="ghost">+ Add product line</button>
+          <div class="order-totals">
+            <span>Subtotal: <b id="formSubtotal">$0.00</b></span>
+            <span>Tax: <b id="formTax">$0.00</b></span>
+            <span>Total: <b id="formTotal">$0.00</b></span>
+            <span>Packs: <b id="formPacks">0</b></span>
+          </div>
+          <div class="form-actions">
+            <button type="submit" id="orderSubmit">Save order</button>
+            <button type="button" id="orderCancel" class="ghost hidden">Cancel edit</button>
+          </div>
+        </form>
+
+        <h2>Orders</h2>
+        <div id="ordersList"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="settings" class="tab">
+      <h2>Settings</h2>
+      <form id="settingsForm">
+        <div class="row">
+          <label>Default sales tax % <input type="number" id="setTax" step="0.001" min="0" /></label>
+          <label class="grow">pokemontcg.io API key (optional)
+            <input type="text" id="setApiKey" placeholder="leave blank to use without a key" /></label>
+        </div>
+        <label>Monte-Carlo runs (higher = more accurate, slower)
+          <input type="number" id="setRuns" min="200" step="100" /></label>
+
+        <h3>Packs per product</h3>
+        <table class="grid" id="packsPerProduct">
+          <thead><tr><th>Product</th><th>Packs</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <h3>Pull-rate model (advanced)</h3>
+        <p class="muted small">JSON describing booster slots. <code>pool</code> slots draw uniformly across the
+          listed rarities; the <code>weights</code> slot picks a rarity by probability. Any base-set rarity not
+          referenced is folded into the weighted slot automatically.</p>
+        <textarea id="setPackModel" rows="16" spellcheck="false"></textarea>
+
+        <div class="form-actions">
+          <button type="submit">Save settings</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <!-- IMPORT SET MODAL -->
+  <div id="setModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2>Add a set</h2>
+        <button id="closeModal" class="ghost">✕</button>
+      </div>
+      <div class="row">
+        <input type="text" id="setSearch" class="grow" placeholder="Search e.g. Surging Sparks" />
+        <button id="setSearchBtn">Search</button>
+      </div>
+      <div id="setResults" class="results"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

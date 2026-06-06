@@ -1,0 +1,15 @@
+{
+  "name": "pokemon-pack-tracker",
+  "version": "1.0.0",
+  "description": "Track Pokémon TCG product purchases per expansion and estimate packs needed to complete the base set.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2"
+  }
+}
