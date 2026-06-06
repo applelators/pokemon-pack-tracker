@@ -56,9 +56,12 @@ db.exec(`
 `);
 
 // ---- Default settings ----------------------------------------------------
-// Pull-rate / pack-slot model: a modern Scarlet & Violet booster has 4 commons,
-// 3 uncommons, 1 reverse-holo (any base-set card), and 1 "hit" slot whose
-// probability is divided across the higher rarities present in the set.
+// Pull-rate / pack-slot model: a modern Scarlet & Violet booster (2026) holds 10
+// game cards — 4 commons, 3 uncommons, 2 reverse holos, and 1 "hit" slot (a Rare
+// or better, whose probability is divided across the higher rarities in the set).
+// An Illustration/Special Illustration Rare normally upgrades a reverse-holo slot;
+// since those are usually secret rares above the base-set checklist they don't
+// affect base-set completion, so the reverse-holo slots stay on common/uncommon/rare.
 const DEFAULT_SETTINGS = {
   sales_tax_rate: "6.0",
   pokemontcg_api_key: "",
@@ -75,7 +78,7 @@ const DEFAULT_SETTINGS = {
       { name: "Uncommon", count: 3, pool: ["Uncommon"] },
       // Reverse-holo slot: any base-set card can appear; modeled across the
       // common/uncommon/rare tiers it most often hits.
-      { name: "Reverse Holo", count: 1, pool: ["Common", "Uncommon", "Rare"] },
+      { name: "Reverse Holo", count: 2, pool: ["Common", "Uncommon", "Rare"] },
       // The single "hit" slot — probabilities for the rarities that exist in the
       // base set. Any base-set rarity not listed here is folded in proportionally.
       {
@@ -97,6 +100,20 @@ const insertSetting = db.prepare(
   "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)"
 );
 for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) insertSetting.run(k, v);
+
+// Migration: the original default pack model had a single reverse-holo slot, but a
+// real 2026 booster has two. Upgrade existing databases that still carry the old
+// default verbatim (leaves user-customized models untouched).
+const OLD_PACK_MODEL_V1 =
+  '{"slots":[{"name":"Common","count":4,"pool":["Common"]},{"name":"Uncommon","count":3,"pool":["Uncommon"]},{"name":"Reverse Holo","count":1,"pool":["Common","Uncommon","Rare"]},{"name":"Hit","count":1,"weights":{"Rare":0.7,"Double Rare":0.18,"Ultra Rare":0.06,"Illustration Rare":0.06}}]}';
+{
+  const current = db.prepare("SELECT value FROM settings WHERE key = 'pack_model'").get();
+  if (current && current.value === OLD_PACK_MODEL_V1) {
+    db.prepare("UPDATE settings SET value = ? WHERE key = 'pack_model'").run(
+      DEFAULT_SETTINGS.pack_model
+    );
+  }
+}
 
 export default db;
 

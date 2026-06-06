@@ -23,7 +23,8 @@ Set your sales-tax rate in **Settings**, then add orders.
 
 ## How the estimate works
 The base set is treated as a pool of distinct cards grouped by rarity. A booster is modeled as
-a list of slots (4 commons, 3 uncommons, 1 reverse-holo, 1 "hit"); the hit slot's probability
+a list of slots matching a real 2026 booster — 10 cards: 4 commons, 3 uncommons, 2
+reverse-holos, 1 "hit" (Rare or better); the hit slot's probability
 is split across the higher rarities. The app simulates opening packs until every base-set card
 is collected, thousands of times, and averages the result. **Pull rates are editable** in
 Settings → *Pull-rate model*. Any base-set rarity you don't explicitly list is folded into the
