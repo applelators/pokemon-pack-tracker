@@ -5,7 +5,7 @@ import {
   setTotals,
 } from "./store.js";
 import { searchSets, importSet } from "./pokemontcg.js";
-import { estimate } from "./estimator.js";
+import { estimate, chaseEstimate } from "./estimator.js";
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -31,6 +31,16 @@ async function computeEstimate(db, set, opened) {
   try { packModel = JSON.parse(raw.pack_model); } catch { packModel = { slots: [] }; }
   const runs = Number(raw.monte_carlo_runs) || 3000;
   return estimate({ rarities: set.rarities, packModel, opened, runs });
+}
+
+async function computeChase(db, set) {
+  const raw = await getRawSettings(db);
+  let rates;
+  try { rates = JSON.parse(raw.chase_pull_rates); } catch { return null; }
+  const present = (set.allRarities && set.allRarities.length)
+    ? new Set(set.allRarities.map((r) => r.rarity))
+    : undefined;
+  return chaseEstimate({ rates, presentRarities: present });
 }
 
 // Returns a Response for any /api/* route, or null if the path isn't an API route.
@@ -73,7 +83,8 @@ export async function handleApi(request, env, url) {
         if (!set) return json({ error: "Set not imported" }, 404);
         const totals = await setTotals(db, setId);
         const completion = await computeEstimate(db, set, totals.totalPacks);
-        return json({ set, ...totals, completion });
+        const chase = await computeChase(db, set);
+        return json({ set, ...totals, completion, chase });
       }
     }
 

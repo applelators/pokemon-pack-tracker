@@ -149,6 +149,12 @@ async function loadDashboard() {
       $("#estTotal").textContent = c.expectedTotalPacks;
       $("#estP50").textContent = c.p50;
       $("#estP90").textContent = c.p90;
+      $("#estDiminishing").textContent = c.diminishingReturnsPacks ?? "–";
+      const ms = c.setMilestones || {};
+      const fmt = (v) => (v == null ? "—" : v);
+      $("#estPct50").textContent = fmt(ms.pct50);
+      $("#estPct90").textContent = fmt(ms.pct90);
+      $("#estPct95").textContent = fmt(ms.pct95);
       const pct = Math.min(100, c.expectedPctAtOpened);
       $("#estProgressFill").style.width = pct + "%";
       $("#estProgressText").textContent =
@@ -157,6 +163,8 @@ async function loadDashboard() {
       $("#estRemaining").textContent = "–";
       $("#estProgressText").textContent = "No rarity data for this set.";
     }
+
+    renderChase(s.chase);
 
     const tbody = $("#breakdownTable tbody");
     const entries = Object.entries(s.breakdown);
@@ -170,6 +178,25 @@ async function loadDashboard() {
   } catch (err) {
     toast(err.message, true);
   }
+}
+
+function renderChase(chase) {
+  const tbody = $("#chaseTable tbody");
+  if (!chase || !chase.items || !chase.items.length) {
+    $("#chaseAny").textContent = "–";
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">No chase pull rates configured.</td></tr>';
+    return;
+  }
+  $("#chaseAny").textContent = chase.anyAvgPacks ?? "–";
+  tbody.innerHTML = chase.items.map((it) => {
+    const odds = it.perPackProb > 0 ? `~1 in ${Math.round(1 / it.perPackProb)}` : "—";
+    return `<tr style="${it.present ? "" : "opacity:.5"}">
+      <td>${it.abbr} · ${it.rarity}</td>
+      <td>${odds}</td>
+      <td><b>${it.avgPacks}</b></td>
+      <td>${it.present ? "✓" : "not in set"}</td>
+    </tr>`;
+  }).join("");
 }
 
 // ---- orders --------------------------------------------------------------
@@ -340,11 +367,29 @@ function renderSettings() {
   tbody.innerHTML = Object.entries(s.packs_per_product || {})
     .map(([p, n]) => `<tr><td>${p}</td><td><input type="number" min="0" data-product="${p}" value="${n}" /></td></tr>`)
     .join("");
+  const chaseBody = $("#chaseRates tbody");
+  chaseBody.innerHTML = Object.entries(s.chase_pull_rates || {})
+    .map(([r, p]) => chaseRateRow(r, p))
+    .join("");
   $("#setPackModel").value = JSON.stringify(s.pack_model, null, 2);
+}
+
+function chaseRateRow(rarity = "", prob = "") {
+  return `<tr>
+    <td><input type="text" class="cr-rarity" value="${rarity}" placeholder="Illustration Rare" /></td>
+    <td><input type="number" class="cr-prob" step="0.0001" min="0" value="${prob}" placeholder="0.111" /></td>
+    <td><button type="button" class="ghost cr-remove">✕</button></td>
+  </tr>`;
 }
 
 function setupSettingsForm() {
   $("#settingsForm").addEventListener("submit", saveSettings);
+  $("#addChaseRate").addEventListener("click", () => {
+    $("#chaseRates tbody").insertAdjacentHTML("beforeend", chaseRateRow());
+  });
+  $("#chaseRates").addEventListener("click", (e) => {
+    if (e.target.classList.contains("cr-remove")) e.target.closest("tr").remove();
+  });
 }
 
 async function saveSettings(e) {
@@ -359,6 +404,12 @@ async function saveSettings(e) {
   $$("#packsPerProduct input[data-product]").forEach((i) => {
     packsPerProduct[i.dataset.product] = Number(i.value);
   });
+  const chaseRates = {};
+  $$("#chaseRates tbody tr").forEach((tr) => {
+    const name = tr.querySelector(".cr-rarity").value.trim();
+    const prob = Number(tr.querySelector(".cr-prob").value);
+    if (name && prob > 0) chaseRates[name] = prob;
+  });
   try {
     state.settings = await api("/settings", {
       method: "PUT",
@@ -367,6 +418,7 @@ async function saveSettings(e) {
         pokemontcg_api_key: $("#setApiKey").value,
         monte_carlo_runs: Number($("#setRuns").value || 3000),
         packs_per_product: packsPerProduct,
+        chase_pull_rates: chaseRates,
         pack_model: packModel,
       },
     });

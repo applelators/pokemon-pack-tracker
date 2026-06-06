@@ -50,7 +50,8 @@ export async function importSet(db, setId) {
   if (!s) throw new Error(`Set not found: ${setId}`);
   const printedTotal = s.printedTotal || 0;
 
-  const rarityCounts = {};
+  const rarityCounts = {};     // base-set cards only (number <= printedTotal)
+  const allRarityCounts = {};  // every card in the set, incl. secret rares
   let page = 1;
   const pageSize = 250;
   for (;;) {
@@ -60,8 +61,9 @@ export async function importSet(db, setId) {
     );
     const cards = cardsJson.data || [];
     for (const c of cards) {
-      if (!isBaseSetNumber(c.number, printedTotal)) continue;
       const rarity = c.rarity || "Unknown";
+      allRarityCounts[rarity] = (allRarityCounts[rarity] || 0) + 1;
+      if (!isBaseSetNumber(c.number, printedTotal)) continue;
       rarityCounts[rarity] = (rarityCounts[rarity] || 0) + 1;
     }
     const total = cardsJson.totalCount ?? cards.length;
@@ -80,7 +82,8 @@ export async function importSet(db, setId) {
       release_date: s.releaseDate || null,
       fetched_at: new Date().toISOString(),
     },
-    rarityCounts
+    rarityCounts,
+    allRarityCounts
   );
 
   return getCachedSet(db, s.id);

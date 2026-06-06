@@ -24,6 +24,15 @@ CREATE TABLE IF NOT EXISTS set_rarities (
   PRIMARY KEY (set_id, rarity)
 );
 
+-- Rarity counts across the ENTIRE set (incl. secret rares above printedTotal),
+-- used to know which chase rarities (IR/UR/SIR/MHR) the expansion actually has.
+CREATE TABLE IF NOT EXISTS set_all_rarities (
+  set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
+  rarity TEXT NOT NULL,
+  count  INTEGER NOT NULL,
+  PRIMARY KEY (set_id, rarity)
+);
+
 CREATE TABLE IF NOT EXISTS orders (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   set_id        TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
@@ -50,4 +59,5 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('pokemontcg_api_key', ''),
   ('monte_carlo_runs', '3000'),
   ('packs_per_product', '{"Booster Pack":1,"Booster Bundle":6,"Elite Trainer Box":9,"Mini Tin":2,"Regular Tin":3}'),
-  ('pack_model', '{"slots":[{"name":"Common","count":4,"pool":["Common"]},{"name":"Uncommon","count":3,"pool":["Uncommon"]},{"name":"Reverse Holo","count":2,"pool":["Common","Uncommon","Rare"]},{"name":"Hit","count":1,"weights":{"Rare":0.7,"Double Rare":0.18,"Ultra Rare":0.06,"Illustration Rare":0.06}}]}');
+  ('pack_model', '{"slots":[{"name":"Common","count":4,"pool":["Common"]},{"name":"Uncommon","count":3,"pool":["Uncommon"]},{"name":"Reverse Holo","count":2,"pool":["Common","Uncommon","Rare"]},{"name":"Hit","count":1,"weights":{"Rare":0.7,"Double Rare":0.18,"Ultra Rare":0.06,"Illustration Rare":0.06}}]}'),
+  ('chase_pull_rates', '{"Illustration Rare":0.111,"Ultra Rare":0.05,"Special Illustration Rare":0.0139,"Mega Hyper Rare":0.000794}');

@@ -102,6 +102,11 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
   }
 
   const MAX_PACKS = 500000;
+  // Track the average collection curve up to CURVE_CAP packs so we can find the
+  // "diminishing returns" point and set-completion milestones (which all occur
+  // well before 100% completion).
+  const CURVE_CAP = 4000;
+  const curveSum = new Float64Array(CURVE_CAP + 1); // curveSum[k] = sum of distinct after k packs
   const totals = new Array(runs);
   let sumCollectedAtOpened = 0;
 
@@ -114,12 +119,15 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
     while (distinct < N && packs < MAX_PACKS) {
       distinct += drawInto(compiled, collected);
       packs++;
+      if (packs <= CURVE_CAP) curveSum[packs] += distinct;
       if (!snapped && packs === opened) {
         sumCollectedAtOpened += distinct;
         snapped = true;
       }
     }
     if (!snapped) sumCollectedAtOpened += N;
+    // Once complete, the curve stays at N for the rest of the window.
+    for (let k = packs + 1; k <= CURVE_CAP; k++) curveSum[k] += N;
     totals[run] = packs;
   }
 
@@ -127,6 +135,23 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
   const mean = totals.reduce((a, b) => a + b, 0) / runs;
   const pct = (p) => totals[Math.min(runs - 1, Math.floor(p * runs))];
   const expectedCollectedAtOpened = sumCollectedAtOpened / runs;
+
+  // Average curve + derived metrics.
+  const curve = new Array(CURVE_CAP + 1);
+  for (let k = 0; k <= CURVE_CAP; k++) curve[k] = curveSum[k] / runs;
+
+  // Diminishing returns: first pack whose marginal expected new base-set cards
+  // drops below 1 (i.e. on average the next pack is mostly duplicates).
+  let diminishingReturnsPacks = CURVE_CAP;
+  for (let k = 1; k <= CURVE_CAP; k++) {
+    if (curve[k] - curve[k - 1] < 1) { diminishingReturnsPacks = k; break; }
+  }
+  // Packs to collect a given fraction of the whole base set.
+  const packsToPct = (frac) => {
+    const target = frac * N;
+    for (let k = 1; k <= CURVE_CAP; k++) if (curve[k] >= target) return k;
+    return null; // not reached within the window
+  };
 
   return {
     baseSetSize: N,
@@ -136,7 +161,45 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
     p90: pct(0.9),
     expectedCollectedAtOpened: Math.round(expectedCollectedAtOpened),
     expectedPctAtOpened: Math.round((expectedCollectedAtOpened / N) * 1000) / 10,
+    diminishingReturnsPacks,
+    setMilestones: { pct50: packsToPct(0.5), pct90: packsToPct(0.9), pct95: packsToPct(0.95) },
     runs,
     opened,
+  };
+}
+
+// Average packs to pull a chase card (Illustration Rare, Ultra Rare, Special
+// Illustration Rare, Mega Hyper Rare, ...). Each rarity has an editable per-pack
+// probability; average packs to the first = 1/p (geometric mean). `presentRarities`
+// (if provided) limits the combined "any chase" figure to rarities actually in the set.
+export function chaseEstimate({ rates, presentRarities }) {
+  const ABBR = {
+    "Illustration Rare": "IR",
+    "Ultra Rare": "UR",
+    "Special Illustration Rare": "SIR",
+    "Mega Hyper Rare": "MHR",
+    "Hyper Rare": "HR",
+  };
+  const items = [];
+  let probNone = 1;
+  for (const [rarity, raw] of Object.entries(rates || {})) {
+    const p = Number(raw);
+    if (!(p > 0)) continue;
+    const present = !presentRarities || presentRarities.has(rarity);
+    items.push({
+      rarity,
+      abbr: ABBR[rarity] || rarity,
+      perPackProb: p,
+      avgPacks: Math.round(1 / p),
+      present,
+    });
+    if (present) probNone *= 1 - p;
+  }
+  items.sort((a, b) => b.perPackProb - a.perPackProb);
+  const anyProb = 1 - probNone;
+  return {
+    items,
+    anyPerPackProb: anyProb,
+    anyAvgPacks: anyProb > 0 ? Math.round(1 / anyProb) : null,
   };
 }

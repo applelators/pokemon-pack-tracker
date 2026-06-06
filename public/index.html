@@ -47,8 +47,34 @@
             <li>Typical (median, p50): <b id="estP50">–</b></li>
             <li>Unlucky (p90): <b id="estP90">–</b></li>
           </ul>
+
+          <div class="dr-box">
+            <span id="estDiminishing" class="big accent">–</span>
+            <span class="label">packs before <b>diminishing returns</b> — past this, each new pack averages
+              fewer than 1 new base-set card (mostly duplicates)</span>
+          </div>
+          <ul class="estimate-detail">
+            <li>Packs to reach 50% of the set: <b id="estPct50">–</b></li>
+            <li>To reach 90%: <b id="estPct90">–</b></li>
+            <li>To reach 95%: <b id="estPct95">–</b></li>
+          </ul>
+
           <p class="muted small">Statistical estimate from a Monte-Carlo simulation using editable pull-rate
             assumptions (Settings). Real results vary — this assumes packs bought are packs opened.</p>
+        </div>
+
+        <h2>Chase cards — average packs to a hit</h2>
+        <div id="chaseBox" class="estimate">
+          <div class="estimate-headline">
+            <span id="chaseAny" class="big accent">–</span>
+            <span class="label">packs on average until <b>any</b> IR / UR / SIR / MHR</span>
+          </div>
+          <table class="grid" id="chaseTable">
+            <thead><tr><th>Chase rarity</th><th>Per-pack odds</th><th>Avg packs to first</th><th>In this set?</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p class="muted small">IR = Illustration Rare, UR = Ultra Rare, SIR = Special Illustration Rare,
+            MHR = Mega Hyper Rare. Pull rates are typical 2026 estimates and vary by set — edit them in Settings.</p>
         </div>
 
         <h2>Product breakdown</h2>
@@ -112,6 +138,16 @@
           <thead><tr><th>Product</th><th>Packs</th></tr></thead>
           <tbody></tbody>
         </table>
+
+        <h3>Chase-card pull rates (per pack)</h3>
+        <p class="muted small">Probability of pulling each chase rarity from a single pack (e.g. 0.111 = ~1 in 9).
+          Drives the "average packs to a hit" figures. Rarity name must match pokemontcg.io
+          (e.g. "Illustration Rare", "Ultra Rare", "Special Illustration Rare", "Mega Hyper Rare").</p>
+        <table class="grid" id="chaseRates">
+          <thead><tr><th>Rarity</th><th>Per-pack probability</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <button type="button" id="addChaseRate" class="ghost">+ Add rarity</button>
 
         <h3>Pull-rate model (advanced)</h3>
         <p class="muted small">JSON describing booster slots. <code>pool</code> slots draw uniformly across the

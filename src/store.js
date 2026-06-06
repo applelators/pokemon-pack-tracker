@@ -1,6 +1,6 @@
 // D1-backed data access for settings, sets, and orders.
 
-const JSON_KEYS = ["packs_per_product", "pack_model"];
+const JSON_KEYS = ["packs_per_product", "pack_model", "chase_pull_rates"];
 
 export const DEFAULT_SETTINGS = {
   sales_tax_rate: "6.0",
@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS = {
   monte_carlo_runs: "3000",
   packs_per_product: '{"Booster Pack":1,"Booster Bundle":6,"Elite Trainer Box":9,"Mini Tin":2,"Regular Tin":3}',
   pack_model: '{"slots":[{"name":"Common","count":4,"pool":["Common"]},{"name":"Uncommon","count":3,"pool":["Uncommon"]},{"name":"Reverse Holo","count":2,"pool":["Common","Uncommon","Rare"]},{"name":"Hit","count":1,"weights":{"Rare":0.7,"Double Rare":0.18,"Ultra Rare":0.06,"Illustration Rare":0.06}}]}',
+  chase_pull_rates: '{"Illustration Rare":0.111,"Ultra Rare":0.05,"Special Illustration Rare":0.0139,"Mega Hyper Rare":0.000794}',
 };
 
 export function round2(n) {
@@ -69,10 +70,14 @@ export async function getCachedSet(db, id) {
     .prepare("SELECT rarity, count FROM set_rarities WHERE set_id = ? ORDER BY count DESC")
     .bind(id)
     .all();
-  return { ...set, rarities: results };
+  const { results: all } = await db
+    .prepare("SELECT rarity, count FROM set_all_rarities WHERE set_id = ? ORDER BY count DESC")
+    .bind(id)
+    .all();
+  return { ...set, rarities: results, allRarities: all };
 }
 
-export async function saveSet(db, set, rarityCounts) {
+export async function saveSet(db, set, rarityCounts, allRarityCounts = {}) {
   const stmts = [
     db.prepare(
       `INSERT INTO sets (id, name, series, printed_total, total, release_date, fetched_at)
@@ -82,10 +87,16 @@ export async function saveSet(db, set, rarityCounts) {
          total=excluded.total, release_date=excluded.release_date, fetched_at=excluded.fetched_at`
     ).bind(set.id, set.name, set.series, set.printed_total, set.total, set.release_date, set.fetched_at),
     db.prepare("DELETE FROM set_rarities WHERE set_id = ?").bind(set.id),
+    db.prepare("DELETE FROM set_all_rarities WHERE set_id = ?").bind(set.id),
   ];
   for (const [rarity, count] of Object.entries(rarityCounts)) {
     stmts.push(
       db.prepare("INSERT INTO set_rarities (set_id, rarity, count) VALUES (?, ?, ?)").bind(set.id, rarity, count)
+    );
+  }
+  for (const [rarity, count] of Object.entries(allRarityCounts)) {
+    stmts.push(
+      db.prepare("INSERT INTO set_all_rarities (set_id, rarity, count) VALUES (?, ?, ?)").bind(set.id, rarity, count)
     );
   }
   await db.batch(stmts);

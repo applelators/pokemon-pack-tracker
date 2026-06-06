@@ -85,6 +85,8 @@ textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 
 .estimate-headline .big { font-size: 2.4rem; font-weight: 800; }
 .estimate-detail { list-style: none; padding: 0; margin: 14px 0; display: flex; gap: 24px; flex-wrap: wrap; }
 .estimate-detail li { color: var(--muted); }
+.dr-box { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 16px 0 4px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
+.dr-box .big { font-size: 1.9rem; font-weight: 800; }
 .progress { height: 14px; background: var(--bg); border-radius: 99px; overflow: hidden; margin: 16px 0 6px; border: 1px solid var(--border); }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--good)); width: 0%; transition: width .4s; }
 
