@@ -1,5 +1,6 @@
 // Rarity-weighted Monte Carlo estimate of how many booster packs are needed to
-// collect every card in a set's base (numbered) checklist.
+// collect every card in a set's base (numbered) checklist. Pure JS — runs both
+// in Node and on Cloudflare Workers.
 //
 // Model: the base set is a pool of distinct "coupons", one per numbered card,
 // grouped by rarity. A booster is a list of slots; each slot draws one card.
@@ -9,7 +10,6 @@
 // "hit" slot (weight proportional to its card count) so completion is possible.
 
 function buildDraws(rarities, packModel) {
-  // rarities: [{ rarity, count }]
   const counts = {};
   let N = 0;
   for (const { rarity, count } of rarities) {
@@ -18,7 +18,7 @@ function buildDraws(rarities, packModel) {
   }
 
   // Assign a contiguous global index range to each rarity.
-  const ranges = {}; // rarity -> { start, size }
+  const ranges = {};
   let cursor = 0;
   for (const [rarity, count] of Object.entries(counts)) {
     ranges[rarity] = { start: cursor, size: count };
@@ -36,17 +36,13 @@ function buildDraws(rarities, packModel) {
     }
   }
 
-  // Fold unreachable rarities into the weighted slot (or, failing that, the
-  // first slot) proportional to card count, so every card can be drawn.
   const unreachable = Object.keys(counts).filter((r) => !reachable.has(r));
   const foldTarget = weightedSlot || slots[0];
 
-  // Pre-compile each slot into a fast draw spec.
   const compiled = [];
   for (const slot of slots) {
     const repeat = slot.count || 1;
     if (slot.weights || slot === foldTarget) {
-      // Weighted slot: rarities -> cumulative weights.
       const weights = { ...(slot.weights || {}) };
       if (slot === foldTarget) {
         for (const r of unreachable) weights[r] = (weights[r] || 0) + counts[r];
@@ -61,7 +57,6 @@ function buildDraws(rarities, packModel) {
       }
       if (cum.length) compiled.push({ type: "weighted", repeat, cum });
     } else if (slot.pool) {
-      // Pool slot: flatten reachable cards across listed rarities.
       const present = slot.pool.filter((r) => counts[r]);
       const size = present.reduce((a, r) => a + counts[r], 0);
       if (size > 0) compiled.push({ type: "pool", repeat, present, size, ranges });
@@ -72,7 +67,6 @@ function buildDraws(rarities, packModel) {
 }
 
 function drawInto(compiled, collected) {
-  // Returns number of NEW cards collected this pack (and mutates `collected`).
   let fresh = 0;
   for (const slot of compiled) {
     for (let i = 0; i < slot.repeat; i++) {
@@ -85,7 +79,6 @@ function drawInto(compiled, collected) {
         }
         idx = chosen.range.start + Math.floor(Math.random() * chosen.range.size);
       } else {
-        // pool: uniform across all cards in the listed rarities
         let pick = Math.floor(Math.random() * slot.size);
         idx = 0;
         for (const rar of slot.present) {
@@ -116,7 +109,7 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
     const collected = new Uint8Array(N);
     let distinct = 0;
     let packs = 0;
-    let snapped = opened === 0; // already captured (0 collected) if opened==0
+    let snapped = opened === 0;
 
     while (distinct < N && packs < MAX_PACKS) {
       distinct += drawInto(compiled, collected);
@@ -126,10 +119,7 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
         snapped = true;
       }
     }
-    if (!snapped) {
-      // opened exceeded completion — collection already full at that point.
-      sumCollectedAtOpened += N;
-    }
+    if (!snapped) sumCollectedAtOpened += N;
     totals[run] = packs;
   }
 

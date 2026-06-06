@@ -1,15 +1,18 @@
 {
   "name": "pokemon-pack-tracker",
   "version": "1.0.0",
-  "description": "Track Pokémon TCG product purchases per expansion and estimate packs needed to complete the base set.",
+  "description": "Track Pokémon TCG product purchases per expansion and estimate packs needed to complete the base set. Cloudflare Worker + D1.",
+  "private": true,
   "type": "module",
-  "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create pokemon-pack-tracker",
+    "db:local": "wrangler d1 execute pokemon-pack-tracker --local --file=./schema.sql",
+    "db:remote": "wrangler d1 execute pokemon-pack-tracker --remote --file=./schema.sql"
   },
   "license": "MIT",
-  "dependencies": {
-    "better-sqlite3": "^11.8.1",
-    "express": "^4.21.2"
+  "devDependencies": {
+    "wrangler": "^4.90.1"
   }
 }

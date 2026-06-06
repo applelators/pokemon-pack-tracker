@@ -1,0 +1,13 @@
+name = "pokemon-pack-tracker"
+main = "_worker.js"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pokemon-pack-tracker"
+database_id = "f8294942-fd1b-4d84-9f21-b4a80d1ee3a2"
