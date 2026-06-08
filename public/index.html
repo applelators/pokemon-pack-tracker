@@ -50,12 +50,6 @@
 
           <div class="breakpoints">
             <div class="bp">
-              <div class="bp-head"><span id="bp90Num" class="bp-num">–</span>
-                <span class="bp-label">more packs to <b>90% set completion</b></span></div>
-              <div class="progress"><div id="bp90Fill" class="progress-fill"></div></div>
-              <div id="bp90Sub" class="muted small"></div>
-            </div>
-            <div class="bp">
               <div class="bp-head"><span id="bpMildNum" class="bp-num">–</span>
                 <span class="bp-label">more packs to <b>diminishing returns</b> (each new pack &lt;1 new base-set card)</span></div>
               <div class="progress"><div id="bpMildFill" class="progress-fill"></div></div>
@@ -118,6 +112,13 @@
             <tbody id="lineItems"></tbody>
           </table>
           <button type="button" id="addLineBtn" class="ghost">+ Add product line</button>
+
+          <div id="secretSection" class="secret-section hidden">
+            <h3>Secret cards pulled this order (optional)</h3>
+            <div id="secretPrediction" class="secret-pred muted small"></div>
+            <div id="secretInputs" class="secret-inputs"></div>
+          </div>
+
           <div class="order-totals">
             <span>Subtotal: <b id="formSubtotal">$0.00</b></span>
             <span>Tax: <b id="formTax">$0.00</b></span>

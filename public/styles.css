@@ -113,6 +113,14 @@ table.grid input { width: 100%; }
 .chip b { color: var(--accent); }
 
 .order-form { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.secret-section { margin: 16px 0 6px; }
+.secret-section h3 { margin: 0 0 6px; }
+.secret-pred { margin-bottom: 10px; line-height: 1.5; }
+.secret-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.secret-input { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text); font-size: 0.88rem; }
+.secret-input input { width: 68px; }
+.order-secrets { margin-top: 8px; font-size: 0.88rem; }
+
 .order-totals { display: flex; gap: 22px; flex-wrap: wrap; margin: 14px 0; font-size: 0.95rem; }
 .form-actions { display: flex; gap: 10px; margin-top: 8px; }
 

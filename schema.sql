@@ -50,8 +50,17 @@ CREATE TABLE IF NOT EXISTS order_items (
   packs_per_unit INTEGER NOT NULL
 );
 
+-- Secret (non-base-set) cards the user pulled from an order's packs, by rarity.
+CREATE TABLE IF NOT EXISTS order_finds (
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  rarity   TEXT NOT NULL,
+  count    INTEGER NOT NULL,
+  PRIMARY KEY (order_id, rarity)
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_set ON orders(set_id);
 CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_finds_order ON order_finds(order_id);
 
 -- Default settings (only inserted if absent).
 INSERT OR IGNORE INTO settings (key, value) VALUES

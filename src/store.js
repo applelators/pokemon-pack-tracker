@@ -122,7 +122,13 @@ export async function getOrder(db, id) {
     .prepare("SELECT * FROM order_items WHERE order_id = ? ORDER BY id")
     .bind(id)
     .all();
-  return computeOrder(order, results);
+  const { results: finds } = await db
+    .prepare("SELECT rarity, count FROM order_finds WHERE order_id = ?")
+    .bind(id)
+    .all();
+  const co = computeOrder(order, results);
+  co.finds = Object.fromEntries(finds.map((f) => [f.rarity, f.count]));
+  return co;
 }
 
 export async function listOrders(db, setId) {
@@ -136,22 +142,33 @@ export async function listOrders(db, setId) {
     .prepare(`SELECT * FROM order_items WHERE order_id IN (${placeholders}) ORDER BY id`)
     .bind(...ids)
     .all();
+  const { results: finds } = await db
+    .prepare(`SELECT * FROM order_finds WHERE order_id IN (${placeholders})`)
+    .bind(...ids)
+    .all();
   const byOrder = {};
   for (const it of items) (byOrder[it.order_id] ||= []).push(it);
-  return orders.map((o) => computeOrder(o, byOrder[o.id] || []));
+  const findsByOrder = {};
+  for (const f of finds) (findsByOrder[f.order_id] ||= {})[f.rarity] = f.count;
+  return orders.map((o) => {
+    const co = computeOrder(o, byOrder[o.id] || []);
+    co.finds = findsByOrder[o.id] || {};
+    return co;
+  });
 }
 
-export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items }) {
+export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds }) {
   const res = await db
     .prepare("INSERT INTO orders (set_id, purchase_date, tax_rate, note) VALUES (?, ?, ?, ?)")
     .bind(set_id, purchase_date, Number(tax_rate), note)
     .run();
   const orderId = res.meta.last_row_id;
   await insertItems(db, orderId, items);
+  await insertFinds(db, orderId, finds);
   return getOrder(db, orderId);
 }
 
-export async function updateOrder(db, id, { purchase_date, tax_rate, note, items }) {
+export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds }) {
   await db
     .prepare("UPDATE orders SET purchase_date = COALESCE(?, purchase_date), tax_rate = COALESCE(?, tax_rate), note = COALESCE(?, note) WHERE id = ?")
     .bind(
@@ -165,6 +182,10 @@ export async function updateOrder(db, id, { purchase_date, tax_rate, note, items
     await db.prepare("DELETE FROM order_items WHERE order_id = ?").bind(id).run();
     await insertItems(db, id, items);
   }
+  if (finds !== undefined) {
+    await db.prepare("DELETE FROM order_finds WHERE order_id = ?").bind(id).run();
+    await insertFinds(db, id, finds);
+  }
   return getOrder(db, id);
 }
 
@@ -174,6 +195,15 @@ async function insertItems(db, orderId, items) {
     db.prepare(
       "INSERT INTO order_items (order_id, product_type, quantity, unit_price, packs_per_unit) VALUES (?, ?, ?, ?, ?)"
     ).bind(orderId, it.product_type, Number(it.quantity), Number(it.unit_price), Number(it.packs_per_unit))
+  );
+  await db.batch(stmts);
+}
+
+async function insertFinds(db, orderId, finds) {
+  const entries = Object.entries(finds || {}).filter(([, c]) => Number(c) > 0);
+  if (!entries.length) return;
+  const stmts = entries.map(([rarity, count]) =>
+    db.prepare("INSERT INTO order_finds (order_id, rarity, count) VALUES (?, ?, ?)").bind(orderId, rarity, Number(count))
   );
   await db.batch(stmts);
 }

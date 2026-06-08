@@ -49,6 +49,8 @@ const state = {
   trackedSets: [],
   currentSetId: localStorage.getItem("currentSetId") || "",
   editingOrderId: null,
+  summary: null,
+  orders: [],
 };
 
 // ---- init ----------------------------------------------------------------
@@ -95,15 +97,16 @@ function selectSet(id) {
   refreshActiveSet();
 }
 
-function refreshActiveSet() {
+async function refreshActiveSet() {
   const has = !!state.currentSetId;
   $("#dashEmpty").classList.toggle("hidden", has);
   $("#dashContent").classList.toggle("hidden", !has);
   $("#ordersEmpty").classList.toggle("hidden", has);
   $("#ordersContent").classList.toggle("hidden", !has);
   if (has) {
-    loadDashboard();
-    loadOrders();
+    await loadDashboard();   // sets state.summary
+    await loadOrders();      // sets state.orders
+    resetOrderForm();        // rebuilds form incl. secret-card inputs + prediction
   }
 }
 
@@ -157,6 +160,7 @@ async function importSet(id, btn) {
 async function loadDashboard() {
   try {
     const s = await api(`/sets/${state.currentSetId}/summary`);
+    state.summary = s;
     $("#statSpent").textContent = money(s.totalSpent);
     $("#statPacks").textContent = s.totalPacks;
     $("#statOrders").textContent = s.orderCount;
@@ -169,8 +173,6 @@ async function loadDashboard() {
       $("#estP50").textContent = c.p50;
       $("#estP90").textContent = c.p90;
       const opened = c.opened || 0;
-      const N = c.baseSetSize;
-      const collected = c.expectedCollectedAtOpened;
       const ms = c.setMilestones || {};
 
       // Packs-based breakpoint: packs still needed + bar of opened/threshold.
@@ -186,22 +188,6 @@ async function loadDashboard() {
       };
       setPackBP("#bpMildNum", "#bpMildFill", "#bpMildSub", c.diminishingReturnsPacks, "diminishing returns");
       setPackBP("#bpSteepNum", "#bpSteepFill", "#bpSteepSub", c.diminishingReturnsPacksSteep, "steep diminishing returns");
-
-      // 90% completion breakpoint: packs still needed + bar of opened/threshold.
-      const target90 = Math.round(0.9 * N);
-      if (ms.pct90 == null) {
-        $("#bp90Num").textContent = "—";
-        $("#bp90Fill").style.width = "0%";
-        $("#bp90Sub").textContent = "";
-      } else {
-        const morePacks90 = Math.max(0, ms.pct90 - opened);
-        const fill90 = Math.min(100, Math.round((opened / ms.pct90) * 100));
-        $("#bp90Num").textContent = morePacks90;
-        $("#bp90Fill").style.width = fill90 + "%";
-        $("#bp90Sub").textContent = morePacks90 === 0
-          ? `Reached 90% — ~${collected} of ${N} base-set cards collected.`
-          : `Opened ${opened} of ~${ms.pct90} packs (${fill90}%) · ~${collected} of ${target90} cards so far.`;
-      }
 
       const fmt = (v) => (v == null ? "—" : v);
       $("#estPct50").textContent = fmt(ms.pct50);
@@ -303,6 +289,86 @@ function recalcForm() {
   $("#formTax").textContent = money(subtotal * taxRate);
   $("#formTotal").textContent = money(subtotal * (1 + taxRate));
   $("#formPacks").textContent = packs;
+  updateSecretPrediction(packs);
+}
+
+// ---- secret (non-base-set) cards -----------------------------------------
+// The set's secret rarities = those present in the full set but not the base set.
+function setSecretRarities() {
+  const set = state.summary && state.summary.set;
+  if (!set) return [];
+  const base = new Set((set.rarities || []).map((r) => r.rarity));
+  return (set.allRarities || []).filter((r) => !base.has(r.rarity)).map((r) => r.rarity);
+}
+
+function renderFindsInputs(finds = {}) {
+  const rarities = setSecretRarities();
+  const section = $("#secretSection");
+  const box = $("#secretInputs");
+  if (!rarities.length) { section.classList.add("hidden"); box.innerHTML = ""; return; }
+  section.classList.remove("hidden");
+  box.innerHTML = rarities.map((r) => `
+    <label class="secret-input">${raritySymbol(r)} ${r}
+      <input type="number" min="0" class="sf-input" data-rarity="${r}" value="${finds[r] ?? ""}" placeholder="0" />
+    </label>`).join("");
+}
+
+function readFinds() {
+  const finds = {};
+  $$("#secretInputs .sf-input").forEach((i) => {
+    const c = Number(i.value);
+    if (c > 0) finds[i.dataset.rarity] = c;
+  });
+  return finds;
+}
+
+// Model probability of >=1 secret in `packs` packs, from chase pull rates.
+function secretModel(packs) {
+  const rates = state.settings.chase_pull_rates || {};
+  let probNonePerPack = 1, expPerPack = 0, rated = 0;
+  for (const r of setSecretRarities()) {
+    const p = Number(rates[r]);
+    if (p > 0) { probNonePerPack *= 1 - p; expPerPack += p; rated++; }
+  }
+  if (!rated) return null;
+  return {
+    pAtLeastOne: packs > 0 ? 1 - Math.pow(probNonePerPack, packs) : 0,
+    expected: expPerPack * packs,
+  };
+}
+
+// Empirical estimate from the user's recorded finds across this set's orders.
+function secretEmpirical(packs) {
+  const secret = new Set(setSecretRarities());
+  let obsSecrets = 0, obsPacks = 0;
+  for (const o of state.orders || []) {
+    const f = o.finds || {};
+    if (!Object.keys(f).length) continue; // only orders the user has logged
+    obsPacks += o.packs;
+    for (const [r, c] of Object.entries(f)) if (secret.has(r)) obsSecrets += Number(c) || 0;
+  }
+  if (obsPacks <= 0) return null;
+  const lambda = obsSecrets / obsPacks; // secrets per pack (Poisson rate)
+  return {
+    obsSecrets, obsPacks,
+    pAtLeastOne: packs > 0 ? 1 - Math.exp(-lambda * packs) : 0,
+    expected: lambda * packs,
+  };
+}
+
+function updateSecretPrediction(packs) {
+  const el = $("#secretPrediction");
+  if (!el) return;
+  if (!setSecretRarities().length) { el.textContent = ""; return; }
+  if (!(packs > 0)) { el.innerHTML = "Add packs to estimate your odds of a secret card."; return; }
+  const m = secretModel(packs);
+  const e = secretEmpirical(packs);
+  if (!m) { el.textContent = "No pull-rate data for this set's secret rarities (set them in Settings)."; return; }
+  let html = `Model: <b>${Math.round(m.pAtLeastOne * 100)}%</b> chance of ≥1 secret in ${packs} packs (≈${m.expected.toFixed(1)} expected).`;
+  if (e) {
+    html += `<br>Your pulls so far: ${e.obsSecrets} secret${e.obsSecrets === 1 ? "" : "s"} in ${e.obsPacks} packs → <b>${Math.round(e.pAtLeastOne * 100)}%</b> for this order (≈${e.expected.toFixed(1)} expected).`;
+  }
+  el.innerHTML = html;
 }
 
 function setupOrderForm() {
@@ -320,6 +386,7 @@ function resetOrderForm() {
   $("#orderTax").value = state.settings.sales_tax_rate ?? 0;
   $("#orderSubmit").textContent = "Save order";
   $("#orderCancel").classList.add("hidden");
+  renderFindsInputs();
   addLineRow();
   recalcForm();
 }
@@ -334,6 +401,7 @@ async function submitOrder(e) {
     tax_rate: Number($("#orderTax").value || 0) / 100,
     note: $("#orderNote").value,
     items,
+    finds: readFinds(),
   };
   try {
     if (state.editingOrderId) {
@@ -343,18 +411,31 @@ async function submitOrder(e) {
       await api("/orders", { method: "POST", body: payload });
       toast("Order saved");
     }
+    await loadOrders();
+    await loadDashboard();
     resetOrderForm();
-    loadOrders();
-    loadDashboard();
   } catch (err) {
     toast(err.message, true);
   }
+}
+
+function orderSecretLine(o) {
+  const finds = o.finds || {};
+  const found = Object.entries(finds);
+  const m = secretModel(o.packs);
+  const predicted = m ? `predicted ~${Math.round(m.pAtLeastOne * 100)}% chance (≈${m.expected.toFixed(1)})` : "";
+  if (found.length) {
+    const chips = found.map(([r, c]) => `${raritySymbol(r)} ${c}× ${r}`).join(" · ");
+    return `<div class="order-secrets">Secrets pulled: ${chips}${predicted ? ` <span class="muted">· ${predicted}</span>` : ""}</div>`;
+  }
+  return predicted ? `<div class="order-secrets muted">Secret-card odds: ${predicted}. Edit to log what you pulled.</div>` : "";
 }
 
 async function loadOrders() {
   const list = $("#ordersList");
   try {
     const orders = await api("/orders?set=" + encodeURIComponent(state.currentSetId));
+    state.orders = orders;
     if (!orders.length) { list.innerHTML = '<div class="muted">No orders yet.</div>'; return; }
     list.innerHTML = orders.map((o) => `
       <div class="order-card">
@@ -370,6 +451,7 @@ async function loadOrders() {
           </div>
         </div>
         <ul>${o.items.map((i) => `<li>${i.quantity}× ${i.product_type} @ ${money(i.unit_price)} (${i.packs_per_unit} packs ea.)</li>`).join("")}</ul>
+        ${orderSecretLine(o)}
       </div>`).join("");
     list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => editOrder(orders.find((o) => o.id == b.dataset.edit))));
     list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteOrder(b.dataset.del)));
@@ -384,6 +466,7 @@ function editOrder(order) {
   $("#orderTax").value = (order.tax_rate * 100).toFixed(3).replace(/\.?0+$/, "");
   $("#orderNote").value = order.note || "";
   $("#lineItems").innerHTML = "";
+  renderFindsInputs(order.finds || {});
   order.items.forEach((i) => addLineRow(i));
   $("#orderSubmit").textContent = "Update order";
   $("#orderCancel").classList.remove("hidden");
