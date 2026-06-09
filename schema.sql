@@ -46,11 +46,15 @@ CREATE TABLE IF NOT EXISTS orders (
   purchase_date TEXT NOT NULL,
   tax_rate      REAL NOT NULL DEFAULT 0,
   note          TEXT,
-  collection    TEXT NOT NULL DEFAULT 'mine'   -- 'mine' | 'shared' (separate binder)
+  collection    TEXT NOT NULL DEFAULT 'mine',  -- 'mine' | 'shared' (separate binder)
+  store         TEXT,                          -- e.g. 'Offcourt TCG', 'Target'
+  discount_rate REAL NOT NULL DEFAULT 0        -- subtotal discount (e.g. 0.05 Target Circle); taxed after discount
 );
 
--- Upgrading an existing database? The collection column was added later. Run once:
+-- Upgrading an existing database? These columns were added later. Run once each:
 --   ALTER TABLE orders ADD COLUMN collection TEXT NOT NULL DEFAULT 'mine';
+--   ALTER TABLE orders ADD COLUMN store TEXT;
+--   ALTER TABLE orders ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS order_items (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,

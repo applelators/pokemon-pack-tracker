@@ -406,12 +406,27 @@ function recalcForm() {
     subtotal += line;
     packs += items[i].quantity * items[i].packs_per_unit;
   });
+  const store = $("#orderStore").value;
+  $("#targetCircleWrap").classList.toggle("hidden", store !== "Target");
+  const rate = currentDiscountRate();
+  const discount = subtotal * rate;
+  const taxable = subtotal - discount;
   const taxRate = Number($("#orderTax").value || 0) / 100;
+  const tax = taxable * taxRate;
+
   $("#formSubtotal").textContent = money(subtotal);
-  $("#formTax").textContent = money(subtotal * taxRate);
-  $("#formTotal").textContent = money(subtotal * (1 + taxRate));
+  const discRow = $("#formDiscountRow");
+  if (discount > 0) { discRow.classList.remove("hidden"); $("#formDiscount").textContent = "-" + money(discount); }
+  else discRow.classList.add("hidden");
+  $("#formTax").textContent = money(tax);
+  $("#formTotal").textContent = money(taxable + tax);
   $("#formPacks").textContent = packs;
   updateSecretPrediction(packs);
+}
+
+// Subtotal discount rate for the current form (Target Circle Card = 5%).
+function currentDiscountRate() {
+  return ($("#orderStore").value === "Target" && $("#targetCircle").checked) ? 0.05 : 0;
 }
 
 // ---- secret (non-base-set) cards -----------------------------------------
@@ -507,6 +522,8 @@ function updateSecretPrediction(packs) {
 function setupOrderForm() {
   $("#addLineBtn").addEventListener("click", () => addLineRow());
   $("#orderTax").addEventListener("input", recalcForm);
+  $("#orderStore").addEventListener("change", recalcForm);
+  $("#targetCircle").addEventListener("change", recalcForm);
   $("#orderCancel").addEventListener("click", resetOrderForm);
   $("#orderForm").addEventListener("submit", submitOrder);
   $("#ordersList").addEventListener("click", onSecretStep);
@@ -522,6 +539,8 @@ function resetOrderForm() {
   $("#orderSubmit").textContent = "Save order";
   $("#orderCancel").classList.add("hidden");
   setToggle($("#orderCollection"), state.currentCollection);
+  $("#orderStore").value = "";
+  $("#targetCircle").checked = true;
   renderFindsInputs();
   addLineRow();
   recalcForm();
@@ -537,6 +556,8 @@ async function submitOrder(e) {
     tax_rate: Number($("#orderTax").value || 0) / 100,
     note: $("#orderNote").value,
     collection: getToggle($("#orderCollection")),
+    store: $("#orderStore").value,
+    discount_rate: currentDiscountRate(),
     items,
     finds: readFinds(),
   };
@@ -694,8 +715,9 @@ async function loadOrders() {
           <div>
             <span class="order-date">${o.purchase_date}</span>
             <span class="coll-badge ${o.collection === "shared" ? "shared" : "mine"}">${collectionLabel(o.collection)}</span>
+            ${o.store ? `<span class="order-meta"> · ${o.store}</span>` : ""}
             ${o.note ? `<span class="order-meta"> · ${o.note}</span>` : ""}
-            <div class="order-meta">${o.packs} packs · subtotal ${money(o.subtotal)} · tax ${money(o.tax)} · <b>${money(o.total)}</b></div>
+            <div class="order-meta">${o.packs} packs · subtotal ${money(o.subtotal)}${o.discount > 0 ? ` · <span class="discount">Target Circle −${money(o.discount)}</span>` : ""} · tax ${money(o.tax)} · <b>${money(o.total)}</b></div>
           </div>
           <div class="order-actions">
             <button class="link" data-edit="${o.id}">Edit</button>
@@ -719,6 +741,8 @@ function editOrder(order) {
   $("#orderTax").value = (order.tax_rate * 100).toFixed(3).replace(/\.?0+$/, "");
   $("#orderNote").value = order.note || "";
   setToggle($("#orderCollection"), order.collection || "mine");
+  $("#orderStore").value = order.store || "";
+  $("#targetCircle").checked = (order.discount_rate || 0) > 0;
   $("#lineItems").innerHTML = "";
   renderFindsInputs(order.finds || {});
   order.items.forEach((i) => addLineRow(i));

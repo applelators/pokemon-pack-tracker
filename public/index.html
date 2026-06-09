@@ -162,8 +162,20 @@
                 <button type="button" class="ct-btn" data-collection="shared">Shared</button>
               </div>
             </label>
-            <label class="grow">Note <input type="text" id="orderNote" placeholder="store, online, etc." /></label>
+            <label>Store
+              <select id="orderStore">
+                <option value="">— store —</option>
+                <option value="Offcourt TCG">Offcourt TCG</option>
+                <option value="Target">Target</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+            <label class="grow">Note <input type="text" id="orderNote" placeholder="online, in-store, etc." /></label>
           </div>
+          <label class="circle-check hidden" id="targetCircleWrap">
+            <input type="checkbox" id="targetCircle" checked />
+            <span>Target Circle Card — 5% off subtotal (applied before tax)</span>
+          </label>
           <table class="grid line-items stack-mobile">
             <thead><tr><th>Product</th><th>Qty</th><th>Unit price ($)</th><th>Packs/unit</th><th>Line total</th><th></th></tr></thead>
             <tbody id="lineItems"></tbody>
@@ -178,6 +190,7 @@
 
           <div class="order-totals">
             <span>Subtotal: <b id="formSubtotal">$0.00</b></span>
+            <span id="formDiscountRow" class="hidden discount">Target Circle 5%: <b id="formDiscount">-$0.00</b></span>
             <span>Tax: <b id="formTax">$0.00</b></span>
             <span>Total: <b id="formTotal">$0.00</b></span>
             <span>Packs: <b id="formPacks">0</b></span>

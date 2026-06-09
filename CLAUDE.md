@@ -86,6 +86,11 @@ Don't drop in bare number inputs for counts.
   and the frontend always sends the active one — so all order-derived stats (spend, packs,
   completion, chase calibration, secret finds) are scoped per binder. Migration:
   `ALTER TABLE orders ADD COLUMN collection TEXT NOT NULL DEFAULT 'mine';`
+- **Store + discount:** orders carry `store` (preset: "Offcourt TCG" / "Target" / "Other") and
+  `discount_rate` (snapshot). `computeOrder` applies the discount to the subtotal and taxes the
+  **discounted** amount: `total = (subtotal − subtotal·discount_rate)·(1 + tax_rate)`. Target with
+  the Circle Card = `discount_rate 0.05`. Migration: `ALTER TABLE orders ADD COLUMN store TEXT;`
+  and `ALTER TABLE orders ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0;`
 - Migration: existing databases need
   `ALTER TABLE sets ADD COLUMN logo_url TEXT;` and `... symbol_url TEXT;`.
 

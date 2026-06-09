@@ -277,6 +277,11 @@ table.grid input { width: 100%; }
 .os-step.has .os-odds { color: var(--text); }
 .os-caption { margin: -2px 0 10px; }
 
+.circle-check { flex-direction: row; align-items: center; gap: 9px; margin: 2px 0 12px; color: var(--text); font-size: 0.86rem; cursor: pointer; }
+.circle-check input { width: auto; }
+.discount { color: var(--good); }
+.order-totals span.discount b { color: var(--good); }
+
 .order-totals { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
 .order-totals span { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; font-size: 0.64rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 .order-totals b { font-family: "Space Grotesk", sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: -.01em; }

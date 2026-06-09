@@ -106,12 +106,17 @@ export async function saveSet(db, set, rarityCounts, allRarityCounts = {}) {
 // ---- orders --------------------------------------------------------------
 function computeOrder(order, items) {
   const subtotal = items.reduce((a, i) => a + i.quantity * i.unit_price, 0);
+  const discountRate = order.discount_rate || 0;
+  const discount = subtotal * discountRate;       // e.g. Target Circle Card 5%
+  const taxable = subtotal - discount;            // tax is applied AFTER the discount
+  const tax = taxable * order.tax_rate;
   return {
     ...order,
     items,
     subtotal: round2(subtotal),
-    tax: round2(subtotal * order.tax_rate),
-    total: round2(subtotal + subtotal * order.tax_rate),
+    discount: round2(discount),
+    tax: round2(tax),
+    total: round2(taxable + tax),
     packs: items.reduce((a, i) => a + i.quantity * i.packs_per_unit, 0),
   };
 }
@@ -161,10 +166,10 @@ export async function listOrders(db, setId, collection) {
   });
 }
 
-export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine" }) {
+export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine", store = null, discount_rate = 0 }) {
   const res = await db
-    .prepare("INSERT INTO orders (set_id, purchase_date, tax_rate, note, collection) VALUES (?, ?, ?, ?, ?)")
-    .bind(set_id, purchase_date, Number(tax_rate), note, collection === "shared" ? "shared" : "mine")
+    .prepare("INSERT INTO orders (set_id, purchase_date, tax_rate, note, collection, store, discount_rate) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .bind(set_id, purchase_date, Number(tax_rate), note, collection === "shared" ? "shared" : "mine", store || null, Number(discount_rate) || 0)
     .run();
   const orderId = res.meta.last_row_id;
   await insertItems(db, orderId, items);
@@ -172,14 +177,16 @@ export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, not
   return getOrder(db, orderId);
 }
 
-export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds, collection }) {
+export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds, collection, store, discount_rate }) {
   await db
-    .prepare("UPDATE orders SET purchase_date = COALESCE(?, purchase_date), tax_rate = COALESCE(?, tax_rate), note = COALESCE(?, note), collection = COALESCE(?, collection) WHERE id = ?")
+    .prepare("UPDATE orders SET purchase_date = COALESCE(?, purchase_date), tax_rate = COALESCE(?, tax_rate), note = COALESCE(?, note), collection = COALESCE(?, collection), store = COALESCE(?, store), discount_rate = COALESCE(?, discount_rate) WHERE id = ?")
     .bind(
       purchase_date ?? null,
       tax_rate !== undefined ? Number(tax_rate) : null,
       note ?? null,
       collection === "mine" || collection === "shared" ? collection : null,
+      store !== undefined ? store : null,
+      discount_rate !== undefined ? Number(discount_rate) : null,
       id
     )
     .run();
@@ -239,7 +246,8 @@ export async function setTotals(db, setId, collection) {
       const b = (breakdown[it.product_type] ||= { quantity: 0, packs: 0, spend: 0 });
       b.quantity += it.quantity;
       b.packs += it.quantity * it.packs_per_unit;
-      b.spend += it.quantity * it.unit_price * (1 + o.tax_rate);
+      // distribute the order's discount + tax proportionally across its line items
+      b.spend += it.quantity * it.unit_price * (1 - (o.discount_rate || 0)) * (1 + o.tax_rate);
     }
   }
   for (const b of Object.values(breakdown)) b.spend = round2(b.spend);
