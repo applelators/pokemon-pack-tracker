@@ -453,6 +453,7 @@ function secretEmpirical(packs) {
 }
 
 function updateSecretPrediction(packs) {
+  applyRarityOdds($("#secretInputs"), packs);
   const el = $("#secretPrediction");
   if (!el) return;
   if (!setSecretRarities().length) { el.textContent = ""; return; }
@@ -523,13 +524,42 @@ async function submitOrder(e) {
 function secretStepMarkup(rarity, count, attrs) {
   const c = Number(count) || 0;
   return `<div class="os-step${c > 0 ? " has" : ""}" data-rarity="${rarity}" title="${rarity}">
-      <span class="os-tag">${raritySymbol(rarity)}<span class="os-abbr">${secretAbbr(rarity)}</span></span>
+      <div class="os-info">
+        <span class="os-tag">${raritySymbol(rarity)}<span class="os-abbr">${secretAbbr(rarity)}</span></span>
+        <span class="os-odds hidden"></span>
+      </div>
       <div class="os-ctrl">
         <button type="button" class="os-btn os-dec" ${attrs} data-rarity="${rarity}" aria-label="Remove one ${rarity}"${c <= 0 ? " disabled" : ""}>−</button>
         <span class="os-count">${c}</span>
         <button type="button" class="os-btn os-inc" ${attrs} data-rarity="${rarity}" aria-label="Add one ${rarity}">+</button>
       </div>
     </div>`;
+}
+
+// Per-rarity model: chance of pulling >=1 of `rarity` across `packs` packs.
+function rarityChance(rarity, packs) {
+  const p = Number((state.settings.chase_pull_rates || {})[rarity]);
+  if (!(p > 0) || !(packs > 0)) return null;
+  return { p, pAtLeastOne: 1 - Math.pow(1 - p, packs), expected: p * packs };
+}
+
+// Fill the .os-odds tile in each stepper under `root` with that rarity's
+// "1+" chance for `packs` packs (hidden when the rarity has no configured rate).
+function applyRarityOdds(root, packs) {
+  if (!root) return;
+  root.querySelectorAll(".os-step").forEach((step) => {
+    const el = step.querySelector(".os-odds");
+    if (!el) return;
+    const c = rarityChance(step.dataset.rarity, packs);
+    if (c) {
+      el.textContent = `~${Math.round(c.pAtLeastOne * 100)}% for 1+`;
+      el.title = `Chance of pulling ≥1 ${step.dataset.rarity} in ${packs} packs (≈${c.expected.toFixed(2)} expected)`;
+      el.classList.remove("hidden");
+    } else {
+      el.textContent = "";
+      el.classList.add("hidden");
+    }
+  });
 }
 
 // Inline secret-card steppers on a saved order card — adjust counts without
@@ -550,12 +580,17 @@ function orderSecretLine(o) {
 
   const total = Object.values(finds).reduce((a, c) => a + (Number(c) || 0), 0);
   const steppers = secrets.map((r) => secretStepMarkup(r, finds[r], `data-order="${o.id}"`)).join("");
+  const hasRated = secrets.some((r) => rarityChance(r, o.packs));
+  const caption = hasRated
+    ? `<div class="os-caption muted small">Each tile shows the predicted chance of pulling <b>1+</b> of that rarity across this order's ${o.packs} packs.</div>`
+    : "";
 
   return `<div class="order-secrets">
       <div class="os-head">
         <span class="os-label">Secrets pulled</span>
         <span class="os-summary muted">${secretSummaryText(total, predicted)}</span>
       </div>
+      ${caption}
       <div class="os-steppers">${steppers}</div>
     </div>`;
 }
@@ -633,6 +668,7 @@ async function loadOrders() {
       </div>`).join("");
     list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => editOrder(orders.find((o) => o.id == b.dataset.edit))));
     list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteOrder(b.dataset.del)));
+    $$("#ordersList .order-card").forEach((card, idx) => applyRarityOdds(card, orders[idx].packs));
   } catch (err) {
     toast(err.message, true);
   }
