@@ -132,10 +132,13 @@ export async function getOrder(db, id) {
   return co;
 }
 
-export async function listOrders(db, setId) {
-  const orders = setId
-    ? (await db.prepare("SELECT * FROM orders WHERE set_id = ? ORDER BY purchase_date DESC, id DESC").bind(setId).all()).results
-    : (await db.prepare("SELECT * FROM orders ORDER BY purchase_date DESC, id DESC").all()).results;
+export async function listOrders(db, setId, collection) {
+  const where = [];
+  const args = [];
+  if (setId) { where.push("set_id = ?"); args.push(setId); }
+  if (collection) { where.push("collection = ?"); args.push(collection); }
+  const sql = `SELECT * FROM orders ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY purchase_date DESC, id DESC`;
+  const orders = (await db.prepare(sql).bind(...args).all()).results;
   if (orders.length === 0) return [];
   const ids = orders.map((o) => o.id);
   const placeholders = ids.map(() => "?").join(",");
@@ -158,10 +161,10 @@ export async function listOrders(db, setId) {
   });
 }
 
-export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds }) {
+export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine" }) {
   const res = await db
-    .prepare("INSERT INTO orders (set_id, purchase_date, tax_rate, note) VALUES (?, ?, ?, ?)")
-    .bind(set_id, purchase_date, Number(tax_rate), note)
+    .prepare("INSERT INTO orders (set_id, purchase_date, tax_rate, note, collection) VALUES (?, ?, ?, ?, ?)")
+    .bind(set_id, purchase_date, Number(tax_rate), note, collection === "shared" ? "shared" : "mine")
     .run();
   const orderId = res.meta.last_row_id;
   await insertItems(db, orderId, items);
@@ -169,13 +172,14 @@ export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, not
   return getOrder(db, orderId);
 }
 
-export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds }) {
+export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds, collection }) {
   await db
-    .prepare("UPDATE orders SET purchase_date = COALESCE(?, purchase_date), tax_rate = COALESCE(?, tax_rate), note = COALESCE(?, note) WHERE id = ?")
+    .prepare("UPDATE orders SET purchase_date = COALESCE(?, purchase_date), tax_rate = COALESCE(?, tax_rate), note = COALESCE(?, note), collection = COALESCE(?, collection) WHERE id = ?")
     .bind(
       purchase_date ?? null,
       tax_rate !== undefined ? Number(tax_rate) : null,
       note ?? null,
+      collection === "mine" || collection === "shared" ? collection : null,
       id
     )
     .run();
@@ -223,8 +227,8 @@ export async function setExists(db, id) {
 }
 
 // ---- aggregate totals for a set -----------------------------------------
-export async function setTotals(db, setId) {
-  const orders = await listOrders(db, setId);
+export async function setTotals(db, setId, collection) {
+  const orders = await listOrders(db, setId, collection);
   const breakdown = {};
   let totalSpent = 0;
   let totalPacks = 0;

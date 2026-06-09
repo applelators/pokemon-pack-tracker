@@ -32,6 +32,20 @@ header h1 { margin: 0 0 8px; font-size: 1.4rem; }
 header h1::before { content: "▸ "; color: var(--accent); }
 
 .header-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* ===== Collection (binder) segmented toggle ===== */
+.collection-toggle { display: inline-flex; background: var(--panel-2); border: 1px solid var(--border); border-radius: 11px; padding: 3px; gap: 2px; }
+.collection-toggle .ct-btn { background: none; border: none; color: var(--muted); padding: 7px 14px; border-radius: 8px;
+  font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 0.82rem; cursor: pointer; }
+.collection-toggle .ct-btn:hover { filter: none; color: var(--text); }
+.collection-toggle .ct-btn.active { background: var(--accent-2); color: #fff; }
+.collection-toggle.sm .ct-btn { padding: 6px 12px; font-size: 0.78rem; }
+
+.coll-badge { display: inline-block; font-family: "Space Grotesk", sans-serif; font-size: 0.64rem; text-transform: uppercase;
+  letter-spacing: .08em; font-weight: 700; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); vertical-align: middle; margin-left: 6px; }
+.coll-badge.mine { color: var(--muted); }
+.coll-badge.shared { color: var(--accent-2); border-color: rgba(59,111,224,.5); background: rgba(59,111,224,.1); }
 
 /* ===== Tracking-set switcher ===== */
 .set-switcher { position: relative; }

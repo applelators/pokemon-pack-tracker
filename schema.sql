@@ -45,8 +45,12 @@ CREATE TABLE IF NOT EXISTS orders (
   set_id        TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
   purchase_date TEXT NOT NULL,
   tax_rate      REAL NOT NULL DEFAULT 0,
-  note          TEXT
+  note          TEXT,
+  collection    TEXT NOT NULL DEFAULT 'mine'   -- 'mine' | 'shared' (separate binder)
 );
+
+-- Upgrading an existing database? The collection column was added later. Run once:
+--   ALTER TABLE orders ADD COLUMN collection TEXT NOT NULL DEFAULT 'mine';
 
 CREATE TABLE IF NOT EXISTS order_items (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,

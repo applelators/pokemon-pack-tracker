@@ -13,7 +13,12 @@
   <header>
     <div class="header-top">
       <h1>Pokémon Pack Tracker</h1>
-      <div class="set-switcher" id="setSwitcher">
+      <div class="header-right">
+        <div class="collection-toggle" id="collectionToggle" role="group" aria-label="Active binder">
+          <button type="button" class="ct-btn active" data-collection="mine">Mine</button>
+          <button type="button" class="ct-btn" data-collection="shared">Shared</button>
+        </div>
+        <div class="set-switcher" id="setSwitcher">
         <button type="button" class="set-trigger" id="setTrigger" aria-haspopup="true" aria-expanded="false">
           <span class="st-sym hidden" id="stSym" aria-hidden="true"></span>
           <span class="st-text">
@@ -25,6 +30,7 @@
         <div class="set-menu hidden" id="setMenu" role="menu">
           <div class="set-menu-list" id="setMenuList"></div>
           <button type="button" class="set-menu-add" id="setMenuAdd">+ Add or import a set</button>
+        </div>
         </div>
       </div>
     </div>
@@ -150,6 +156,12 @@
           <div class="row">
             <label>Purchase date <input type="date" id="orderDate" required /></label>
             <label>Sales tax % <input type="number" id="orderTax" step="0.001" min="0" /></label>
+            <label>Goes to binder
+              <div class="collection-toggle sm" id="orderCollection" role="group" aria-label="Order binder">
+                <button type="button" class="ct-btn active" data-collection="mine">Mine</button>
+                <button type="button" class="ct-btn" data-collection="shared">Shared</button>
+              </div>
+            </label>
             <label class="grow">Note <input type="text" id="orderNote" placeholder="store, online, etc." /></label>
           </div>
           <table class="grid line-items stack-mobile">

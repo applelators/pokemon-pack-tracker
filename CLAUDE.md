@@ -50,6 +50,10 @@ If you genuinely need a new hue, derive it in `oklch()` from these — don't inv
   for rarities not in the set. Built in `renderChase()`.
 - **Set switcher:** header chip `.set-trigger` + dropdown `.set-menu` (`setupSetSwitcher()`).
   This is the canonical way to pick/add a set — don't add a second set picker.
+- **Collection (binder) toggle:** segmented `.collection-toggle` / `.ct-btn` (active = `--accent-2`).
+  Global one in the header (`Mine | Shared`, `setupCollectionToggle()` / `selectCollection()`,
+  persisted in `localStorage` as `currentCollection`); a `.sm` variant on the order form picks the
+  order's binder. Use this component for any binder switching — don't reinvent it.
 
 ### Rarity symbols — ALWAYS go through the helper
 Rarity is shown as **stars/diamonds/circles whose COLOR encodes the tier**, matching the
@@ -77,6 +81,11 @@ Don't drop in bare number inputs for counts.
   `saveSet` only writes these on **import**, so re-import a set to backfill art.
 - `GET /api/sets/:id/summary` → `{ set, totalSpent, totalPacks, orderCount, breakdown,
   completion, chase }`. The redesign changed *where* these render, not the field names.
+- **Collections:** every order carries `collection` = `'mine' | 'shared'` (separate physical
+  binders). `GET /api/orders`, `/sets/:id/summary`, and `/estimate/:id` all accept `?collection=`,
+  and the frontend always sends the active one — so all order-derived stats (spend, packs,
+  completion, chase calibration, secret finds) are scoped per binder. Migration:
+  `ALTER TABLE orders ADD COLUMN collection TEXT NOT NULL DEFAULT 'mine';`
 - Migration: existing databases need
   `ALTER TABLE sets ADD COLUMN logo_url TEXT;` and `... symbol_url TEXT;`.
 

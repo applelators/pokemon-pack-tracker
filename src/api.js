@@ -81,7 +81,8 @@ export async function handleApi(request, env, url) {
       if (seg.length === 4 && seg[3] === "summary" && method === "GET") {
         const set = await getCachedSet(db, setId);
         if (!set) return json({ error: "Set not imported" }, 404);
-        const totals = await setTotals(db, setId);
+        const collection = url.searchParams.get("collection") || undefined;
+        const totals = await setTotals(db, setId, collection);
         const completion = await computeEstimate(db, set, totals.totalPacks);
         const chase = await computeChase(db, set);
         return json({ set, ...totals, completion, chase });
@@ -92,9 +93,10 @@ export async function handleApi(request, env, url) {
     if (seg[0] === "api" && seg[1] === "estimate" && seg[2] && method === "GET") {
       const set = await getCachedSet(db, decodeURIComponent(seg[2]));
       if (!set) return json({ error: "Set not imported" }, 404);
+      const collection = url.searchParams.get("collection") || undefined;
       const opened = url.searchParams.has("opened")
         ? Number(url.searchParams.get("opened"))
-        : (await setTotals(db, set.id)).totalPacks;
+        : (await setTotals(db, set.id, collection)).totalPacks;
       const completion = await computeEstimate(db, set, opened);
       if (!completion) return json({ error: "No rarity data for this set" }, 400);
       return json(completion);
@@ -103,7 +105,7 @@ export async function handleApi(request, env, url) {
     // /api/orders ...
     if (pathname === "/api/orders") {
       if (method === "GET") {
-        return json(await listOrders(db, url.searchParams.get("set") || undefined));
+        return json(await listOrders(db, url.searchParams.get("set") || undefined, url.searchParams.get("collection") || undefined));
       }
       if (method === "POST") {
         const b = await body();

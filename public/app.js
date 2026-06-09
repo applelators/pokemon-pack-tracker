@@ -56,16 +56,52 @@ const state = {
   settings: null,
   trackedSets: [],
   currentSetId: localStorage.getItem("currentSetId") || "",
+  currentCollection: localStorage.getItem("currentCollection") || "mine",
   editingOrderId: null,
   summary: null,
   orders: [],
 };
+
+// ---- collection (binder) toggles -----------------------------------------
+function setToggle(el, c) {
+  if (!el) return;
+  el.querySelectorAll(".ct-btn").forEach((b) => b.classList.toggle("active", b.dataset.collection === c));
+}
+function getToggle(el) {
+  const b = el && el.querySelector(".ct-btn.active");
+  return b && b.dataset.collection === "shared" ? "shared" : "mine";
+}
+function collectionLabel(c) {
+  return c === "shared" ? "Shared" : "Mine";
+}
+
+function setupCollectionToggle() {
+  setToggle($("#collectionToggle"), state.currentCollection);
+  $("#collectionToggle").addEventListener("click", (e) => {
+    const b = e.target.closest(".ct-btn");
+    if (b) selectCollection(b.dataset.collection);
+  });
+  // Order-form toggle: local selection only (which binder this order goes to).
+  $("#orderCollection").addEventListener("click", (e) => {
+    const b = e.target.closest(".ct-btn");
+    if (b) setToggle($("#orderCollection"), b.dataset.collection);
+  });
+}
+
+function selectCollection(c) {
+  if (c !== "mine" && c !== "shared") return;
+  state.currentCollection = c;
+  localStorage.setItem("currentCollection", c);
+  setToggle($("#collectionToggle"), c);
+  refreshActiveSet();
+}
 
 // ---- init ----------------------------------------------------------------
 async function init() {
   setupTabs();
   setupModal();
   setupSetSwitcher();
+  setupCollectionToggle();
   setupOrderForm();
   setupSettingsForm();
   await loadSettings();
@@ -242,7 +278,7 @@ function setGauge(pct, collected, baseSize) {
 
 async function loadDashboard() {
   try {
-    const s = await api(`/sets/${state.currentSetId}/summary`);
+    const s = await api(`/sets/${state.currentSetId}/summary?collection=${state.currentCollection}`);
     state.summary = s;
     populateBanner(s.set);
     $("#statSpent").textContent = money(s.totalSpent);
@@ -485,6 +521,7 @@ function resetOrderForm() {
   $("#orderTax").value = state.settings.sales_tax_rate ?? 0;
   $("#orderSubmit").textContent = "Save order";
   $("#orderCancel").classList.add("hidden");
+  setToggle($("#orderCollection"), state.currentCollection);
   renderFindsInputs();
   addLineRow();
   recalcForm();
@@ -499,6 +536,7 @@ async function submitOrder(e) {
     purchase_date: $("#orderDate").value,
     tax_rate: Number($("#orderTax").value || 0) / 100,
     note: $("#orderNote").value,
+    collection: getToggle($("#orderCollection")),
     items,
     finds: readFinds(),
   };
@@ -647,7 +685,7 @@ function onSecretStep(e) {
 async function loadOrders() {
   const list = $("#ordersList");
   try {
-    const orders = await api("/orders?set=" + encodeURIComponent(state.currentSetId));
+    const orders = await api("/orders?set=" + encodeURIComponent(state.currentSetId) + "&collection=" + state.currentCollection);
     state.orders = orders;
     if (!orders.length) { list.innerHTML = '<div class="muted">No orders yet.</div>'; return; }
     list.innerHTML = orders.map((o) => `
@@ -655,6 +693,7 @@ async function loadOrders() {
         <div class="order-head">
           <div>
             <span class="order-date">${o.purchase_date}</span>
+            <span class="coll-badge ${o.collection === "shared" ? "shared" : "mine"}">${collectionLabel(o.collection)}</span>
             ${o.note ? `<span class="order-meta"> · ${o.note}</span>` : ""}
             <div class="order-meta">${o.packs} packs · subtotal ${money(o.subtotal)} · tax ${money(o.tax)} · <b>${money(o.total)}</b></div>
           </div>
@@ -679,6 +718,7 @@ function editOrder(order) {
   $("#orderDate").value = order.purchase_date;
   $("#orderTax").value = (order.tax_rate * 100).toFixed(3).replace(/\.?0+$/, "");
   $("#orderNote").value = order.note || "";
+  setToggle($("#orderCollection"), order.collection || "mine");
   $("#lineItems").innerHTML = "";
   renderFindsInputs(order.finds || {});
   order.items.forEach((i) => addLineRow(i));
