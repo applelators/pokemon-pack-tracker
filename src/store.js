@@ -80,12 +80,13 @@ export async function getCachedSet(db, id) {
 export async function saveSet(db, set, rarityCounts, allRarityCounts = {}) {
   const stmts = [
     db.prepare(
-      `INSERT INTO sets (id, name, series, printed_total, total, release_date, fetched_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO sets (id, name, series, printed_total, total, release_date, logo_url, symbol_url, fetched_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name=excluded.name, series=excluded.series, printed_total=excluded.printed_total,
-         total=excluded.total, release_date=excluded.release_date, fetched_at=excluded.fetched_at`
-    ).bind(set.id, set.name, set.series, set.printed_total, set.total, set.release_date, set.fetched_at),
+         total=excluded.total, release_date=excluded.release_date,
+         logo_url=excluded.logo_url, symbol_url=excluded.symbol_url, fetched_at=excluded.fetched_at`
+    ).bind(set.id, set.name, set.series, set.printed_total, set.total, set.release_date, set.logo_url ?? null, set.symbol_url ?? null, set.fetched_at),
     db.prepare("DELETE FROM set_rarities WHERE set_id = ?").bind(set.id),
     db.prepare("DELETE FROM set_all_rarities WHERE set_id = ?").bind(set.id),
   ];
