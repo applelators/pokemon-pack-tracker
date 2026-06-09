@@ -530,6 +530,7 @@ function onFormSecretStep(e) {
   countEl.textContent = c;
   step.classList.toggle("has", c > 0);
   step.querySelector(".os-dec").disabled = c <= 0;
+  setStepOdds(step, Number($("#formPacks").textContent) || 0);
 }
 
 function readFinds() {
@@ -657,7 +658,7 @@ function secretStepMarkup(rarity, count, attrs) {
   return `<div class="os-step${c > 0 ? " has" : ""}" data-rarity="${rarity}" title="${rarity}">
       <div class="os-info">
         <span class="os-tag">${raritySymbol(rarity)}<span class="os-abbr">${secretAbbr(rarity)}</span></span>
-        <span class="os-odds hidden"></span>
+        <span class="os-odds hidden"><span class="os-exp"></span><span class="os-next"></span></span>
       </div>
       <div class="os-ctrl">
         <button type="button" class="os-btn os-dec" ${attrs} data-rarity="${rarity}" aria-label="Remove one ${rarity}"${c <= 0 ? " disabled" : ""}>−</button>
@@ -674,23 +675,38 @@ function rarityChance(rarity, packs) {
   return { p, pAtLeastOne: 1 - Math.pow(1 - p, packs), expected: p * packs };
 }
 
-// Fill the .os-odds tile in each stepper under `root` with that rarity's
-// "1+" chance for `packs` packs (hidden when the rarity has no configured rate).
+function rarityRate(rarity) {
+  const p = Number((state.settings.chase_pull_rates || {})[rarity]);
+  return p > 0 ? p : null;
+}
+
+// Update one stepper's tiles from its CURRENT logged count:
+//   • expected quantity of that rarity in the order  (≈ p · packs)
+//   • chance of pulling ANOTHER given `found` already logged. Each of the
+//     `packs` packs independently yields the rarity with prob p (≤1 per pack),
+//     so P(another) = 1 − (1−p)^(packs − found). Recalculates on every +/−.
+function setStepOdds(step, packs) {
+  const el = step.querySelector(".os-odds");
+  if (!el) return;
+  const p = rarityRate(step.dataset.rarity);
+  if (!p || !(packs > 0)) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  const found = Number(step.querySelector(".os-count").textContent) || 0;
+  const expected = p * packs;
+  const remaining = Math.max(0, packs - found);
+  const pAnother = remaining > 0 ? 1 - Math.pow(1 - p, remaining) : 0;
+  const pct = Math.round(pAnother * 100);
+  const expEl = el.querySelector(".os-exp");
+  const nextEl = el.querySelector(".os-next");
+  if (expEl) expEl.textContent = `≈${expected.toFixed(expected < 1 ? 2 : 1)} expected`;
+  if (nextEl) nextEl.textContent = found > 0 ? `${pct}% for another` : `${pct}% for one`;
+  el.title = `≈${expected.toFixed(2)} ${step.dataset.rarity} expected across ${packs} packs · `
+    + `${pct}% chance of ${found > 0 ? `a ${found + 1}th` : "at least one"} (you've logged ${found})`;
+}
+
 function applyRarityOdds(root, packs) {
   if (!root) return;
-  root.querySelectorAll(".os-step").forEach((step) => {
-    const el = step.querySelector(".os-odds");
-    if (!el) return;
-    const c = rarityChance(step.dataset.rarity, packs);
-    if (c) {
-      el.textContent = `~${Math.round(c.pAtLeastOne * 100)}% for 1+`;
-      el.title = `Chance of pulling ≥1 ${step.dataset.rarity} in ${packs} packs (≈${c.expected.toFixed(2)} expected)`;
-      el.classList.remove("hidden");
-    } else {
-      el.textContent = "";
-      el.classList.add("hidden");
-    }
-  });
+  root.querySelectorAll(".os-step").forEach((step) => setStepOdds(step, packs));
 }
 
 // Inline secret-card steppers on a saved order card — adjust counts without
@@ -713,7 +729,7 @@ function orderSecretLine(o) {
   const steppers = secrets.map((r) => secretStepMarkup(r, finds[r], `data-order="${o.id}"`)).join("");
   const hasRated = secrets.some((r) => rarityChance(r, o.packs));
   const caption = hasRated
-    ? `<div class="os-caption muted small">Each tile shows the predicted chance of pulling <b>1+</b> of that rarity across this order's ${o.packs} packs.</div>`
+    ? `<div class="os-caption muted small">Each tile shows the <b>expected number</b> of that rarity in this order's ${o.packs} packs, and your <b>chance of pulling another</b> as you log them.</div>`
     : "";
 
   return `<div class="order-secrets">
@@ -764,6 +780,7 @@ function onSecretStep(e) {
   step.querySelector(".os-count").textContent = next;
   step.classList.toggle("has", next > 0);
   step.querySelector(".os-dec").disabled = next <= 0;
+  setStepOdds(step, order.packs); // recompute "chance of another" for the new count
 
   const card = btn.closest(".order-card");
   const total = Object.values(finds).reduce((a, c) => a + (Number(c) || 0), 0);

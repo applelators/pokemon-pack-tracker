@@ -273,8 +273,10 @@ table.grid input { width: 100%; }
 .os-btn:disabled { opacity: .35; cursor: default; }
 .os-count { font-family: "Space Grotesk", sans-serif; font-weight: 700; min-width: 22px; text-align: center; font-size: 1rem; }
 .os-info { display: flex; flex-direction: column; gap: 3px; }
-.os-odds { font-family: "Space Grotesk", sans-serif; font-size: 0.72rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
-.os-step.has .os-odds { color: var(--text); }
+.os-odds { display: flex; flex-direction: column; gap: 1px; font-family: "Space Grotesk", sans-serif; line-height: 1.15; white-space: nowrap; }
+.os-exp { font-size: 0.68rem; color: var(--muted); }
+.os-next { font-size: 0.72rem; font-weight: 700; color: var(--accent-2); }
+.os-step.has .os-next { color: var(--good); }
 .os-caption { margin: -2px 0 10px; }
 
 /* ===== Your collection (actuals) inputs ===== */
