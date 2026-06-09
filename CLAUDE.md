@@ -69,8 +69,9 @@ For logging integer counts (e.g. secret cards pulled), use `secretStepMarkup(rar
 which renders an `.os-step` pill with −/+ buttons. Saved-order edits persist via a debounced
 `PUT /api/orders/:id { finds }` (see `queueFindsSave`); form entry collects via `readFinds()`.
 Don't drop in bare number inputs for counts. Each pill's `.os-odds` shows the expected quantity
-of that rarity for the order's packs plus a live "chance of another" — `setStepOdds()` recomputes
-`P(another) = 1 − (1−p)^(packs − found)` on every +/−.
+of that rarity (≈ p·packs) plus a live "chance of at least one more" — `setStepOdds()` recomputes
+the cumulative Binomial tail `P(X ≥ found+1)`, X ~ Binomial(packs, p), on every +/− (see
+`binomAtLeast`). Don't use the naive `1−(1−p)^(packs−found)` — it wildly overstates multiples.
 
 ### Layout & interaction conventions
 - Lay out groups with **flex/grid + `gap`**, not margins or inline-block.

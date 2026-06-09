@@ -680,11 +680,24 @@ function rarityRate(rarity) {
   return p > 0 ? p : null;
 }
 
+// P(X >= m) for X ~ Binomial(K, p) — number of that rarity across K packs
+// (each pack independently yields it with prob p, at most one per pack).
+function binomAtLeast(K, p, m) {
+  if (m <= 0) return 1;
+  if (m > K || p <= 0) return 0;
+  let pmf = Math.pow(1 - p, K); // P(X = 0)
+  let lower = pmf;              // cumulative P(X <= m-1)
+  for (let k = 1; k <= m - 1; k++) {
+    pmf *= ((K - k + 1) / k) * (p / (1 - p));
+    lower += pmf;
+  }
+  return Math.max(0, Math.min(1, 1 - lower));
+}
+
 // Update one stepper's tiles from its CURRENT logged count:
 //   • expected quantity of that rarity in the order  (≈ p · packs)
-//   • chance of pulling ANOTHER given `found` already logged. Each of the
-//     `packs` packs independently yields the rarity with prob p (≤1 per pack),
-//     so P(another) = 1 − (1−p)^(packs − found). Recalculates on every +/−.
+//   • chance of pulling at least ONE MORE than logged — the cumulative
+//     Binomial probability P(X >= found + 1). Recalculates on every +/−.
 function setStepOdds(step, packs) {
   const el = step.querySelector(".os-odds");
   if (!el) return;
@@ -693,15 +706,14 @@ function setStepOdds(step, packs) {
   el.classList.remove("hidden");
   const found = Number(step.querySelector(".os-count").textContent) || 0;
   const expected = p * packs;
-  const remaining = Math.max(0, packs - found);
-  const pAnother = remaining > 0 ? 1 - Math.pow(1 - p, remaining) : 0;
-  const pct = Math.round(pAnother * 100);
+  const pNext = binomAtLeast(packs, p, found + 1); // P(at least found+1 total)
+  const pct = Math.round(pNext * 100);
   const expEl = el.querySelector(".os-exp");
   const nextEl = el.querySelector(".os-next");
   if (expEl) expEl.textContent = `≈${expected.toFixed(expected < 1 ? 2 : 1)} expected`;
-  if (nextEl) nextEl.textContent = found > 0 ? `${pct}% for another` : `${pct}% for one`;
+  if (nextEl) nextEl.textContent = `${pct}% for ${found + 1}+`;
   el.title = `≈${expected.toFixed(2)} ${step.dataset.rarity} expected across ${packs} packs · `
-    + `${pct}% chance of ${found > 0 ? `a ${found + 1}th` : "at least one"} (you've logged ${found})`;
+    + `${pct}% chance of pulling at least ${found + 1} (you've logged ${found})`;
 }
 
 function applyRarityOdds(root, packs) {
@@ -729,7 +741,7 @@ function orderSecretLine(o) {
   const steppers = secrets.map((r) => secretStepMarkup(r, finds[r], `data-order="${o.id}"`)).join("");
   const hasRated = secrets.some((r) => rarityChance(r, o.packs));
   const caption = hasRated
-    ? `<div class="os-caption muted small">Each tile shows the <b>expected number</b> of that rarity in this order's ${o.packs} packs, and your <b>chance of pulling another</b> as you log them.</div>`
+    ? `<div class="os-caption muted small">Each tile shows the <b>expected number</b> of that rarity in this order's ${o.packs} packs, and your <b>chance of at least one more</b> than you've logged.</div>`
     : "";
 
   return `<div class="order-secrets">
