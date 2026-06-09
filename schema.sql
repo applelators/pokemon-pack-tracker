@@ -14,8 +14,15 @@ CREATE TABLE IF NOT EXISTS sets (
   printed_total INTEGER NOT NULL,
   total         INTEGER,
   release_date  TEXT,
+  logo_url      TEXT,
+  symbol_url    TEXT,
   fetched_at    TEXT NOT NULL
 );
+
+-- Upgrading an existing database? The two image columns were added later.
+-- Run these once (they are no-ops on a fresh schema created above):
+--   ALTER TABLE sets ADD COLUMN logo_url TEXT;
+--   ALTER TABLE sets ADD COLUMN symbol_url TEXT;
 
 CREATE TABLE IF NOT EXISTS set_rarities (
   set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,

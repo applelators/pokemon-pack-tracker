@@ -44,7 +44,7 @@ function isBaseSetNumber(number, printedTotal) {
 export async function importSet(db, setId) {
   const setJson = await apiGet(
     db,
-    `/sets/${encodeURIComponent(setId)}?select=id,name,series,printedTotal,total,releaseDate`
+    `/sets/${encodeURIComponent(setId)}?select=id,name,series,printedTotal,total,releaseDate,images`
   );
   const s = setJson.data;
   if (!s) throw new Error(`Set not found: ${setId}`);
@@ -80,6 +80,8 @@ export async function importSet(db, setId) {
       printed_total: printedTotal,
       total: s.total || null,
       release_date: s.releaseDate || null,
+      logo_url: s.images?.logo || null,
+      symbol_url: s.images?.symbol || null,
       fetched_at: new Date().toISOString(),
     },
     rarityCounts,

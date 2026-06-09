@@ -22,6 +22,14 @@ function raritySymbol(rarity) {
   return `<span class="rsym ${r.cls}" title="${rarity}">${r.glyph.repeat(r.count)}</span>`;
 }
 
+// Short tags for the inline secret-card steppers on order cards.
+const RARITY_ABBR = {
+  "Illustration Rare": "IR", "Special Illustration Rare": "SIR", "Ultra Rare": "UR",
+  "Double Rare": "RR", "Hyper Rare": "HR", "Mega Hyper Rare": "MHR",
+  "ACE SPEC Rare": "ACE", "Shiny Rare": "SR", "Shiny Ultra Rare": "SUR",
+};
+const secretAbbr = (r) => RARITY_ABBR[r] || r;
+
 async function api(path, opts = {}) {
   const res = await fetch("/api" + path, {
     headers: { "Content-Type": "application/json" },
@@ -57,14 +65,11 @@ const state = {
 async function init() {
   setupTabs();
   setupModal();
+  setupSetSwitcher();
   setupOrderForm();
   setupSettingsForm();
   await loadSettings();
   await loadTrackedSets();
-  $("#setSelect").addEventListener("change", (e) => selectSet(e.target.value));
-  if (state.currentSetId) {
-    $("#setSelect").value = state.currentSetId;
-  }
   refreshActiveSet();
 }
 
@@ -82,18 +87,75 @@ function setupTabs() {
 // ---- sets ----------------------------------------------------------------
 async function loadTrackedSets() {
   state.trackedSets = await api("/sets");
-  const sel = $("#setSelect");
-  const current = sel.value;
-  sel.innerHTML = '<option value="">— none —</option>' +
-    state.trackedSets
-      .map((s) => `<option value="${s.id}">${s.name} (${s.printed_total} cards)</option>`)
-      .join("");
-  sel.value = state.currentSetId || current || "";
+  renderSetMenu();
+  updateSetTrigger();
+}
+
+// Build the dropdown list of tracked sets (each with mini set symbol + counts).
+function renderSetMenu() {
+  const list = $("#setMenuList");
+  if (!state.trackedSets.length) {
+    list.innerHTML = '<div class="set-menu-empty muted">No sets tracked yet.</div>';
+    return;
+  }
+  list.innerHTML = state.trackedSets.map((s) => {
+    const active = s.id === state.currentSetId;
+    const sym = s.symbol_url
+      ? `<img class="sm-sym" src="${s.symbol_url}" alt="" />`
+      : `<span class="sm-sym sm-ph">${(s.name || "?").slice(0, 1)}</span>`;
+    return `<button type="button" class="set-menu-item${active ? " active" : ""}" role="menuitemradio" aria-checked="${active}" data-set="${s.id}">
+        ${sym}
+        <span class="sm-text">
+          <span class="sm-name">${s.name}</span>
+          <span class="sm-meta">${s.series ? s.series + " \u00b7 " : ""}${s.printed_total} cards</span>
+        </span>
+        <span class="sm-check" aria-hidden="true">${active ? "\u2713" : ""}</span>
+      </button>`;
+  }).join("");
+}
+
+// Update the header trigger chip to reflect the current set.
+function updateSetTrigger() {
+  const set = state.trackedSets.find((s) => s.id === state.currentSetId);
+  const symEl = $("#stSym");
+  const nameEl = $("#stName");
+  if (set) {
+    nameEl.textContent = set.name;
+    symEl.classList.remove("hidden", "ph");
+    if (set.symbol_url) { symEl.innerHTML = `<img src="${set.symbol_url}" alt="" />`; }
+    else { symEl.textContent = (set.name || "?").slice(0, 1); symEl.classList.add("ph"); }
+  } else {
+    nameEl.textContent = "Select a set";
+    symEl.innerHTML = "";
+    symEl.classList.add("hidden");
+  }
+}
+
+function openSetMenu(open) {
+  const menu = $("#setMenu");
+  const show = (open === undefined) ? menu.classList.contains("hidden") : open;
+  menu.classList.toggle("hidden", !show);
+  $("#setTrigger").setAttribute("aria-expanded", show ? "true" : "false");
+}
+
+function setupSetSwitcher() {
+  $("#setTrigger").addEventListener("click", (e) => { e.stopPropagation(); openSetMenu(); });
+  $("#setMenuList").addEventListener("click", (e) => {
+    const item = e.target.closest(".set-menu-item");
+    if (!item) return;
+    openSetMenu(false);
+    if (item.dataset.set !== state.currentSetId) selectSet(item.dataset.set);
+  });
+  $("#setMenuAdd").addEventListener("click", () => { openSetMenu(false); $("#setModal").classList.remove("hidden"); });
+  document.addEventListener("click", (e) => { if (!e.target.closest("#setSwitcher")) openSetMenu(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") openSetMenu(false); });
 }
 
 function selectSet(id) {
   state.currentSetId = id;
   localStorage.setItem("currentSetId", id);
+  renderSetMenu();
+  updateSetTrigger();
   refreshActiveSet();
 }
 
@@ -112,7 +174,6 @@ async function refreshActiveSet() {
 
 // ---- import set modal ----------------------------------------------------
 function setupModal() {
-  $("#manageSetsBtn").addEventListener("click", () => $("#setModal").classList.remove("hidden"));
   $("#closeModal").addEventListener("click", () => $("#setModal").classList.add("hidden"));
   $("#setSearchBtn").addEventListener("click", runSetSearch);
   $("#setSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") runSetSearch(); });
@@ -147,7 +208,6 @@ async function importSet(id, btn) {
     const set = await api(`/sets/${id}/import`, { method: "POST" });
     toast(`Imported ${set.name}`);
     await loadTrackedSets();
-    $("#setSelect").value = id;
     selectSet(id);
     $("#setModal").classList.add("hidden");
   } catch (err) {
@@ -157,10 +217,34 @@ async function importSet(id, btn) {
 }
 
 // ---- dashboard -----------------------------------------------------------
+// Set-banner: live logo + faint symbol watermark from pokemontcg.io.
+function populateBanner(set) {
+  $("#sbName").textContent = set.name || "—";
+  $("#sbSeries").textContent = set.series || "";
+  $("#sbSub").textContent = `${set.printed_total}-card base set`
+    + (set.release_date ? ` · released ${set.release_date}` : "");
+  const logo = $("#sbLogo");
+  if (set.logo_url) { logo.src = set.logo_url; logo.classList.remove("hidden"); }
+  else { logo.removeAttribute("src"); logo.classList.add("hidden"); }
+  const art = $("#sbArt");
+  art.style.backgroundImage = set.symbol_url ? `url("${set.symbol_url}")` : "";
+  art.classList.toggle("has-symbol", !!set.symbol_url);
+}
+
+// Completion gauge ring (r = 86 → circumference ≈ 540.35).
+function setGauge(pct, collected, baseSize) {
+  const p = Math.max(0, Math.min(100, Number(pct) || 0));
+  const C = 2 * Math.PI * 86;
+  $("#gaugeArc").setAttribute("stroke-dasharray", `${(p / 100) * C} ${C}`);
+  $("#estPctBig").textContent = Math.round(p) + "%";
+  $("#estFrac").innerHTML = (collected != null && baseSize) ? `<b>${collected}</b> / ${baseSize}` : "";
+}
+
 async function loadDashboard() {
   try {
     const s = await api(`/sets/${state.currentSetId}/summary`);
     state.summary = s;
+    populateBanner(s.set);
     $("#statSpent").textContent = money(s.totalSpent);
     $("#statPacks").textContent = s.totalPacks;
     $("#statOrders").textContent = s.orderCount;
@@ -192,12 +276,12 @@ async function loadDashboard() {
       const fmt = (v) => (v == null ? "—" : v);
       $("#estPct50").textContent = fmt(ms.pct50);
       $("#estPct95").textContent = fmt(ms.pct95);
-      const pct = Math.min(100, c.expectedPctAtOpened);
-      $("#estProgressFill").style.width = pct + "%";
+      setGauge(c.expectedPctAtOpened, c.expectedCollectedAtOpened, c.baseSetSize);
       $("#estProgressText").textContent =
         `Estimated ~${c.expectedCollectedAtOpened} of ${c.baseSetSize} base-set cards collected (${c.expectedPctAtOpened}%) after ${c.opened} packs.`;
     } else {
       $("#estRemaining").textContent = "–";
+      setGauge(0, 0, s.set.printed_total);
       $("#estProgressText").textContent = "No rarity data for this set.";
     }
 
@@ -218,21 +302,23 @@ async function loadDashboard() {
 }
 
 function renderChase(chase) {
-  const tbody = $("#chaseTable tbody");
+  const box = $("#chaseSlots");
   if (!chase || !chase.items || !chase.items.length) {
     $("#chaseAny").textContent = "–";
-    tbody.innerHTML = '<tr><td colspan="4" class="muted">No chase pull rates configured.</td></tr>';
+    box.innerHTML = '<div class="muted small">No chase pull rates configured (Settings).</div>';
     return;
   }
   $("#chaseAny").textContent = chase.anyAvgPacks ?? "–";
-  tbody.innerHTML = chase.items.map((it) => {
-    const odds = it.perPackProb > 0 ? `~1 in ${Math.round(1 / it.perPackProb)}` : "—";
-    return `<tr style="${it.present ? "" : "opacity:.5"}">
-      <td data-label="Chase rarity">${raritySymbol(it.rarity)} ${it.abbr} · ${it.rarity}</td>
-      <td data-label="Per-pack odds">${odds}</td>
-      <td data-label="Avg packs to first"><b>${it.avgPacks}</b></td>
-      <td data-label="In this set?">${it.present ? "✓" : "not in set"}</td>
-    </tr>`;
+  box.innerHTML = chase.items.map((it) => {
+    const odds = it.perPackProb > 0 ? `1 in ${Math.round(1 / it.perPackProb)}` : "—";
+    const cls = (it.abbr || "").toLowerCase().replace(/[^a-z]/g, "");
+    return `<div class="slot ${cls}${it.present ? "" : " off"}">
+      <div class="slot-top">${raritySymbol(it.rarity)}<span class="slot-tag">${it.abbr}</span></div>
+      <div class="slot-full">${it.rarity}</div>
+      ${it.present
+        ? `<div class="slot-pk">${it.avgPacks}<small> pks</small></div><div class="slot-od">${odds} / pack</div>`
+        : `<div class="slot-pk muted">—</div><div class="slot-od">not in this set</div>`}
+    </div>`;
   }).join("");
 }
 
@@ -307,17 +393,27 @@ function renderFindsInputs(finds = {}) {
   const box = $("#secretInputs");
   if (!rarities.length) { section.classList.add("hidden"); box.innerHTML = ""; return; }
   section.classList.remove("hidden");
-  box.innerHTML = rarities.map((r) => `
-    <label class="secret-input">${raritySymbol(r)} ${r}
-      <input type="number" min="0" class="sf-input" data-rarity="${r}" value="${finds[r] ?? ""}" placeholder="0" />
-    </label>`).join("");
+  box.innerHTML = rarities.map((r) => secretStepMarkup(r, finds[r], 'data-form="1"')).join("");
+}
+
+// Stepper handler for the order FORM — adjusts the local count only; values are
+// collected by readFinds() on submit (no persistence until the order is saved).
+function onFormSecretStep(e) {
+  const btn = e.target.closest(".os-btn");
+  if (!btn) return;
+  const step = btn.closest(".os-step");
+  const countEl = step.querySelector(".os-count");
+  const c = Math.max(0, (Number(countEl.textContent) || 0) + (btn.classList.contains("os-inc") ? 1 : -1));
+  countEl.textContent = c;
+  step.classList.toggle("has", c > 0);
+  step.querySelector(".os-dec").disabled = c <= 0;
 }
 
 function readFinds() {
   const finds = {};
-  $$("#secretInputs .sf-input").forEach((i) => {
-    const c = Number(i.value);
-    if (c > 0) finds[i.dataset.rarity] = c;
+  $$("#secretInputs .os-step").forEach((step) => {
+    const c = Number(step.querySelector(".os-count").textContent) || 0;
+    if (c > 0) finds[step.dataset.rarity] = c;
   });
   return finds;
 }
@@ -376,6 +472,8 @@ function setupOrderForm() {
   $("#orderTax").addEventListener("input", recalcForm);
   $("#orderCancel").addEventListener("click", resetOrderForm);
   $("#orderForm").addEventListener("submit", submitOrder);
+  $("#ordersList").addEventListener("click", onSecretStep);
+  $("#secretInputs").addEventListener("click", onFormSecretStep);
 }
 
 function resetOrderForm() {
@@ -419,16 +517,96 @@ async function submitOrder(e) {
   }
 }
 
+// Shared markup for one secret-rarity stepper pill (used by order cards AND
+// the order form). `attrs` is an extra attribute string for the buttons
+// (e.g. data-order="3" on a saved card, data-form="1" in the form).
+function secretStepMarkup(rarity, count, attrs) {
+  const c = Number(count) || 0;
+  return `<div class="os-step${c > 0 ? " has" : ""}" data-rarity="${rarity}" title="${rarity}">
+      <span class="os-tag">${raritySymbol(rarity)}<span class="os-abbr">${secretAbbr(rarity)}</span></span>
+      <div class="os-ctrl">
+        <button type="button" class="os-btn os-dec" ${attrs} data-rarity="${rarity}" aria-label="Remove one ${rarity}"${c <= 0 ? " disabled" : ""}>−</button>
+        <span class="os-count">${c}</span>
+        <button type="button" class="os-btn os-inc" ${attrs} data-rarity="${rarity}" aria-label="Add one ${rarity}">+</button>
+      </div>
+    </div>`;
+}
+
+// Inline secret-card steppers on a saved order card — adjust counts without
+// entering edit mode. Falls back to read-only chips if the set has no known
+// secret rarities.
 function orderSecretLine(o) {
+  const secrets = setSecretRarities();
   const finds = o.finds || {};
-  const found = Object.entries(finds);
   const m = secretModel(o.packs);
-  const predicted = m ? `predicted ~${Math.round(m.pAtLeastOne * 100)}% chance (≈${m.expected.toFixed(1)})` : "";
-  if (found.length) {
+  const predicted = m ? `~${Math.round(m.pAtLeastOne * 100)}% predicted (≈${m.expected.toFixed(1)})` : "";
+
+  if (!secrets.length) {
+    const found = Object.entries(finds);
+    if (!found.length) return "";
     const chips = found.map(([r, c]) => `${raritySymbol(r)} ${c}× ${r}`).join(" · ");
-    return `<div class="order-secrets">Secrets pulled: ${chips}${predicted ? ` <span class="muted">· ${predicted}</span>` : ""}</div>`;
+    return `<div class="order-secrets"><span class="os-label">Secrets pulled:</span> ${chips}</div>`;
   }
-  return predicted ? `<div class="order-secrets muted">Secret-card odds: ${predicted}. Edit to log what you pulled.</div>` : "";
+
+  const total = Object.values(finds).reduce((a, c) => a + (Number(c) || 0), 0);
+  const steppers = secrets.map((r) => secretStepMarkup(r, finds[r], `data-order="${o.id}"`)).join("");
+
+  return `<div class="order-secrets">
+      <div class="os-head">
+        <span class="os-label">Secrets pulled</span>
+        <span class="os-summary muted">${secretSummaryText(total, predicted)}</span>
+      </div>
+      <div class="os-steppers">${steppers}</div>
+    </div>`;
+}
+
+function secretSummaryText(total, predicted) {
+  const base = total > 0 ? `${total} logged` : "tap + to log a pull";
+  return predicted ? `${base} · ${predicted}` : base;
+}
+
+// Debounced per-order persistence so rapid taps don't hammer the API.
+const _findsSaveTimers = {};
+function queueFindsSave(orderId, finds) {
+  clearTimeout(_findsSaveTimers[orderId]);
+  _findsSaveTimers[orderId] = setTimeout(async () => {
+    try {
+      await api(`/orders/${orderId}`, { method: "PUT", body: { finds } });
+    } catch (err) {
+      toast(err.message, true);
+      loadOrders(); // resync on failure
+    }
+  }, 400);
+}
+
+// Click handler (delegated) for the +/− stepper buttons on order cards.
+function onSecretStep(e) {
+  const btn = e.target.closest(".os-btn");
+  if (!btn) return;
+  const orderId = Number(btn.dataset.order);
+  const rarity = btn.dataset.rarity;
+  const order = (state.orders || []).find((o) => o.id === orderId);
+  if (!order) return;
+
+  const finds = { ...(order.finds || {}) };
+  const next = Math.max(0, (Number(finds[rarity]) || 0) + (btn.classList.contains("os-inc") ? 1 : -1));
+  if (next === 0) delete finds[rarity]; else finds[rarity] = next;
+  order.finds = finds;
+
+  // Targeted DOM update — no full re-render, no flicker.
+  const step = btn.closest(".os-step");
+  step.querySelector(".os-count").textContent = next;
+  step.classList.toggle("has", next > 0);
+  step.querySelector(".os-dec").disabled = next <= 0;
+
+  const card = btn.closest(".order-card");
+  const total = Object.values(finds).reduce((a, c) => a + (Number(c) || 0), 0);
+  const m = secretModel(order.packs);
+  const predicted = m ? `~${Math.round(m.pAtLeastOne * 100)}% predicted (≈${m.expected.toFixed(1)})` : "";
+  const sum = card && card.querySelector(".os-summary");
+  if (sum) sum.textContent = secretSummaryText(total, predicted);
+
+  queueFindsSave(orderId, finds);
 }
 
 async function loadOrders() {
