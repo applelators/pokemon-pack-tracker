@@ -277,6 +277,19 @@ table.grid input { width: 100%; }
 .os-step.has .os-odds { color: var(--text); }
 .os-caption { margin: -2px 0 10px; }
 
+/* ===== Your collection (actuals) inputs ===== */
+.progress-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.pinput { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+.pi-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin-bottom: 10px; }
+.pi-control { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.pi-control input[type="number"] { width: 84px; font-family: "Space Grotesk", sans-serif; font-size: 1.25rem; font-weight: 700; text-align: center; }
+.pi-denom { color: var(--muted); font-size: 0.9rem; }
+.pi-denom b { font-family: "Space Grotesk", sans-serif; color: var(--text); }
+.step-btn { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; font-size: 1.3rem; line-height: 1;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 9px; }
+.step-btn:hover { filter: none; border-color: var(--accent-2); color: var(--accent-2); }
+.pinput .bar { margin: 0 0 8px; }
+
 .circle-check { flex-direction: row; align-items: center; gap: 9px; margin: 2px 0 12px; color: var(--text); font-size: 0.86rem; cursor: pointer; }
 .circle-check input { width: auto; }
 .discount { color: var(--good); }

@@ -73,6 +73,17 @@ CREATE TABLE IF NOT EXISTS order_finds (
   PRIMARY KEY (order_id, rarity)
 );
 
+-- User-entered actuals per (set, collection): how many base-set cards they really
+-- have, and how many of their bought packs they've actually opened. These override
+-- the model's assumptions when present.
+CREATE TABLE IF NOT EXISTS progress (
+  set_id          TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
+  collection      TEXT NOT NULL DEFAULT 'mine',
+  packs_opened    INTEGER,
+  cards_collected INTEGER,
+  PRIMARY KEY (set_id, collection)
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_set ON orders(set_id);
 CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_finds_order ON order_finds(order_id);

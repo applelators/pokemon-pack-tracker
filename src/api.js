@@ -2,7 +2,7 @@ import {
   getSettings, updateSettings, getRawSettings,
   listSets, getCachedSet, setExists,
   listOrders, getOrder, createOrder, updateOrder, deleteOrder, orderExists,
-  setTotals,
+  setTotals, getProgress, setProgress,
 } from "./store.js";
 import { searchSets, importSet } from "./pokemontcg.js";
 import { estimate, chaseEstimate } from "./estimator.js";
@@ -24,13 +24,13 @@ function validateItems(items) {
   return null;
 }
 
-async function computeEstimate(db, set, opened) {
+async function computeEstimate(db, set, opened, collected = null) {
   if (!set.rarities || set.rarities.length === 0) return null;
   const raw = await getRawSettings(db);
   let packModel;
   try { packModel = JSON.parse(raw.pack_model); } catch { packModel = { slots: [] }; }
   const runs = Number(raw.monte_carlo_runs) || 3000;
-  return estimate({ rarities: set.rarities, packModel, opened, runs });
+  return estimate({ rarities: set.rarities, packModel, opened, runs, collected });
 }
 
 async function computeChase(db, set) {
@@ -81,11 +81,27 @@ export async function handleApi(request, env, url) {
       if (seg.length === 4 && seg[3] === "summary" && method === "GET") {
         const set = await getCachedSet(db, setId);
         if (!set) return json({ error: "Set not imported" }, 404);
-        const collection = url.searchParams.get("collection") || undefined;
+        const collection = url.searchParams.get("collection") || "mine";
         const totals = await setTotals(db, setId, collection);
-        const completion = await computeEstimate(db, set, totals.totalPacks);
+        const progress = await getProgress(db, setId, collection);
+        // Actuals override assumptions: opened defaults to packs bought; collected is optional.
+        const packsOpened = progress.packs_opened != null
+          ? Math.min(progress.packs_opened, totals.totalPacks)
+          : totals.totalPacks;
+        const completion = await computeEstimate(db, set, packsOpened, progress.cards_collected);
         const chase = await computeChase(db, set);
-        return json({ set, ...totals, completion, chase });
+        return json({ set, ...totals, packsBought: totals.totalPacks, packsOpened, progress, completion, chase });
+      }
+      // PUT /api/sets/:id/progress
+      if (seg.length === 4 && seg[3] === "progress" && method === "PUT") {
+        if (!(await getCachedSet(db, setId))) return json({ error: "Set not imported" }, 404);
+        const collection = url.searchParams.get("collection") || "mine";
+        const b = await body();
+        const saved = await setProgress(db, setId, collection, {
+          packs_opened: b.packs_opened,
+          cards_collected: b.cards_collected,
+        });
+        return json(saved);
       }
     }
 

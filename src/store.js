@@ -233,6 +233,31 @@ export async function setExists(db, id) {
   return !!(await db.prepare("SELECT 1 FROM sets WHERE id = ?").bind(id).first());
 }
 
+// ---- per (set, collection) progress (user-entered actuals) ---------------
+export async function getProgress(db, setId, collection = "mine") {
+  const row = await db
+    .prepare("SELECT packs_opened, cards_collected FROM progress WHERE set_id = ? AND collection = ?")
+    .bind(setId, collection)
+    .first();
+  return {
+    packs_opened: row && row.packs_opened != null ? row.packs_opened : null,
+    cards_collected: row && row.cards_collected != null ? row.cards_collected : null,
+  };
+}
+
+export async function setProgress(db, setId, collection, { packs_opened, cards_collected }) {
+  const po = packs_opened === null || packs_opened === undefined ? null : Math.max(0, Math.round(Number(packs_opened)));
+  const cc = cards_collected === null || cards_collected === undefined ? null : Math.max(0, Math.round(Number(cards_collected)));
+  await db
+    .prepare(`INSERT INTO progress (set_id, collection, packs_opened, cards_collected)
+              VALUES (?, ?, ?, ?)
+              ON CONFLICT(set_id, collection) DO UPDATE SET
+                packs_opened = excluded.packs_opened, cards_collected = excluded.cards_collected`)
+    .bind(setId, collection || "mine", po, cc)
+    .run();
+  return getProgress(db, setId, collection || "mine");
+}
+
 // ---- aggregate totals for a set -----------------------------------------
 export async function setTotals(db, setId, collection) {
   const orders = await listOrders(db, setId, collection);

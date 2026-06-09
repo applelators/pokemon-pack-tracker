@@ -102,6 +102,7 @@ async function init() {
   setupModal();
   setupSetSwitcher();
   setupCollectionToggle();
+  setupProgressInputs();
   setupOrderForm();
   setupSettingsForm();
   await loadSettings();
@@ -267,6 +268,66 @@ function populateBanner(set) {
   art.classList.toggle("has-symbol", !!set.symbol_url);
 }
 
+// ---- "Your collection" actuals (feed the model) --------------------------
+function renderProgressInputs(s) {
+  const N = s.set.printed_total;
+  const bought = s.packsBought != null ? s.packsBought : s.totalPacks;
+  const cc = s.progress ? s.progress.cards_collected : null;
+  const opened = s.packsOpened != null ? s.packsOpened : bought;
+  const expected = s.completion ? s.completion.expectedCollectedAtOpened : 0;
+
+  $("#cardsTotal").textContent = N;
+  $("#packsBought").textContent = bought;
+  // Don't clobber a value the user is mid-typing.
+  if (document.activeElement !== $("#cardsCollected")) $("#cardsCollected").value = cc != null ? cc : "";
+  $("#cardsCollected").placeholder = expected ? String(expected) : "0";
+  $("#cardsCollected").max = N;
+  if (document.activeElement !== $("#packsOpened")) $("#packsOpened").value = opened;
+  $("#packsOpened").max = bought;
+
+  const shown = cc != null ? cc : expected;
+  $("#cardsFill").style.width = N ? Math.min(100, Math.round((shown / N) * 100)) + "%" : "0%";
+  $("#cardsSub").textContent = cc != null
+    ? `${cc} of ${N} (${Math.round((cc / N) * 100)}%) — drives the gauge + remaining estimate.`
+    : `Blank = model estimate (~${expected}). Enter your real count to override.`;
+  $("#openedFill").style.width = bought ? Math.min(100, Math.round((opened / bought) * 100)) + "%" : "0%";
+  $("#openedSub").textContent = `${opened} of ${bought} bought packs opened — drives diminishing returns + odds.`;
+}
+
+const _progressTimer = { t: null };
+function queueProgressSave() {
+  clearTimeout(_progressTimer.t);
+  _progressTimer.t = setTimeout(async () => {
+    const ccRaw = $("#cardsCollected").value.trim();
+    const payload = {
+      cards_collected: ccRaw === "" ? null : Math.max(0, Math.round(Number(ccRaw))),
+      packs_opened: Math.max(0, Math.round(Number($("#packsOpened").value) || 0)),
+    };
+    try {
+      await api(`/sets/${state.currentSetId}/progress?collection=${state.currentCollection}`, { method: "PUT", body: payload });
+      await loadDashboard(); // recompute estimate with the new actuals
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }, 500);
+}
+
+function setupProgressInputs() {
+  $("#cardsCollected").addEventListener("input", queueProgressSave);
+  $("#packsOpened").addEventListener("input", queueProgressSave);
+  $("#opMinus").addEventListener("click", () => { stepPacksOpened(-1); });
+  $("#opPlus").addEventListener("click", () => { stepPacksOpened(1); });
+}
+
+function stepPacksOpened(delta) {
+  const bought = state.summary ? (state.summary.packsBought ?? state.summary.totalPacks) : 0;
+  const cur = Math.max(0, Math.round(Number($("#packsOpened").value) || 0));
+  const next = Math.max(0, Math.min(bought, cur + delta));
+  $("#packsOpened").value = next;
+  $("#openedFill").style.width = bought ? Math.min(100, Math.round((next / bought) * 100)) + "%" : "0%";
+  queueProgressSave();
+}
+
 // Completion gauge ring (r = 86 → circumference ≈ 540.35).
 function setGauge(pct, collected, baseSize) {
   const p = Math.max(0, Math.min(100, Number(pct) || 0));
@@ -286,14 +347,18 @@ async function loadDashboard() {
     $("#statOrders").textContent = s.orderCount;
     $("#statBaseSet").textContent = s.set.printed_total;
 
+    $("#statPacks").textContent = s.packsOpened != null ? s.packsOpened : s.totalPacks;
+
     const c = s.completion;
     if (c) {
-      $("#estRemaining").textContent = c.packsRemaining;
+      const hasCards = c.collected != null;
+      $("#estRemaining").textContent = hasCards ? c.packsRemainingFromCards : c.packsRemaining;
       $("#estTotal").textContent = c.expectedTotalPacks;
       $("#estP50").textContent = c.p50;
       $("#estP90").textContent = c.p90;
       const opened = c.opened || 0;
       const ms = c.setMilestones || {};
+      renderProgressInputs(s);
 
       // Packs-based breakpoint: packs still needed + bar of opened/threshold.
       const setPackBP = (numEl, fillEl, subEl, threshold, name) => {
@@ -312,12 +377,19 @@ async function loadDashboard() {
       const fmt = (v) => (v == null ? "—" : v);
       $("#estPct50").textContent = fmt(ms.pct50);
       $("#estPct95").textContent = fmt(ms.pct95);
-      setGauge(c.expectedPctAtOpened, c.expectedCollectedAtOpened, c.baseSetSize);
-      $("#estProgressText").textContent =
-        `Estimated ~${c.expectedCollectedAtOpened} of ${c.baseSetSize} base-set cards collected (${c.expectedPctAtOpened}%) after ${c.opened} packs.`;
+      if (hasCards) {
+        setGauge(c.actualPct, c.collected, c.baseSetSize);
+        $("#estProgressText").textContent =
+          `You have ${c.collected} of ${c.baseSetSize} base-set cards (${c.actualPct}%) — about ${c.cardsRemaining} to go, ~${c.packsRemainingFromCards} more packs based on your collection.`;
+      } else {
+        setGauge(c.expectedPctAtOpened, c.expectedCollectedAtOpened, c.baseSetSize);
+        $("#estProgressText").textContent =
+          `Estimated ~${c.expectedCollectedAtOpened} of ${c.baseSetSize} base-set cards (${c.expectedPctAtOpened}%) after ${opened} packs opened. Enter your actual count above to sharpen this.`;
+      }
     } else {
       $("#estRemaining").textContent = "–";
       setGauge(0, 0, s.set.printed_total);
+      renderProgressInputs(s);
       $("#estProgressText").textContent = "No rarity data for this set.";
     }
 

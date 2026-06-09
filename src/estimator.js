@@ -93,7 +93,7 @@ function drawInto(compiled, collected) {
   return fresh;
 }
 
-export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
+export function estimate({ rarities, packModel, opened = 0, runs = 3000, collected = null }) {
   const { N, compiled } = buildDraws(rarities, packModel);
   if (N === 0 || compiled.length === 0) {
     return { baseSetSize: N, expectedTotalPacks: 0, packsRemaining: 0,
@@ -153,11 +153,23 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
   const diminishingReturnsPacks = firstPackBelow(1) ?? CURVE_CAP;
   const diminishingReturnsPacksSteep = firstPackBelow(0.2) ?? CURVE_CAP;
   // Packs to collect a given fraction of the whole base set.
-  const packsToPct = (frac) => {
-    const target = frac * N;
+  const packsTo = (target) => {
     for (let k = 1; k <= CURVE_CAP; k++) if (curve[k] >= target) return k;
     return null; // not reached within the window
   };
+  const packsToPct = (frac) => packsTo(frac * N);
+
+  // If the user told us how many distinct base-set cards they ACTUALLY have, use
+  // it: find the pack count whose expected progress matches that many cards, and
+  // base the remaining estimate on real collection progress (accounts for luck).
+  let cardsRemaining = null, packsRemainingFromCards = null, equivalentPacks = null, actualPct = null;
+  if (collected != null && collected >= 0) {
+    const c = Math.min(collected, N);
+    actualPct = Math.round((c / N) * 1000) / 10;
+    cardsRemaining = Math.max(0, N - c);
+    equivalentPacks = c >= N ? Math.round(mean) : (packsTo(c) ?? 0);
+    packsRemainingFromCards = Math.max(0, Math.round(mean - equivalentPacks));
+  }
 
   return {
     baseSetSize: N,
@@ -170,6 +182,11 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000 }) {
     diminishingReturnsPacks,
     diminishingReturnsPacksSteep,
     setMilestones: { pct50: packsToPct(0.5), pct90: packsToPct(0.9), pct95: packsToPct(0.95) },
+    collected: collected != null ? Math.min(collected, N) : null,
+    actualPct,
+    cardsRemaining,
+    equivalentPacks,
+    packsRemainingFromCards,
     runs,
     opened,
   };

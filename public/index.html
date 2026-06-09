@@ -93,6 +93,31 @@
           </div>
         </div>
 
+        <!-- Your collection (user-entered actuals feed the model) -->
+        <h3 class="dash-h">Your collection <span class="dash-hint">enter your real numbers to sharpen the estimate</span></h3>
+        <div class="progress-inputs">
+          <div class="pinput">
+            <div class="pi-label">Base-set cards collected</div>
+            <div class="pi-control">
+              <input type="number" id="cardsCollected" min="0" placeholder="0" />
+              <span class="pi-denom">/ <b id="cardsTotal">0</b></span>
+            </div>
+            <div class="bar"><i id="cardsFill"></i></div>
+            <div class="pi-sub muted small" id="cardsSub"></div>
+          </div>
+          <div class="pinput">
+            <div class="pi-label">Packs opened</div>
+            <div class="pi-control">
+              <button type="button" class="step-btn" id="opMinus" aria-label="One fewer pack opened">−</button>
+              <input type="number" id="packsOpened" min="0" />
+              <button type="button" class="step-btn" id="opPlus" aria-label="One more pack opened">+</button>
+              <span class="pi-denom">/ <b id="packsBought">0</b> bought</span>
+            </div>
+            <div class="bar"><i id="openedFill"></i></div>
+            <div class="pi-sub muted small" id="openedSub"></div>
+          </div>
+        </div>
+
         <!-- Diminishing returns -->
         <h3 class="dash-h">Diminishing returns <span class="dash-hint">when new packs stop pulling new base cards</span></h3>
         <div class="returns">

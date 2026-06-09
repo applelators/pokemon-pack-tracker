@@ -91,6 +91,13 @@ Don't drop in bare number inputs for counts.
   **discounted** amount: `total = (subtotal − subtotal·discount_rate)·(1 + tax_rate)`. Target with
   the Circle Card = `discount_rate 0.05`. Migration: `ALTER TABLE orders ADD COLUMN store TEXT;`
   and `ALTER TABLE orders ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0;`
+- **Progress actuals:** `progress(set_id, collection, packs_opened, cards_collected)` lets the user
+  override model assumptions. Summary returns `packsBought`, `packsOpened` (= `packs_opened` ??
+  bought), and `progress`. The estimator takes `collected`: it maps that card count to an
+  equivalent pack position on the simulated curve and reports `actualPct`, `cardsRemaining`,
+  `equivalentPacks`, `packsRemainingFromCards`. The dashboard "Your collection" card edits these
+  (`PUT /api/sets/:id/progress?collection=`, debounced, then reload). New table — created by
+  `schema.sql` (`CREATE TABLE IF NOT EXISTS progress ...`).
 - Migration: existing databases need
   `ALTER TABLE sets ADD COLUMN logo_url TEXT;` and `... symbol_url TEXT;`.
 
