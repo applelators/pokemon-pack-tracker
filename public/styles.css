@@ -103,7 +103,11 @@ h2 { font-family: "Space Grotesk", sans-serif; font-size: 1.3rem; font-weight: 7
 h3 { font-family: "Space Grotesk", sans-serif; font-size: 1.02rem; font-weight: 600; letter-spacing: -.01em; color: var(--text); margin: 22px 0 10px; }
 .muted { color: var(--muted); }
 .small { font-size: 0.85rem; }
-.empty { color: var(--muted); padding: 44px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; background: var(--panel); }
+.empty { color: var(--muted); padding: 44px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; background: var(--panel);
+  display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.empty .pokeball { opacity: .92; margin-bottom: 8px; }
+.prod-icon { display: inline-flex; vertical-align: -3px; margin-right: 7px; color: var(--accent-2); }
+.prod-icon svg { width: 16px; height: 16px; }
 
 button {
   background: var(--accent); color: #1a1a1a; border: none; border-radius: 8px;

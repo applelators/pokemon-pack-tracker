@@ -22,6 +22,20 @@ function raritySymbol(rarity) {
   return `<span class="rsym ${r.cls}" title="${rarity}">${r.glyph.repeat(r.count)}</span>`;
 }
 
+// Small inline product glyphs (stroke = currentColor) for the breakdown table.
+const SVG = (inner) => `<span class="prod-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round">${inner}</svg></span>`;
+const PRODUCT_ICON = {
+  "Booster Pack": SVG('<rect x="4.5" y="2.5" width="7" height="11" rx="1.2"/><path d="M4.5 5.2h7"/>'),
+  "Booster Bundle": SVG('<rect x="2.5" y="4.5" width="6.5" height="9" rx="1"/><rect x="7" y="2.5" width="6.5" height="9" rx="1"/>'),
+  "Elite Trainer Box": SVG('<rect x="2.5" y="5" width="11" height="8.5" rx="1"/><path d="M2.5 7.4h11"/><rect x="6.3" y="3" width="3.4" height="2.2" rx="0.6"/>'),
+  "Mini Tin": SVG('<rect x="5" y="4" width="6" height="9.5" rx="3"/>'),
+  "Regular Tin": SVG('<rect x="3.5" y="3" width="9" height="10.5" rx="3.6"/><path d="M3.5 6h9"/>'),
+  _default: SVG('<rect x="3" y="3.5" width="10" height="9" rx="1.2"/>'),
+};
+function productIcon(name) {
+  return PRODUCT_ICON[name] || PRODUCT_ICON._default;
+}
+
 // Short tags for the inline secret-card steppers on order cards.
 const RARITY_ABBR = {
   "Illustration Rare": "IR", "Special Illustration Rare": "SIR", "Ultra Rare": "UR",
@@ -266,6 +280,9 @@ function populateBanner(set) {
   const art = $("#sbArt");
   art.style.backgroundImage = set.symbol_url ? `url("${set.symbol_url}")` : "";
   art.classList.toggle("has-symbol", !!set.symbol_url);
+  // Theme the browser tab icon with the active set's symbol.
+  const fav = $("#favicon");
+  if (fav && set.symbol_url) fav.href = set.symbol_url;
 }
 
 // ---- "Your collection" actuals (feed the model) --------------------------
@@ -398,7 +415,7 @@ async function loadDashboard() {
     const tbody = $("#breakdownTable tbody");
     const entries = Object.entries(s.breakdown);
     tbody.innerHTML = entries.length
-      ? entries.map(([p, b]) => `<tr><td data-label="Product">${p}</td><td data-label="Qty">${b.quantity}</td><td data-label="Packs">${b.packs}</td><td data-label="Spend">${money(b.spend)}</td></tr>`).join("")
+      ? entries.map(([p, b]) => `<tr><td data-label="Product">${productIcon(p)}${p}</td><td data-label="Qty">${b.quantity}</td><td data-label="Packs">${b.packs}</td><td data-label="Spend">${money(b.spend)}</td></tr>`).join("")
       : '<tr><td colspan="4" class="muted">No purchases yet.</td></tr>';
 
     $("#rarityList").innerHTML = (s.set.rarities || [])

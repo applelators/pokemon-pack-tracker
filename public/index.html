@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pokémon Pack Tracker</title>
+  <link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23fff' stroke='%2311161f' stroke-width='6'/%3E%3Cpath d='M5 50a45 45 0 0 1 90 0Z' fill='%23ee1c25'/%3E%3Crect x='5' y='46' width='90' height='8' fill='%2311161f'/%3E%3Ccircle cx='50' cy='50' r='15' fill='%23fff' stroke='%2311161f' stroke-width='6'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -44,7 +45,16 @@
   <main>
     <!-- DASHBOARD -->
     <section id="dashboard" class="tab active">
-      <div id="dashEmpty" class="empty">Select or import a set to get started.</div>
+      <div id="dashEmpty" class="empty">
+        <svg class="pokeball" viewBox="0 0 100 100" width="76" height="76" aria-hidden="true">
+          <circle cx="50" cy="50" r="46" fill="#fff" stroke="#11161f" stroke-width="5"/>
+          <path d="M5 50a45 45 0 0 1 90 0Z" fill="#ee1c25"/>
+          <rect x="5" y="46" width="90" height="8" fill="#11161f"/>
+          <circle cx="50" cy="50" r="15" fill="#fff" stroke="#11161f" stroke-width="5"/>
+          <circle cx="50" cy="50" r="6" fill="#fff" stroke="#11161f" stroke-width="4"/>
+        </svg>
+        <div>Select or import a set to get started.</div>
+      </div>
       <div id="dashContent" class="hidden">
 
         <!-- Set banner — live logo + art from pokemontcg.io -->
@@ -174,7 +184,16 @@
 
     <!-- ORDERS -->
     <section id="orders" class="tab">
-      <div id="ordersEmpty" class="empty">Select a set first (top bar).</div>
+      <div id="ordersEmpty" class="empty">
+        <svg class="pokeball" viewBox="0 0 100 100" width="76" height="76" aria-hidden="true">
+          <circle cx="50" cy="50" r="46" fill="#fff" stroke="#11161f" stroke-width="5"/>
+          <path d="M5 50a45 45 0 0 1 90 0Z" fill="#ee1c25"/>
+          <rect x="5" y="46" width="90" height="8" fill="#11161f"/>
+          <circle cx="50" cy="50" r="15" fill="#fff" stroke="#11161f" stroke-width="5"/>
+          <circle cx="50" cy="50" r="6" fill="#fff" stroke="#11161f" stroke-width="4"/>
+        </svg>
+        <div>Select a set first (top bar).</div>
+      </div>
       <div id="ordersContent" class="hidden">
         <h2 class="page-h">Add an order</h2>
         <form id="orderForm" class="order-form">
