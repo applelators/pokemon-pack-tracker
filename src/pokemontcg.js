@@ -3,18 +3,36 @@ import { getRawSettings, saveSet, getCachedSet } from "./store.js";
 
 const BASE_URL = "https://api.pokemontcg.io/v2";
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function apiGet(db, path) {
   const settings = await getRawSettings(db);
   const headers = { Accept: "application/json" };
   const key = (settings.pokemontcg_api_key || "").trim();
   if (key) headers["X-Api-Key"] = key;
 
-  const res = await fetch(`${BASE_URL}${path}`, { headers });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`pokemontcg.io ${res.status}: ${body.slice(0, 200)}`);
+  // Retry transient throttles (429) and upstream blips (5xx) with backoff.
+  const MAX_ATTEMPTS = 4;
+  let lastStatus = 0, lastBody = "";
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const res = await fetch(`${BASE_URL}${path}`, { headers });
+    if (res.ok) return res.json();
+
+    lastStatus = res.status;
+    lastBody = await res.text().catch(() => "");
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt === MAX_ATTEMPTS) break;
+
+    // Honor Retry-After if given, else exponential backoff (0.6s, 1.4s, 3s).
+    const retryAfter = Number(res.headers.get("retry-after"));
+    const waitMs = retryAfter > 0 ? Math.min(retryAfter * 1000, 5000) : [600, 1400, 3000][attempt - 1] || 3000;
+    await sleep(waitMs);
   }
-  return res.json();
+
+  if (lastStatus === 429) {
+    throw new Error("pokemontcg.io is rate-limiting requests (429). Add a free API key in Settings for much higher limits, or try again in a moment.");
+  }
+  throw new Error(`pokemontcg.io ${lastStatus}: ${lastBody.slice(0, 160)}`);
 }
 
 export async function searchSets(db, query) {
