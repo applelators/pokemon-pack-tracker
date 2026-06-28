@@ -59,6 +59,18 @@ function isBaseSetNumber(number, printedTotal) {
   return n >= 1 && n <= printedTotal;
 }
 
+// Representative market price for a card = highest market/mid across its variants.
+function repMarketPrice(tcg) {
+  const prices = tcg && tcg.prices;
+  if (!prices) return 0;
+  let best = 0;
+  for (const v of Object.values(prices)) {
+    const m = (v && (v.market || v.mid)) || 0;
+    if (m > best) best = m;
+  }
+  return best;
+}
+
 export async function importSet(db, setId) {
   const setJson = await apiGet(
     db,
@@ -70,17 +82,20 @@ export async function importSet(db, setId) {
 
   const rarityCounts = {};     // base-set cards only (number <= printedTotal)
   const allRarityCounts = {};  // every card in the set, incl. secret rares
+  const priceSum = {}, priceN = {};  // per-rarity TCGplayer market price totals (for EV)
   let page = 1;
   const pageSize = 250;
   for (;;) {
     const cardsJson = await apiGet(
       db,
-      `/cards?q=${encodeURIComponent(`set.id:${setId}`)}&select=id,number,rarity&page=${page}&pageSize=${pageSize}`
+      `/cards?q=${encodeURIComponent(`set.id:${setId}`)}&select=id,number,rarity,tcgplayer&page=${page}&pageSize=${pageSize}`
     );
     const cards = cardsJson.data || [];
     for (const c of cards) {
       const rarity = c.rarity || "Unknown";
       allRarityCounts[rarity] = (allRarityCounts[rarity] || 0) + 1;
+      const price = repMarketPrice(c.tcgplayer);
+      if (price > 0) { priceSum[rarity] = (priceSum[rarity] || 0) + price; priceN[rarity] = (priceN[rarity] || 0) + 1; }
       if (!isBaseSetNumber(c.number, printedTotal)) continue;
       rarityCounts[rarity] = (rarityCounts[rarity] || 0) + 1;
     }
@@ -88,6 +103,8 @@ export async function importSet(db, setId) {
     if (page * pageSize >= total || cards.length === 0) break;
     page += 1;
   }
+  const allRarityPrices = {};  // rarity -> avg market price
+  for (const r of Object.keys(priceN)) allRarityPrices[r] = priceSum[r] / priceN[r];
 
   await saveSet(
     db,
@@ -103,7 +120,8 @@ export async function importSet(db, setId) {
       fetched_at: new Date().toISOString(),
     },
     rarityCounts,
-    allRarityCounts
+    allRarityCounts,
+    allRarityPrices
   );
 
   return getCachedSet(db, s.id);

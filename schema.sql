@@ -44,11 +44,13 @@ CREATE TABLE IF NOT EXISTS set_rarities (
 -- Rarity counts across the ENTIRE set (incl. secret rares above printedTotal),
 -- used to know which chase rarities (IR/UR/SIR/MHR) the expansion actually has.
 CREATE TABLE IF NOT EXISTS set_all_rarities (
-  set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
-  rarity TEXT NOT NULL,
-  count  INTEGER NOT NULL,
+  set_id    TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
+  rarity    TEXT NOT NULL,
+  count     INTEGER NOT NULL,
+  avg_price REAL,                 -- avg TCGplayer market price of cards of this rarity (for EV)
   PRIMARY KEY (set_id, rarity)
 );
+-- Upgrading? Run once: ALTER TABLE set_all_rarities ADD COLUMN avg_price REAL;
 
 CREATE TABLE IF NOT EXISTS orders (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,

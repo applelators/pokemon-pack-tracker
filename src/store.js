@@ -71,13 +71,13 @@ export async function getCachedSet(db, id) {
     .bind(id)
     .all();
   const { results: all } = await db
-    .prepare("SELECT rarity, count FROM set_all_rarities WHERE set_id = ? ORDER BY count DESC")
+    .prepare("SELECT rarity, count, avg_price FROM set_all_rarities WHERE set_id = ? ORDER BY count DESC")
     .bind(id)
     .all();
   return { ...set, rarities: results, allRarities: all };
 }
 
-export async function saveSet(db, set, rarityCounts, allRarityCounts = {}) {
+export async function saveSet(db, set, rarityCounts, allRarityCounts = {}, allRarityPrices = {}) {
   const stmts = [
     db.prepare(
       `INSERT INTO sets (id, name, series, printed_total, total, release_date, logo_url, symbol_url, fetched_at)
@@ -96,8 +96,9 @@ export async function saveSet(db, set, rarityCounts, allRarityCounts = {}) {
     );
   }
   for (const [rarity, count] of Object.entries(allRarityCounts)) {
+    const avg = allRarityPrices[rarity] != null ? allRarityPrices[rarity] : null;
     stmts.push(
-      db.prepare("INSERT INTO set_all_rarities (set_id, rarity, count) VALUES (?, ?, ?)").bind(set.id, rarity, count)
+      db.prepare("INSERT INTO set_all_rarities (set_id, rarity, count, avg_price) VALUES (?, ?, ?, ?)").bind(set.id, rarity, count, avg)
     );
   }
   await db.batch(stmts);

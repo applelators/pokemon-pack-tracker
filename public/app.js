@@ -287,17 +287,23 @@ function populateBanner(set) {
 }
 
 // ---- Loose-pack deal check -----------------------------------------------
-function renderDealCard(set) {
+function renderDealCard(s) {
+  const set = s.set;
+  const ev = s.packEv;
   const c = set.pack_price_ceiling, m = set.pack_market_price, msrp = set.pack_msrp;
-  $("#dealCeiling").textContent = c != null ? money(c) : "—";
+  const effCeiling = c != null ? c : ev;  // default the good-deal line to EV when no manual ceiling
+  $("#dealCeiling").textContent = effCeiling != null ? money(effCeiling) : "—";
+  $("#dealEv").textContent = ev != null ? money(ev) : "no price data yet";
   $("#dealMarket").textContent = m != null ? money(m) : "—";
   $("#dealMsrp").textContent = msrp != null ? money(msrp) : "—";
   const note = $("#dealNote");
   if (set.pack_price_note || set.pack_price_updated) {
     const date = set.pack_price_updated ? set.pack_price_updated.slice(0, 10) : "";
     note.textContent = (set.pack_price_note || "") + (date ? ` · as of ${date}` : "");
+  } else if (ev != null) {
+    note.textContent = "Good-deal line = pack value (EV from current single-card prices). Set a market ceiling below to override.";
   } else {
-    note.textContent = "No price set yet — ask Claude to research current loose-pack prices, or enter them below.";
+    note.textContent = "No price data yet (pokemontcg.io hasn't priced this set) — set a market ceiling below, or ask Claude.";
   }
   if (document.activeElement !== $("#dealMarketInput")) $("#dealMarketInput").value = m != null ? m : "";
   if (document.activeElement !== $("#dealCeilingInput")) $("#dealCeilingInput").value = c != null ? c : "";
@@ -396,7 +402,7 @@ async function loadDashboard() {
     const s = await api(`/sets/${state.currentSetId}/summary?collection=${state.currentCollection}`);
     state.summary = s;
     populateBanner(s.set);
-    renderDealCard(s.set);
+    renderDealCard(s);
     $("#statSpent").textContent = money(s.totalSpent);
     $("#statPacks").textContent = s.totalPacks;
     $("#statOrders").textContent = s.orderCount;

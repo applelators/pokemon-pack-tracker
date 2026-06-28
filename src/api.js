@@ -33,6 +33,30 @@ async function computeEstimate(db, set, opened, collected = null) {
   return estimate({ rarities: set.rarities, packModel, opened, runs, collected });
 }
 
+// Expected value of one pack ($) from current single-card prices (pokemontcg.io).
+// Bulk + a guaranteed rare-or-better hit + chase upside (per configured pull rates).
+// Returns null if the set has no price data yet (new sets aren't priced).
+async function computeEV(db, set) {
+  const price = {};
+  let any = false;
+  for (const r of set.allRarities || []) {
+    if (r.avg_price != null) { price[r.rarity] = r.avg_price; any = true; }
+  }
+  if (!any) return null;
+  const p = (r) => price[r] || 0;
+  let ev = 4 * p("Common") + 3 * p("Uncommon") + 2 * p("Common"); // commons, uncommons, 2 reverse ~common
+  const dr = price["Double Rare"] != null ? p("Double Rare") : p("Rare");
+  ev += 0.8 * p("Rare") + 0.2 * dr; // one guaranteed rare-or-better
+  const raw = await getRawSettings(db);
+  let rates = {};
+  try { rates = JSON.parse(raw.chase_pull_rates); } catch { /* none */ }
+  for (const [rarity, rate] of Object.entries(rates)) {
+    const pr = Number(rate);
+    if (pr > 0 && price[rarity] != null) ev += pr * price[rarity]; // chase upside
+  }
+  return Math.round(ev * 100) / 100;
+}
+
 async function computeChase(db, set) {
   const raw = await getRawSettings(db);
   let rates;
@@ -90,7 +114,8 @@ export async function handleApi(request, env, url) {
           : totals.totalPacks;
         const completion = await computeEstimate(db, set, packsOpened, progress.cards_collected);
         const chase = await computeChase(db, set);
-        return json({ set, ...totals, packsBought: totals.totalPacks, packsOpened, progress, completion, chase });
+        const packEv = await computeEV(db, set);
+        return json({ set, ...totals, packsBought: totals.totalPacks, packsOpened, progress, completion, chase, packEv });
       }
       // PUT /api/sets/:id/pricing — loose-pack deal pricing
       if (seg.length === 4 && seg[3] === "pricing" && method === "PUT") {
