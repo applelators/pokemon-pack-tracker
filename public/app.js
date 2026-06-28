@@ -395,6 +395,19 @@ function setupDealCard() {
       loadDashboard();
     } catch (err) { toast(err.message, true); }
   });
+  $("#dealRefresh").addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.disabled = true; btn.textContent = "↻ Refreshing…";
+    try {
+      const r = await api(`/sets/${state.currentSetId}/pricing/refresh`, { method: "POST" });
+      toast(`Market price: ${money(r.pack_market_price)} (${r.matched ? r.matched.productName : "PriceCharting"})`);
+      loadDashboard();
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      btn.disabled = false; btn.textContent = "↻ Refresh from PriceCharting";
+    }
+  });
 }
 
 // ---- "Your collection" actuals (feed the model) --------------------------
@@ -1063,6 +1076,7 @@ function renderSettings() {
   const s = state.settings;
   $("#setTax").value = s.sales_tax_rate ?? 0;
   $("#setApiKey").value = s.pokemontcg_api_key ?? "";
+  $("#setPcKey").value = s.pricecharting_api_key ?? "";
   $("#setRuns").value = s.monte_carlo_runs ?? 3000;
   const tbody = $("#packsPerProduct tbody");
   tbody.innerHTML = Object.entries(s.packs_per_product || {})
@@ -1133,6 +1147,7 @@ async function saveSettings(e) {
       body: {
         sales_tax_rate: Number($("#setTax").value || 0),
         pokemontcg_api_key: $("#setApiKey").value,
+        pricecharting_api_key: $("#setPcKey").value,
         monte_carlo_runs: Number($("#setRuns").value || 3000),
         packs_per_product: packsPerProduct,
         chase_pull_rates: chaseRates,

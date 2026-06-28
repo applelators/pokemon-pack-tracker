@@ -122,6 +122,7 @@
                 <label>Typical market $<input type="number" id="dealMarketInput" step="0.01" min="0" /></label>
                 <label>Good-deal ceiling $<input type="number" id="dealCeilingInput" step="0.01" min="0" /></label>
                 <button type="button" id="dealSave">Save</button>
+                <button type="button" id="dealRefresh" class="ghost">↻ Refresh from PriceCharting</button>
               </div>
             </details>
           </div>
@@ -300,6 +301,8 @@
             <label class="grow">pokemontcg.io API key (optional)
               <input type="text" id="setApiKey" placeholder="leave blank to use without a key" /></label>
           </div>
+          <label>PriceCharting API key (for live loose-pack market prices)
+            <input type="text" id="setPcKey" placeholder="40-char token from your PriceCharting subscription" /></label>
           <label>Monte-Carlo runs (higher = more accurate, slower)
             <input type="number" id="setRuns" min="200" step="100" /></label>
         </div>

@@ -5,6 +5,7 @@ const JSON_KEYS = ["packs_per_product", "pack_model", "chase_pull_rates"];
 export const DEFAULT_SETTINGS = {
   sales_tax_rate: "6.0",
   pokemontcg_api_key: "",
+  pricecharting_api_key: "",
   monte_carlo_runs: "3000",
   packs_per_product: '{"Booster Pack":1,"Sleeved Booster":1,"Booster Bundle":6,"Elite Trainer Box":9,"Mini Tin":2,"Regular Tin":3}',
   pack_model: '{"slots":[{"name":"Common","count":4,"pool":["Common"]},{"name":"Uncommon","count":3,"pool":["Uncommon"]},{"name":"Reverse Holo","count":2,"pool":["Common","Uncommon","Rare"]},{"name":"Hit","count":1,"weights":{"Rare":0.7,"Double Rare":0.18,"Ultra Rare":0.06,"Illustration Rare":0.06}}]}',

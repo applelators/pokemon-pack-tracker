@@ -5,6 +5,7 @@ import {
   setTotals, getProgress, setProgress, setSetPricing,
 } from "./store.js";
 import { searchSets, importSet, listSetCards } from "./pokemontcg.js";
+import { fetchPackPrice } from "./pricecharting.js";
 import { estimate, chaseEstimate } from "./estimator.js";
 
 const json = (data, status = 200) =>
@@ -126,6 +127,21 @@ export async function handleApi(request, env, url) {
         if (!(await getCachedSet(db, setId))) return json({ error: "Set not imported" }, 404);
         const b = await body();
         return json(await setSetPricing(db, setId, b));
+      }
+      // POST /api/sets/:id/pricing/refresh — pull live market price from PriceCharting
+      if (seg.length === 5 && seg[3] === "pricing" && seg[4] === "refresh" && method === "POST") {
+        const set = await getCachedSet(db, setId);
+        if (!set) return json({ error: "Set not imported" }, 404);
+        let r;
+        try { r = await fetchPackPrice(db, set.name); }
+        catch (e) { return json({ error: e.message }, 400); }
+        if (r.market == null) return json({ error: r.note || "No PriceCharting price found", matched: r }, 404);
+        const saved = await setSetPricing(db, setId, {
+          market_price: r.market,
+          ceiling: r.market,
+          note: `PriceCharting: ${r.consoleName} · ${r.productName}`,
+        });
+        return json({ ...saved, matched: r });
       }
       // PUT /api/sets/:id/progress
       if (seg.length === 4 && seg[3] === "progress" && method === "PUT") {
