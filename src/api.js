@@ -174,26 +174,29 @@ export async function handleApi(request, env, url) {
         const stopAllIn = allInUnbounded ? cap : stopFor(allInThr);
         const nextMarginal = opened + 1 <= cap ? fwd[opened + 1] - fwd[opened] : 0;
 
-        // Fun-premium: how many packs the "willing to overpay vs market" budget covers.
-        const market = set.pack_market_price;
-        const funBudget = Number(raw.fun_premium_budget) || 0;
-        let fun = null;
-        if (market != null && market > 0) {
-          const premium = Math.round(Math.max(0, price - market) * 100) / 100;
-          fun = {
-            market: Math.round(market * 100) / 100,
-            premiumPerPack: premium,
-            funBudget,
-            pctVsMarket: Math.round(((price - market) / market) * 100),
-            packs: premium <= 0 ? null : Math.floor(funBudget / premium), // null = no premium (good deal)
-          };
-        }
+        // Diminishing-returns vs MSRP: how many packs before the premium over MSRP
+        // ($5 baseline) buys too few NEW base-set cards to be worth it. At/below MSRP
+        // every pack is best value (unbounded). Above it, the premium per new card
+        // must stay under an anchor — the card's own single value, or one MSRP.
+        const msrp = set.pack_msrp != null && set.pack_msrp > 0 ? set.pack_msrp : 5;
+        const premium = Math.round(Math.max(0, price - msrp) * 100) / 100;
+        const unlimited = premium <= 0;
+        const drStop = (anchor) => (unlimited ? cap : stopFor(premium / anchor));
+        const valueStop = drStop(avg);   // premium per new card ≤ a single's price
+        const msrpStop = drStop(msrp);   // premium per new card ≤ one MSRP (~$5)
+        const dr = {
+          msrp: Math.round(msrp * 100) / 100,
+          premiumPerPack: premium,
+          unlimited,
+          byCardValue: { stopAtPack: valueStop, recommendedMore: Math.max(0, valueStop - opened) },
+          byMsrp: { stopAtPack: msrpStop, recommendedMore: Math.max(0, msrpStop - opened) },
+        };
 
         return json({
           price,
           avgSingle: Math.round(avg * 100) / 100,
           chaseEv: Math.round(chaseEv * 100) / 100,
-          fun,
+          dr,
           opened,
           recommendedMore: Math.max(0, stop - opened),
           stopAtPack: stop,

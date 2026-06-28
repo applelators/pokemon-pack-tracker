@@ -442,14 +442,26 @@ function renderDealCard(s) {
 
 function renderPackCalc(r) {
   const P = money(r.price), avg = money(r.avgSingle);
-  // Lead line — fun-premium: how many to grab at this price before waiting for a better one.
-  let fun = "";
-  if (r.fun) {
-    const f = r.fun, M = money(f.market);
-    if (f.premiumPerPack <= 0) {
-      fun = `<b>Deal vs market:</b> ${P} is ${Math.abs(f.pctVsMarket)}% ${f.pctVsMarket <= 0 ? "below" : "above"} the ~${M} typical market — a good price, rip away. `;
+  // Lead line — diminishing returns vs MSRP: how many packs at this price before the
+  // premium over the ~$5 MSRP baseline buys too few NEW base-set cards to be worth it.
+  let dr = "";
+  if (r.dr) {
+    const d = r.dr, M = money(d.msrp);
+    if (d.unlimited) {
+      dr = `<b>Diminishing returns:</b> ${P} is at/below the ~${M} MSRP — best value, rip as many as you want.`;
     } else {
-      fun = `<b>Worth grabbing ~<span class="deal-good">${f.packs}</span> at this price:</b> ${P} is ${f.pctVsMarket}% over the ~${M} market (~${money(f.premiumPerPack)} premium/pack); your ${money(f.funBudget)} fun-premium budget covers ~${f.packs} before it's better to wait for a price near ${M}. `;
+      const prem = money(d.premiumPerPack);
+      const v = d.byCardValue.recommendedMore, m = d.byMsrp.recommendedMore;
+      const lo = Math.min(v, m), hi = Math.max(v, m);
+      if (hi <= 0) {
+        dr = `<b>Diminishing returns:</b> at ${P} (${prem}/pack over the ~${M} MSRP) the new-card payoff is already too thin by either yardstick — skip and wait for a price nearer ${M}.`;
+      } else if (lo <= 0) {
+        dr = `<b>Diminishing returns:</b> ${P} is ${prem}/pack over the ~${M} MSRP. By the <b>strict</b> yardstick (premium per new card under a single's value) it's already not worth more — but by the <b>looser</b> one-MSRP yardstick it's worth ~<span class="deal-good">${hi}</span> more pack${hi === 1 ? "" : "s"} before new cards thin out. Lean strict for value, looser if you just like ripping.`;
+      } else if (lo === hi) {
+        dr = `<b>Diminishing returns:</b> ${P} is ${prem}/pack over the ~${M} MSRP — worth ~<span class="deal-good">${hi}</span> more pack${hi === 1 ? "" : "s"} before new base cards thin out too much for that premium, then wait for a cheaper price.`;
+      } else {
+        dr = `<b>Diminishing returns:</b> ${P} is ${prem}/pack over the ~${M} MSRP — worth <span class="deal-good">${lo}</span> (strict: premium per new card under a single's value) to <span class="deal-good">${hi}</span> (looser: under one MSRP) more packs, then wait for a cheaper price.`;
+      }
     }
   }
   // Line — base-set completion value only.
@@ -470,7 +482,7 @@ function renderPackCalc(r) {
   } else {
     allin = `<b>All-in value:</b> even with ~${chase}/pack chase upside, ${P} isn't worth more packs — buy singles / specific chase cards.`;
   }
-  return `${fun ? fun + "<br>" : ""}${base}<br>${allin}`;
+  return `${dr ? dr + "<br>" : ""}${base}<br>${allin}`;
 }
 
 function setupDealCard() {
@@ -1194,7 +1206,6 @@ function renderSettings() {
   $("#setPcKey").value = s.pricecharting_api_key ?? "";
   $("#setEbayId").value = s.ebay_client_id ?? "";
   $("#setEbaySecret").value = s.ebay_client_secret ?? "";
-  $("#setFunBudget").value = s.fun_premium_budget ?? 15;
   $("#setRuns").value = s.monte_carlo_runs ?? 3000;
   const tbody = $("#packsPerProduct tbody");
   tbody.innerHTML = Object.entries(s.packs_per_product || {})
@@ -1268,7 +1279,6 @@ async function saveSettings(e) {
         pricecharting_api_key: $("#setPcKey").value,
         ebay_client_id: $("#setEbayId").value,
         ebay_client_secret: $("#setEbaySecret").value,
-        fun_premium_budget: Number($("#setFunBudget").value || 0),
         monte_carlo_runs: Number($("#setRuns").value || 3000),
         packs_per_product: packsPerProduct,
         chase_pull_rates: chaseRates,
