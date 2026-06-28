@@ -174,10 +174,26 @@ export async function handleApi(request, env, url) {
         const stopAllIn = allInUnbounded ? cap : stopFor(allInThr);
         const nextMarginal = opened + 1 <= cap ? fwd[opened + 1] - fwd[opened] : 0;
 
+        // Fun-premium: how many packs the "willing to overpay vs market" budget covers.
+        const market = set.pack_market_price;
+        const funBudget = Number(raw.fun_premium_budget) || 0;
+        let fun = null;
+        if (market != null && market > 0) {
+          const premium = Math.round(Math.max(0, price - market) * 100) / 100;
+          fun = {
+            market: Math.round(market * 100) / 100,
+            premiumPerPack: premium,
+            funBudget,
+            pctVsMarket: Math.round(((price - market) / market) * 100),
+            packs: premium <= 0 ? null : Math.floor(funBudget / premium), // null = no premium (good deal)
+          };
+        }
+
         return json({
           price,
           avgSingle: Math.round(avg * 100) / 100,
           chaseEv: Math.round(chaseEv * 100) / 100,
+          fun,
           opened,
           recommendedMore: Math.max(0, stop - opened),
           stopAtPack: stop,

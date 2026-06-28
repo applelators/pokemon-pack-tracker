@@ -442,7 +442,17 @@ function renderDealCard(s) {
 
 function renderPackCalc(r) {
   const P = money(r.price), avg = money(r.avgSingle);
-  // Line 1 — base-set completion value only.
+  // Lead line — fun-premium: how many to grab at this price before waiting for a better one.
+  let fun = "";
+  if (r.fun) {
+    const f = r.fun, M = money(f.market);
+    if (f.premiumPerPack <= 0) {
+      fun = `<b>Deal vs market:</b> ${P} is ${Math.abs(f.pctVsMarket)}% ${f.pctVsMarket <= 0 ? "below" : "above"} the ~${M} typical market — a good price, rip away. `;
+    } else {
+      fun = `<b>Worth grabbing ~<span class="deal-good">${f.packs}</span> at this price:</b> ${P} is ${f.pctVsMarket}% over the ~${M} market (~${money(f.premiumPerPack)} premium/pack); your ${money(f.funBudget)} fun-premium budget covers ~${f.packs} before it's better to wait for a price near ${M}. `;
+    }
+  }
+  // Line — base-set completion value only.
   let base;
   if (r.recommendedMore > 0) {
     const per = r.costPerNewCardNext != null ? money(r.costPerNewCardNext) : "—";
@@ -460,7 +470,7 @@ function renderPackCalc(r) {
   } else {
     allin = `<b>All-in value:</b> even with ~${chase}/pack chase upside, ${P} isn't worth more packs — buy singles / specific chase cards.`;
   }
-  return `${base}<br>${allin}`;
+  return `${fun ? fun + "<br>" : ""}${base}<br>${allin}`;
 }
 
 function setupDealCard() {
@@ -1184,6 +1194,7 @@ function renderSettings() {
   $("#setPcKey").value = s.pricecharting_api_key ?? "";
   $("#setEbayId").value = s.ebay_client_id ?? "";
   $("#setEbaySecret").value = s.ebay_client_secret ?? "";
+  $("#setFunBudget").value = s.fun_premium_budget ?? 15;
   $("#setRuns").value = s.monte_carlo_runs ?? 3000;
   const tbody = $("#packsPerProduct tbody");
   tbody.innerHTML = Object.entries(s.packs_per_product || {})
@@ -1257,6 +1268,7 @@ async function saveSettings(e) {
         pricecharting_api_key: $("#setPcKey").value,
         ebay_client_id: $("#setEbayId").value,
         ebay_client_secret: $("#setEbaySecret").value,
+        fun_premium_budget: Number($("#setFunBudget").value || 0),
         monte_carlo_runs: Number($("#setRuns").value || 3000),
         packs_per_product: packsPerProduct,
         chase_pull_rates: chaseRates,
