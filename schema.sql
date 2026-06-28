@@ -127,5 +127,5 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('pricecharting_api_key', ''),
   ('monte_carlo_runs', '3000'),
   ('packs_per_product', '{"Booster Pack":1,"Sleeved Booster":1,"Booster Bundle":6,"Elite Trainer Box":9,"Mini Tin":2,"Regular Tin":3}'),
-  ('pack_model', '{"slots":[{"name":"Common","count":4,"pool":["Common"]},{"name":"Uncommon","count":3,"pool":["Uncommon"]},{"name":"Reverse Holo","count":2,"pool":["Common","Uncommon","Rare"]},{"name":"Hit","count":1,"weights":{"Rare":0.7,"Double Rare":0.18,"Ultra Rare":0.06,"Illustration Rare":0.06}}]}'),
+  ('pack_model', '{"slots":[{"name":"Common","count":4,"pool":["Common"]},{"name":"Uncommon","count":3,"pool":["Uncommon"]},{"name":"Reverse Holo","count":2,"pool":["Common","Uncommon","Rare"]},{"name":"Hit","count":1,"weights":{"Rare":0.66,"Double Rare":0.18,"Ultra Rare":0.06,"Illustration Rare":0.05,"ACE SPEC Rare":0.05}}]}'),
   ('chase_pull_rates', '{"Illustration Rare":0.111,"Ultra Rare":0.05,"Special Illustration Rare":0.0139,"Mega Hyper Rare":0.000794}');

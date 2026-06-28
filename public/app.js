@@ -178,8 +178,8 @@ function updateSetTrigger() {
   if (set) {
     nameEl.textContent = set.name;
     symEl.classList.remove("hidden", "ph");
-    if (set.symbol_url) { symEl.innerHTML = `<img src="${set.symbol_url}" alt="" />`; }
-    else { symEl.textContent = (set.name || "?").slice(0, 1); symEl.classList.add("ph"); }
+    symEl.classList.add("num");                       // show the set number, not the symbol
+    symEl.textContent = (set.id || "?").toUpperCase(); // e.g. me4 -> ME4
   } else {
     nameEl.textContent = "Select a set";
     symEl.innerHTML = "";
