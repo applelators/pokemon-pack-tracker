@@ -96,7 +96,18 @@ CREATE TABLE IF NOT EXISTS progress (
   PRIMARY KEY (set_id, collection)
 );
 
+-- Specific secret cards the user tagged as pulled from an order (optional, for
+-- thumbnails). Image/name denormalized so display needs no extra lookups.
+CREATE TABLE IF NOT EXISTS order_pull_cards (
+  order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  card_id     TEXT NOT NULL,
+  name        TEXT,
+  image_small TEXT,
+  PRIMARY KEY (order_id, card_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_set ON orders(set_id);
+CREATE INDEX IF NOT EXISTS idx_pullcards_order ON order_pull_cards(order_id);
 CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_finds_order ON order_finds(order_id);
 

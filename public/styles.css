@@ -258,6 +258,19 @@ table.grid input { width: 100%; }
 .secret-pred { margin-bottom: 10px; line-height: 1.5; }
 .secret-inputs { display: flex; gap: 10px; flex-wrap: wrap; }
 .order-secrets { margin-top: 8px; font-size: 0.88rem; }
+
+/* Tag-pulled-cards picker + thumbnails */
+.pulls { margin-top: 14px; }
+.pull-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 8px; margin-top: 10px;
+  max-height: 320px; overflow: auto; padding: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+.pull-card { padding: 0; background: none; border: 2px solid transparent; border-radius: 8px; cursor: pointer; line-height: 0; }
+.pull-card:hover { filter: none; border-color: var(--border); }
+.pull-card img { width: 100%; border-radius: 6px; display: block; }
+.pull-card.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px rgba(59,111,224,.35); }
+.pull-selected { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.pull-thumb { width: 36px; border-radius: 4px; border: 1px solid var(--border); }
+.order-pulls { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.order-pulls .pull-thumb { width: 48px; }
 .order-card .order-secrets { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .os-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 .os-label { font-family: "Space Grotesk", sans-serif; font-weight: 600; font-size: 0.9rem; color: var(--text); }

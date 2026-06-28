@@ -4,7 +4,7 @@ import {
   listOrders, getOrder, createOrder, updateOrder, deleteOrder, orderExists,
   setTotals, getProgress, setProgress, setSetPricing,
 } from "./store.js";
-import { searchSets, importSet } from "./pokemontcg.js";
+import { searchSets, importSet, listSetCards } from "./pokemontcg.js";
 import { estimate, chaseEstimate } from "./estimator.js";
 
 const json = (data, status = 200) =>
@@ -101,6 +101,10 @@ export async function handleApi(request, env, url) {
       }
       if (seg.length === 4 && seg[3] === "import" && method === "POST") {
         return json(await importSet(db, setId));
+      }
+      // GET /api/sets/:id/cards — live card list for the "tag pulls" picker
+      if (seg.length === 4 && seg[3] === "cards" && method === "GET") {
+        return json(await listSetCards(db, setId));
       }
       if (seg.length === 4 && seg[3] === "summary" && method === "GET") {
         const set = await getCachedSet(db, setId);

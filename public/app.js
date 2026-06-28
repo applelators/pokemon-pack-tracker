@@ -74,6 +74,8 @@ const state = {
   editingOrderId: null,
   summary: null,
   orders: [],
+  formPulls: [],     // cards tagged as pulled in the order form
+  cardsCache: {},    // setId -> card list (for the picker)
 };
 
 // ---- collection (binder) toggles -----------------------------------------
@@ -594,6 +596,51 @@ function onFormSecretStep(e) {
   setStepOdds(step, Number($("#formPacks").textContent) || 0);
 }
 
+// ---- "tag pulled cards" picker -------------------------------------------
+async function loadSetCards(setId) {
+  if (state.cardsCache[setId]) return state.cardsCache[setId];
+  const cards = await api(`/sets/${setId}/cards`);
+  state.cardsCache[setId] = cards;
+  return cards;
+}
+
+async function openCardPicker() {
+  const grid = $("#pullGrid");
+  if (!grid.classList.contains("hidden")) { grid.classList.add("hidden"); return; }
+  grid.classList.remove("hidden");
+  grid.innerHTML = '<div class="muted small">Loading cards…</div>';
+  try {
+    const cards = await loadSetCards(state.currentSetId);
+    const secret = new Set(setSecretRarities());
+    const picks = cards.filter((c) => secret.has(c.rarity) && c.image);
+    if (!picks.length) { grid.innerHTML = '<div class="muted small">No secret-rarity card images for this set yet.</div>'; return; }
+    const selected = new Set(state.formPulls.map((p) => p.card_id));
+    grid.innerHTML = picks.map((c) => `
+      <button type="button" class="pull-card${selected.has(c.id) ? " selected" : ""}" data-id="${c.id}"
+        data-name="${(c.name || "").replace(/"/g, "&quot;")}" data-img="${c.image}" title="${c.name} · ${c.rarity}">
+        <img src="${c.image}" loading="lazy" alt="${c.name}" />
+      </button>`).join("");
+  } catch (err) {
+    grid.innerHTML = `<div class="muted small">Couldn't load cards: ${err.message}</div>`;
+  }
+}
+
+function togglePull(btn) {
+  const id = btn.dataset.id;
+  const i = state.formPulls.findIndex((p) => p.card_id === id);
+  if (i >= 0) { state.formPulls.splice(i, 1); btn.classList.remove("selected"); }
+  else { state.formPulls.push({ card_id: id, name: btn.dataset.name, image_small: btn.dataset.img }); btn.classList.add("selected"); }
+  renderPullSelected();
+}
+
+function renderPullSelected() {
+  const el = $("#pullSelected");
+  if (!el) return;
+  if (!state.formPulls.length) { el.innerHTML = ""; return; }
+  el.innerHTML = state.formPulls.map((p) => `<img class="pull-thumb" src="${p.image_small}" title="${p.name}" alt="${p.name}" />`).join("")
+    + ` <span class="muted small">${state.formPulls.length} tagged</span>`;
+}
+
 function readFinds() {
   const finds = {};
   $$("#secretInputs .os-step").forEach((step) => {
@@ -662,6 +709,11 @@ function setupOrderForm() {
   $("#orderForm").addEventListener("submit", submitOrder);
   $("#ordersList").addEventListener("click", onSecretStep);
   $("#secretInputs").addEventListener("click", onFormSecretStep);
+  $("#tagCardsBtn").addEventListener("click", openCardPicker);
+  $("#pullGrid").addEventListener("click", (e) => {
+    const b = e.target.closest(".pull-card");
+    if (b) togglePull(b);
+  });
 }
 
 function resetOrderForm() {
@@ -675,6 +727,9 @@ function resetOrderForm() {
   setToggle($("#orderCollection"), state.currentCollection);
   $("#orderStore").value = "";
   $("#targetCircle").checked = true;
+  state.formPulls = [];
+  $("#pullGrid").classList.add("hidden");
+  renderPullSelected();
   renderFindsInputs();
   addLineRow();
   recalcForm();
@@ -694,6 +749,7 @@ async function submitOrder(e) {
     discount_rate: currentDiscountRate(),
     items,
     finds: readFinds(),
+    pull_cards: state.formPulls,
   };
   try {
     if (state.editingOrderId) {
@@ -888,6 +944,7 @@ async function loadOrders() {
         </div>
         <ul>${o.items.map((i) => `<li>${i.quantity}× ${i.product_type} @ ${money(i.unit_price)} (${i.packs_per_unit} packs ea.)</li>`).join("")}</ul>
         ${orderSecretLine(o)}
+        ${o.pullCards && o.pullCards.length ? `<div class="order-pulls">${o.pullCards.map((p) => `<img class="pull-thumb" src="${p.image_small}" title="${p.name}" alt="${p.name}" />`).join("")}</div>` : ""}
       </div>`).join("");
     list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => editOrder(orders.find((o) => o.id == b.dataset.edit))));
     list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteOrder(b.dataset.del)));
@@ -905,6 +962,9 @@ function editOrder(order) {
   setToggle($("#orderCollection"), order.collection || "mine");
   $("#orderStore").value = order.store || "";
   $("#targetCircle").checked = (order.discount_rate || 0) > 0;
+  state.formPulls = (order.pullCards || []).map((p) => ({ card_id: p.card_id, name: p.name, image_small: p.image_small }));
+  $("#pullGrid").classList.add("hidden");
+  renderPullSelected();
   $("#lineItems").innerHTML = "";
   renderFindsInputs(order.finds || {});
   order.items.forEach((i) => addLineRow(i));

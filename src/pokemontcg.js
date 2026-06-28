@@ -35,6 +35,28 @@ async function apiGet(db, path) {
   throw new Error(`pokemontcg.io ${lastStatus}: ${lastBody.slice(0, 160)}`);
 }
 
+// Live list of a set's cards (id, name, number, rarity, small image) for the
+// "tag pulled cards" picker. Uses the API key when set.
+export async function listSetCards(db, setId) {
+  const out = [];
+  let page = 1;
+  const pageSize = 250;
+  for (;;) {
+    const json = await apiGet(
+      db,
+      `/cards?q=${encodeURIComponent(`set.id:${setId}`)}&select=id,name,number,rarity,images&orderBy=number&page=${page}&pageSize=${pageSize}`
+    );
+    const cards = json.data || [];
+    for (const c of cards) {
+      out.push({ id: c.id, name: c.name, number: c.number, rarity: c.rarity || "Unknown", image: c.images?.small || null });
+    }
+    const total = json.totalCount ?? cards.length;
+    if (page * pageSize >= total || cards.length === 0) break;
+    page += 1;
+  }
+  return out;
+}
+
 export async function searchSets(db, query) {
   const q = (query || "").trim();
   const param = q ? `q=${encodeURIComponent(`name:"*${q}*"`)}&` : "";

@@ -149,8 +149,13 @@ export async function getOrder(db, id) {
     .prepare("SELECT rarity, count FROM order_finds WHERE order_id = ?")
     .bind(id)
     .all();
+  const { results: pulls } = await db
+    .prepare("SELECT card_id, name, image_small FROM order_pull_cards WHERE order_id = ?")
+    .bind(id)
+    .all();
   const co = computeOrder(order, results);
   co.finds = Object.fromEntries(finds.map((f) => [f.rarity, f.count]));
+  co.pullCards = pulls;
   return co;
 }
 
@@ -172,18 +177,25 @@ export async function listOrders(db, setId, collection) {
     .prepare(`SELECT * FROM order_finds WHERE order_id IN (${placeholders})`)
     .bind(...ids)
     .all();
+  const { results: pulls } = await db
+    .prepare(`SELECT * FROM order_pull_cards WHERE order_id IN (${placeholders})`)
+    .bind(...ids)
+    .all();
   const byOrder = {};
   for (const it of items) (byOrder[it.order_id] ||= []).push(it);
   const findsByOrder = {};
   for (const f of finds) (findsByOrder[f.order_id] ||= {})[f.rarity] = f.count;
+  const pullsByOrder = {};
+  for (const p of pulls) (pullsByOrder[p.order_id] ||= []).push({ card_id: p.card_id, name: p.name, image_small: p.image_small });
   return orders.map((o) => {
     const co = computeOrder(o, byOrder[o.id] || []);
     co.finds = findsByOrder[o.id] || {};
+    co.pullCards = pullsByOrder[o.id] || [];
     return co;
   });
 }
 
-export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine", store = null, discount_rate = 0 }) {
+export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine", store = null, discount_rate = 0, pull_cards }) {
   const res = await db
     .prepare("INSERT INTO orders (set_id, purchase_date, tax_rate, note, collection, store, discount_rate) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .bind(set_id, purchase_date, Number(tax_rate), note, collection === "shared" ? "shared" : "mine", store || null, Number(discount_rate) || 0)
@@ -191,10 +203,11 @@ export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, not
   const orderId = res.meta.last_row_id;
   await insertItems(db, orderId, items);
   await insertFinds(db, orderId, finds);
+  await insertPullCards(db, orderId, pull_cards);
   return getOrder(db, orderId);
 }
 
-export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds, collection, store, discount_rate }) {
+export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds, collection, store, discount_rate, pull_cards }) {
   await db
     .prepare("UPDATE orders SET purchase_date = COALESCE(?, purchase_date), tax_rate = COALESCE(?, tax_rate), note = COALESCE(?, note), collection = COALESCE(?, collection), store = COALESCE(?, store), discount_rate = COALESCE(?, discount_rate) WHERE id = ?")
     .bind(
@@ -215,6 +228,10 @@ export async function updateOrder(db, id, { purchase_date, tax_rate, note, items
     await db.prepare("DELETE FROM order_finds WHERE order_id = ?").bind(id).run();
     await insertFinds(db, id, finds);
   }
+  if (pull_cards !== undefined) {
+    await db.prepare("DELETE FROM order_pull_cards WHERE order_id = ?").bind(id).run();
+    await insertPullCards(db, id, pull_cards);
+  }
   return getOrder(db, id);
 }
 
@@ -233,6 +250,16 @@ async function insertFinds(db, orderId, finds) {
   if (!entries.length) return;
   const stmts = entries.map(([rarity, count]) =>
     db.prepare("INSERT INTO order_finds (order_id, rarity, count) VALUES (?, ?, ?)").bind(orderId, rarity, Number(count))
+  );
+  await db.batch(stmts);
+}
+
+async function insertPullCards(db, orderId, cards) {
+  const list = (cards || []).filter((c) => c && c.card_id);
+  if (!list.length) return;
+  const stmts = list.map((c) =>
+    db.prepare("INSERT OR IGNORE INTO order_pull_cards (order_id, card_id, name, image_small) VALUES (?, ?, ?, ?)")
+      .bind(orderId, String(c.card_id), c.name || null, c.image_small || c.image || null)
   );
   await db.batch(stmts);
 }
