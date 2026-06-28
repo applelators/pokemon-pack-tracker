@@ -6,7 +6,8 @@ import {
   getEstimateCache, saveEstimateCache,
 } from "./store.js";
 import { searchSets, importSet, listSetCards } from "./pokemontcg.js";
-import { fetchPackPrice } from "./pricecharting.js";
+import { fetchPriceChartingPoints } from "./pricecharting.js";
+import { fetchEbayPackPrice } from "./ebay.js";
 import { computeCurve, applyProgress, chaseEstimate } from "./estimator.js";
 
 const json = (data, status = 200) =>
@@ -136,20 +137,37 @@ export async function handleApi(request, env, url) {
         const b = await body();
         return json(await setSetPricing(db, setId, b));
       }
-      // POST /api/sets/:id/pricing/refresh — pull live market price from PriceCharting
+      // POST /api/sets/:id/pricing/refresh — blended market price from multiple sources
       if (seg.length === 5 && seg[3] === "pricing" && seg[4] === "refresh" && method === "POST") {
         const set = await getCachedSet(db, setId);
         if (!set) return json({ error: "Set not imported" }, 404);
-        let r;
-        try { r = await fetchPackPrice(db, set.name); }
-        catch (e) { return json({ error: e.message }, 400); }
-        if (r.market == null) return json({ error: r.note || "No PriceCharting price found", matched: r }, 404);
+
+        let pc = null, ebay = null;
+        try { pc = await fetchPriceChartingPoints(db, set.name); } catch (e) { pc = { _err: e.message }; }
+        try { ebay = await fetchEbayPackPrice(db, set.name); } catch (e) { ebay = { _err: e.message }; }
+        const ev = await computeEV(db, set);
+
+        const parts = [];
+        const singles = []; // single loose-pack price points -> the "typical market"
+        if (pc && pc.loose != null) { singles.push(pc.loose); parts.push(`PC loose $${pc.loose.toFixed(2)}`); }
+        if (pc && pc.sleeved != null) { singles.push(pc.sleeved); parts.push(`PC sleeved $${pc.sleeved.toFixed(2)}`); }
+        if (ebay && ebay.median != null) { singles.push(ebay.median); parts.push(`eBay ~$${ebay.median.toFixed(2)} (n=${ebay.n})`); }
+        const bulk = [pc && pc.boxPerPack, pc && pc.bundlePerPack].filter((v) => v != null);
+        const floor = bulk.length ? Math.min(...bulk) : null;
+        if (floor != null) parts.push(`bulk/pack ~$${floor.toFixed(2)}`);
+        if (ev != null) parts.push(`EV $${ev.toFixed(2)}`);
+
+        const median = (arr) => { const a = [...arr].sort((x, y) => x - y); const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+        const market = singles.length ? Math.round(median(singles) * 100) / 100 : (floor ?? ev);
+        if (market == null) {
+          return json({ error: "No market price found from any source (PriceCharting/eBay/EV).", sources: { pc, ebay, ev } }, 404);
+        }
         const saved = await setSetPricing(db, setId, {
-          market_price: r.market,
-          ceiling: r.market,
-          note: `PriceCharting: ${r.consoleName} · ${r.productName}`,
+          market_price: market,
+          ceiling: market,
+          note: `Blended: ${parts.join(" · ")}`,
         });
-        return json({ ...saved, matched: r });
+        return json({ ...saved, sources: { pc, ebay, ev, floor, market } });
       }
       // PUT /api/sets/:id/progress
       if (seg.length === 4 && seg[3] === "progress" && method === "PUT") {

@@ -126,7 +126,7 @@
                 <label>Typical market $<input type="number" id="dealMarketInput" step="0.01" min="0" /></label>
                 <label>Good-deal ceiling $<input type="number" id="dealCeilingInput" step="0.01" min="0" /></label>
                 <button type="button" id="dealSave">Save</button>
-                <button type="button" id="dealRefresh" class="ghost">↻ Refresh from PriceCharting</button>
+                <button type="button" id="dealRefresh" class="ghost">↻ Refresh market price</button>
               </div>
             </details>
           </div>
@@ -307,6 +307,12 @@
           </div>
           <label>PriceCharting API key (for live loose-pack market prices)
             <input type="text" id="setPcKey" placeholder="40-char token from your PriceCharting subscription" /></label>
+          <div class="row">
+            <label class="grow">eBay app Client ID (App ID)
+              <input type="text" id="setEbayId" placeholder="from your eBay developer keyset" /></label>
+            <label class="grow">eBay app Client Secret (Cert ID)
+              <input type="text" id="setEbaySecret" placeholder="from your eBay developer keyset" /></label>
+          </div>
           <label>Monte-Carlo runs (higher = more accurate, slower)
             <input type="number" id="setRuns" min="200" step="100" /></label>
         </div>

@@ -462,12 +462,12 @@ function setupDealCard() {
     btn.disabled = true; btn.textContent = "↻ Refreshing…";
     try {
       const r = await api(`/sets/${state.currentSetId}/pricing/refresh`, { method: "POST" });
-      toast(`Market price: ${money(r.pack_market_price)} (${r.matched ? r.matched.productName : "PriceCharting"})`);
+      toast(`Blended market: ${money(r.pack_market_price)}`);
       loadDashboard();
     } catch (err) {
       toast(err.message, true);
     } finally {
-      btn.disabled = false; btn.textContent = "↻ Refresh from PriceCharting";
+      btn.disabled = false; btn.textContent = "↻ Refresh market price";
     }
   });
 }
@@ -1145,6 +1145,8 @@ function renderSettings() {
   $("#setTax").value = s.sales_tax_rate ?? 0;
   $("#setApiKey").value = s.pokemontcg_api_key ?? "";
   $("#setPcKey").value = s.pricecharting_api_key ?? "";
+  $("#setEbayId").value = s.ebay_client_id ?? "";
+  $("#setEbaySecret").value = s.ebay_client_secret ?? "";
   $("#setRuns").value = s.monte_carlo_runs ?? 3000;
   const tbody = $("#packsPerProduct tbody");
   tbody.innerHTML = Object.entries(s.packs_per_product || {})
@@ -1216,6 +1218,8 @@ async function saveSettings(e) {
         sales_tax_rate: Number($("#setTax").value || 0),
         pokemontcg_api_key: $("#setApiKey").value,
         pricecharting_api_key: $("#setPcKey").value,
+        ebay_client_id: $("#setEbayId").value,
+        ebay_client_secret: $("#setEbaySecret").value,
         monte_carlo_runs: Number($("#setRuns").value || 3000),
         packs_per_product: packsPerProduct,
         chase_pull_rates: chaseRates,
