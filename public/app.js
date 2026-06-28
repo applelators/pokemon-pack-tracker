@@ -451,7 +451,8 @@ function renderPackCalc(r) {
     const be = d.breakEven;
     if (d.unlimited) {
       const anchor = d.baselineType === "rip" ? "cheapest rip (loose/box)" : "MSRP";
-      dr = `<b>Diminishing returns × premium:</b> ${P} is at/below the ~${B} ${anchor} — best price to rip, go as far as you want.`;
+      const where = d.premiumPerPack > 0 ? `within a few cents of the ~${B} ${anchor}` : `at/below the ~${B} ${anchor}`;
+      dr = `<b>Diminishing returns × premium:</b> ${P} is ${where} — best price to rip, go as far as you want.`;
     } else if (d.baselineType === "msrp") {
       // No live market price (brand-new set) — compare to MSRP, crediting chase.
       const prem = money(d.premiumPerPack), chase = money(r.chaseEv || 0);

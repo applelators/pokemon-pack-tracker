@@ -188,7 +188,10 @@ export async function handleApi(request, env, url) {
         const baseline = market != null ? market : msrp;
         const baselineType = market != null ? "rip" : "msrp";
         const premium = Math.round(Math.max(0, price - baseline) * 100) / 100;
-        const unlimited = premium <= 0;
+        // Treat a price within ~3% (min 10¢) of the cheapest rip as "at the rip" — a
+        // few cents over shouldn't read as "rip cheaper elsewhere".
+        const tol = Math.max(0.10, Math.round(baseline * 0.03 * 100) / 100);
+        const unlimited = premium <= tol;
         const extra = baselineType === "msrp" ? chaseEv : 0; // avoid double-counting chase vs market
         // Largest k≥0 where (fwd[opened+k]−fwd[opened])·avg + k·extra ≥ k·premium.
         // newCardValue(k) is concave-increasing, k·net is linear ⇒ single crossing.
