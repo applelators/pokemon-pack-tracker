@@ -132,17 +132,22 @@ textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 
 .row .grow, .grow { flex: 1; }
 
 /* ===== Dashboard — set banner (live logo + symbol art) ===== */
-.set-banner { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); height: 132px; margin-bottom: 22px; }
+.set-banner { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); height: 150px; margin-bottom: 22px; }
 .set-banner .sb-art { position: absolute; inset: 0;
   background:
     repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0 10px, rgba(255,255,255,0) 10px 20px),
     radial-gradient(130% 160% at 82% -15%, rgba(59,111,224,.45), transparent 55%),
     radial-gradient(130% 160% at 8% 120%, rgba(255,203,5,.20), transparent 50%),
     var(--panel-2); }
-.set-banner .sb-art.art-hero { background-size: cover; background-position: center 28%; background-repeat: no-repeat; }
+/* Key art shown on the RIGHT, full and clear; text sits on a dark left zone. */
+.set-banner .sb-art.art-hero { background-size: cover; background-position: right center; background-repeat: no-repeat; }
 .set-banner .sb-art.has-symbol { background-repeat: no-repeat, no-repeat, no-repeat, no-repeat; background-position: right -18px center, center, center, center; background-size: 190px, auto, auto, auto; }
 .set-banner .sb-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15,20,32,.12), rgba(15,20,32,.92)); }
-.set-banner .sb-content { position: absolute; inset: 0; padding: 18px 26px; display: flex; align-items: flex-end; gap: 18px; }
+/* When key art is present, fade from a solid dark left (behind text) to clear art on the right. */
+.set-banner .sb-art.art-hero ~ .sb-scrim { background: linear-gradient(90deg, var(--panel) 4%, rgba(26,34,51,0.92) 32%, rgba(26,34,51,0.45) 55%, rgba(26,34,51,0) 78%); }
+.set-banner .sb-content { position: absolute; inset: 0; padding: 18px 26px; display: flex; align-items: center; gap: 18px; }
+.set-banner .sb-meta { max-width: 58%; }
+.set-banner .sb-name, .set-banner .sb-series, .set-banner .sb-sub { text-shadow: 0 1px 6px rgba(0,0,0,.6); }
 .set-banner .sb-logo { height: 64px; max-width: 230px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,.5)); }
 .set-banner .sb-series { font-size: 0.72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
 .set-banner .sb-name { font-family: "Space Grotesk", sans-serif; font-size: 1.7rem; font-weight: 700; letter-spacing: -.02em; margin: 2px 0 0; }

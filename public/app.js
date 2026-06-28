@@ -236,7 +236,19 @@ function setupModal() {
   $("#setResults").addEventListener("click", onSetTableClick);
 }
 
-// Shared rich expansion table (symbol · logo · name · cards · release · abbr),
+// Print status — no API provides this, so estimate ~24 months of availability
+// from the release date (clearly marked as an estimate).
+function printStatus(releaseDate) {
+  if (!releaseDate) return { label: "—", cls: "" };
+  const d = new Date(String(releaseDate).replace(/\//g, "-"));
+  if (isNaN(d)) return { label: "—", cls: "" };
+  const oop = new Date(d); oop.setMonth(oop.getMonth() + 24);
+  if (oop > new Date()) return { label: "In print", cls: "deal-good" };
+  const mon = oop.toLocaleString("en-US", { month: "short", year: "numeric" });
+  return { label: `Out of print (est. ${mon})`, cls: "deal-fair" };
+}
+
+// Shared rich expansion table (symbol · logo · name · cards · release · abbr · deal · print),
 // grouped by series. Used in both the Add-a-set modal and the Browse tab.
 function renderSetTable(sets) {
   if (!sets.length) return '<div class="muted">No sets found.</div>';
@@ -250,6 +262,9 @@ function renderSetTable(sets) {
   const row = (s) => {
     const tracked = state.trackedSets.some((t) => t.id === s.id);
     const cards = `${s.printedTotal}${s.secret > 0 ? ` <span class="muted">+${s.secret}</span>` : ""}`;
+    const good = s.ceiling != null ? money(s.ceiling) : "—";
+    const bad = s.market != null ? money(Math.round(s.market * 1.25 * 100) / 100) : "—";
+    const pr = printStatus(s.releaseDate);
     return `<tr class="set-row" data-id="${s.id}" title="${tracked ? "Open" : "Import"} ${s.name}">
       <td class="sr-sym">${s.symbol ? `<img src="${s.symbol}" loading="lazy" alt="" />` : ""}</td>
       <td class="sr-logo">${s.logo ? `<img src="${s.logo}" loading="lazy" alt="${s.name}" />` : ""}</td>
@@ -257,13 +272,16 @@ function renderSetTable(sets) {
       <td>${cards}</td>
       <td>${s.releaseDate || "—"}</td>
       <td>${s.abbr || "—"}</td>
+      <td class="${s.ceiling != null ? "deal-good" : ""}">${good}</td>
+      <td class="${s.market != null ? "deal-bad" : ""}">${bad}</td>
+      <td><span class="${pr.cls}">${pr.label}</span></td>
     </tr>`;
   };
   return groups.map(([series, list]) => `
     <div class="set-group">
       <h4 class="set-series">${series}</h4>
       <table class="set-table">
-        <thead><tr><th>Sym</th><th>Logo</th><th>Name</th><th>Cards</th><th>Released</th><th>Abbr</th></tr></thead>
+        <thead><tr><th>Sym</th><th>Logo</th><th>Name</th><th>Cards</th><th>Released</th><th>Abbr</th><th>Good deal</th><th>Bad deal</th><th>Print status</th></tr></thead>
         <tbody>${list.map(row).join("")}</tbody>
       </table>
     </div>`).join("");

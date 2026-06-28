@@ -66,7 +66,7 @@ export async function searchSets(db, query, all = false) {
     db,
     `/sets?${param}orderBy=-releaseDate&pageSize=${pageSize}&select=id,name,series,printedTotal,total,releaseDate,ptcgoCode,images`
   );
-  return (json.data || []).map((s) => ({
+  const results = (json.data || []).map((s) => ({
     id: s.id,
     name: s.name,
     series: s.series,
@@ -77,7 +77,25 @@ export async function searchSets(db, query, all = false) {
     abbr: s.ptcgoCode || null,
     symbol: s.images?.symbol || null,
     logo: s.images?.logo || null,
+    ceiling: null,
+    market: null,
   }));
+  // Enrich with our stored deal pricing for any sets already tracked/priced.
+  const ids = results.map((r) => r.id);
+  if (ids.length) {
+    const ph = ids.map(() => "?").join(",");
+    const { results: rows } = await db
+      .prepare(`SELECT id, pack_price_ceiling, pack_market_price FROM sets WHERE id IN (${ph})`)
+      .bind(...ids)
+      .all();
+    const byId = {};
+    for (const r of rows) byId[r.id] = r;
+    for (const r of results) {
+      const p = byId[r.id];
+      if (p) { r.ceiling = p.pack_price_ceiling; r.market = p.pack_market_price; }
+    }
+  }
+  return results;
 }
 
 // True only for plain numbered base-set cards (e.g. "12", not "TG01" / "GG05").
