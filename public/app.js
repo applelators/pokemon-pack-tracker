@@ -442,32 +442,25 @@ function renderDealCard(s) {
 
 function renderPackCalc(r) {
   const P = money(r.price), avg = money(r.avgSingle);
-  // Lead line — diminishing returns × cumulative premium: the break-even pack count
-  // where total premium over MSRP overtakes the total value of the new base cards
-  // those packs add. Base-only (strict) + all-in (counting chase upside).
+  // Lead line — diminishing returns × cumulative premium, anchored to the CHEAPEST RIP.
+  // One number: how many packs before the cumulative overpay above the cheapest way to
+  // rip (market, else MSRP) outweighs the new base-card value those packs add.
   let dr = "";
   if (r.dr) {
-    const d = r.dr, M = money(d.msrp);
+    const d = r.dr, B = money(d.baseline);
+    const anchor = d.baselineType === "rip" ? "cheapest rip (loose/box)" : "MSRP";
     if (d.unlimited) {
-      dr = `<b>Diminishing returns × premium:</b> ${P} is at/below the ~${M} MSRP — no premium, best value, rip as many as you want.`;
+      dr = `<b>Diminishing returns × premium:</b> ${P} is at/below the ~${B} ${anchor} — best price to rip, go as far as you want.`;
     } else {
-      const prem = money(d.premiumPerPack), chase = money(r.chaseEv || 0);
-      const a = d.baseBreakEven.recommendedMore;
-      const b = d.allInBreakEven;
-      const baseTxt = a <= 0
-        ? `even the next pack's new base cards don't cover the premium`
-        : `the cumulative premium overtakes new base-card value after ~<span class="deal-good">${a}</span> pack${a === 1 ? "" : "s"}`;
-      const allTxt = b.unbounded
-        ? `counting the ~${chase}/pack chase upside, that alone covers the premium — so it stays +value as far as you'd go`
-        : `counting the ~${chase}/pack chase upside it holds to ~<span class="deal-good">${b.recommendedMore}</span> pack${b.recommendedMore === 1 ? "" : "s"}`;
-      let mk = "";
-      if (d.market != null) {
-        const mq = d.premiumVsMarket <= 0
-          ? `at or below the cheapest way to rip (~${money(d.market)}/pack via loose or box) — a fair price`
-          : `~${money(d.premiumVsMarket)}/pack over the cheapest way to rip (~${money(d.market)} loose/box) — you could rip cheaper elsewhere`;
-        mk = ` <span class="muted">(Per-pack price is ${mq}.)</span>`;
+      const prem = money(d.premiumPerPack), be = d.breakEven;
+      if (be.unbounded) {
+        const chase = money(r.chaseEv || 0);
+        dr = `<b>Diminishing returns × premium:</b> at ${P} you pay ${prem}/pack over the ~${B} MSRP, and the ~${chase}/pack chase upside covers that — so packs stay +value as far as you'd go. <span class="muted">(No live market price yet — compared to MSRP.)</span>`;
+      } else if (be.recommendedMore <= 0) {
+        dr = `<b>Diminishing returns × premium:</b> at ${P} (${prem}/pack over the ~${B} ${anchor}) even the next pack's new cards don't cover the overpay — rip at ~${B} instead.`;
+      } else {
+        dr = `<b>Diminishing returns × premium:</b> ${P} is ${prem}/pack over the ~${B} ${anchor} — the overpay stays covered by new-card value for ~<span class="deal-good">${be.recommendedMore}</span> more pack${be.recommendedMore === 1 ? "" : "s"}, then you're just overpaying. <span class="muted">Cheaper to rip at ~${B} if you can.</span>`;
       }
-      dr = `<b>Diminishing returns × premium:</b> at ${P} you pay ${prem}/pack over the ~${M} MSRP. Weighing that growing premium against diminishing new-card returns, ${baseTxt}; ${allTxt} — beyond that you're paying mostly for the fun of ripping.${mk}`;
     }
   }
   // Line — base-set completion value only.

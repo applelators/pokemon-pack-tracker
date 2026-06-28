@@ -175,19 +175,26 @@ export async function handleApi(request, env, url) {
         const stopAllIn = allInUnbounded ? cap : stopFor(allInThr);
         const nextMarginal = opened + 1 <= cap ? fwd[opened + 1] - fwd[opened] : 0;
 
-        // Diminishing returns × cumulative premium: the break-even pack count where
-        // the cumulative premium over MSRP (linear: k·premium) overtakes the cumulative
-        // value of the NEW base cards those k packs add (fwd flattens — diminishing
-        // returns). At/below MSRP there's no premium (unbounded). Computed base-only
-        // (strict) and all-in (also counting the constant chase upside per pack).
+        // Diminishing returns × cumulative premium, anchored to the CHEAPEST RIP.
+        // Baseline = the cheapest way to rip an equivalent pack (market price) when we
+        // know it, else the historical MSRP. Premium = overpay above that baseline.
+        // Break-even = the pack count where cumulative premium (linear: k·premium)
+        // overtakes the cumulative value of the NEW base cards those k packs add (fwd
+        // flattens — diminishing returns). At/below baseline there's no premium → rip
+        // freely. Chase EV is credited ONLY vs MSRP: the market price already embeds
+        // chase value, so crediting it again vs market would double-count.
         const msrp = set.pack_msrp != null && set.pack_msrp > 0 ? set.pack_msrp : 5;
-        const premium = Math.round(Math.max(0, price - msrp) * 100) / 100;
+        const market = set.pack_market_price != null && set.pack_market_price > 0 ? set.pack_market_price : null;
+        const baseline = market != null ? market : msrp;
+        const baselineType = market != null ? "rip" : "msrp";
+        const premium = Math.round(Math.max(0, price - baseline) * 100) / 100;
         const unlimited = premium <= 0;
+        const extra = baselineType === "msrp" ? chaseEv : 0; // avoid double-counting chase vs market
         // Largest k≥0 where (fwd[opened+k]−fwd[opened])·avg + k·extra ≥ k·premium.
         // newCardValue(k) is concave-increasing, k·net is linear ⇒ single crossing.
-        const breakEven = (extra) => {
+        const breakEvenFor = (ex) => {
           if (unlimited) return { unbounded: true, recommendedMore: Math.max(0, cap - opened) };
-          const net = premium - extra;
+          const net = premium - ex;
           if (net <= 0) return { unbounded: true, recommendedMore: Math.max(0, cap - opened) };
           let best = 0;
           for (let k = 1; opened + k <= cap; k++) {
@@ -196,15 +203,16 @@ export async function handleApi(request, env, url) {
           }
           return { unbounded: false, recommendedMore: best };
         };
-        const market = set.pack_market_price;
         const dr = {
+          baseline: Math.round(baseline * 100) / 100,
+          baselineType,                       // "rip" (cheapest market rip) | "msrp" (fallback)
           msrp: Math.round(msrp * 100) / 100,
           premiumPerPack: premium,
           unlimited,
-          market: market != null && market > 0 ? Math.round(market * 100) / 100 : null,
-          premiumVsMarket: market != null && market > 0 ? Math.round((price - market) * 100) / 100 : null,
-          baseBreakEven: breakEven(0),         // premium vs new base-card value only
-          allInBreakEven: breakEven(chaseEv),  // also counts ~chaseEv/pack chase upside
+          creditsChase: extra > 0,
+          market: market != null ? Math.round(market * 100) / 100 : null,
+          premiumVsMarket: market != null ? Math.round((price - market) * 100) / 100 : null,
+          breakEven: breakEvenFor(extra),
         };
 
         return json({
