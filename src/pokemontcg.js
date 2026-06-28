@@ -80,20 +80,16 @@ export async function searchSets(db, query, all = false) {
     ceiling: null,
     market: null,
   }));
-  // Enrich with our stored deal pricing for any sets already tracked/priced.
-  const ids = results.map((r) => r.id);
-  if (ids.length) {
-    const ph = ids.map(() => "?").join(",");
-    const { results: rows } = await db
-      .prepare(`SELECT id, pack_price_ceiling, pack_market_price FROM sets WHERE id IN (${ph})`)
-      .bind(...ids)
-      .all();
-    const byId = {};
-    for (const r of rows) byId[r.id] = r;
-    for (const r of results) {
-      const p = byId[r.id];
-      if (p) { r.ceiling = p.pack_price_ceiling; r.market = p.pack_market_price; }
-    }
+  // Enrich with our stored deal pricing. The sets table only holds tracked sets
+  // (a handful), so fetch them all — avoids D1's bound-variable limit on big IN().
+  const { results: rows } = await db
+    .prepare("SELECT id, pack_price_ceiling, pack_market_price FROM sets")
+    .all();
+  const byId = {};
+  for (const r of rows) byId[r.id] = r;
+  for (const r of results) {
+    const p = byId[r.id];
+    if (p) { r.ceiling = p.pack_price_ceiling; r.market = p.pack_market_price; }
   }
   return results;
 }
