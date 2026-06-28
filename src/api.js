@@ -177,19 +177,22 @@ export async function handleApi(request, env, url) {
         // Diminishing-returns vs MSRP: how many packs before the premium over MSRP
         // ($5 baseline) buys too few NEW base-set cards to be worth it. At/below MSRP
         // every pack is best value (unbounded). Above it, the premium per new card
-        // must stay under an anchor — the card's own single value, or one MSRP.
+        // must stay under an anchor — the card's own single value (strict), or half
+        // an MSRP (looser).
         const msrp = set.pack_msrp != null && set.pack_msrp > 0 ? set.pack_msrp : 5;
+        const halfMsrp = msrp / 2;
         const premium = Math.round(Math.max(0, price - msrp) * 100) / 100;
         const unlimited = premium <= 0;
         const drStop = (anchor) => (unlimited ? cap : stopFor(premium / anchor));
-        const valueStop = drStop(avg);   // premium per new card ≤ a single's price
-        const msrpStop = drStop(msrp);   // premium per new card ≤ one MSRP (~$5)
+        const valueStop = drStop(avg);       // premium per new card ≤ a single's price
+        const looseStop = drStop(halfMsrp);  // premium per new card ≤ half an MSRP (~$2.50)
         const dr = {
           msrp: Math.round(msrp * 100) / 100,
+          looseAnchor: Math.round(halfMsrp * 100) / 100,
           premiumPerPack: premium,
           unlimited,
           byCardValue: { stopAtPack: valueStop, recommendedMore: Math.max(0, valueStop - opened) },
-          byMsrp: { stopAtPack: msrpStop, recommendedMore: Math.max(0, msrpStop - opened) },
+          byHalfMsrp: { stopAtPack: looseStop, recommendedMore: Math.max(0, looseStop - opened) },
         };
 
         return json({

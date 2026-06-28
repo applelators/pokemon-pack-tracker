@@ -450,17 +450,17 @@ function renderPackCalc(r) {
     if (d.unlimited) {
       dr = `<b>Diminishing returns:</b> ${P} is at/below the ~${M} MSRP — best value, rip as many as you want.`;
     } else {
-      const prem = money(d.premiumPerPack);
-      const v = d.byCardValue.recommendedMore, m = d.byMsrp.recommendedMore;
+      const prem = money(d.premiumPerPack), H = money(d.looseAnchor);
+      const v = d.byCardValue.recommendedMore, m = d.byHalfMsrp.recommendedMore;
       const lo = Math.min(v, m), hi = Math.max(v, m);
       if (hi <= 0) {
         dr = `<b>Diminishing returns:</b> at ${P} (${prem}/pack over the ~${M} MSRP) the new-card payoff is already too thin by either yardstick — skip and wait for a price nearer ${M}.`;
       } else if (lo <= 0) {
-        dr = `<b>Diminishing returns:</b> ${P} is ${prem}/pack over the ~${M} MSRP. By the <b>strict</b> yardstick (premium per new card under a single's value) it's already not worth more — but by the <b>looser</b> one-MSRP yardstick it's worth ~<span class="deal-good">${hi}</span> more pack${hi === 1 ? "" : "s"} before new cards thin out. Lean strict for value, looser if you just like ripping.`;
+        dr = `<b>Diminishing returns:</b> ${P} is ${prem}/pack over the ~${M} MSRP. By the <b>strict</b> yardstick (premium per new card under a single's value) it's already not worth more — but by the <b>looser</b> ${H}/new-card yardstick it's worth ~<span class="deal-good">${hi}</span> more pack${hi === 1 ? "" : "s"} before new cards thin out. Lean strict for value, looser if you just like ripping.`;
       } else if (lo === hi) {
         dr = `<b>Diminishing returns:</b> ${P} is ${prem}/pack over the ~${M} MSRP — worth ~<span class="deal-good">${hi}</span> more pack${hi === 1 ? "" : "s"} before new base cards thin out too much for that premium, then wait for a cheaper price.`;
       } else {
-        dr = `<b>Diminishing returns:</b> ${P} is ${prem}/pack over the ~${M} MSRP — worth <span class="deal-good">${lo}</span> (strict: premium per new card under a single's value) to <span class="deal-good">${hi}</span> (looser: under one MSRP) more packs, then wait for a cheaper price.`;
+        dr = `<b>Diminishing returns:</b> ${P} is ${prem}/pack over the ~${M} MSRP — worth <span class="deal-good">${lo}</span> (strict: premium per new card under a single's value) to <span class="deal-good">${hi}</span> (looser: under ${H}/new card) more packs, then wait for a cheaper price.`;
       }
     }
   }
