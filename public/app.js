@@ -933,13 +933,21 @@ function renderSettings() {
   $("#setRuns").value = s.monte_carlo_runs ?? 3000;
   const tbody = $("#packsPerProduct tbody");
   tbody.innerHTML = Object.entries(s.packs_per_product || {})
-    .map(([p, n]) => `<tr><td>${p}</td><td><input type="number" min="0" data-product="${p}" value="${n}" /></td></tr>`)
+    .map(([p, n]) => ppRow(p, n))
     .join("");
   const chaseBody = $("#chaseRates tbody");
   chaseBody.innerHTML = Object.entries(s.chase_pull_rates || {})
     .map(([r, p]) => chaseRateRow(r, p))
     .join("");
   $("#setPackModel").value = JSON.stringify(s.pack_model, null, 2);
+}
+
+function ppRow(name = "", packs = "") {
+  return `<tr>
+    <td><input type="text" class="pp-name" value="${name}" placeholder="Sleeved Booster" /></td>
+    <td><input type="number" class="pp-packs" min="0" value="${packs}" placeholder="1" /></td>
+    <td><button type="button" class="ghost pp-remove">✕</button></td>
+  </tr>`;
 }
 
 function chaseRateRow(rarity = "", prob = "") {
@@ -952,6 +960,12 @@ function chaseRateRow(rarity = "", prob = "") {
 
 function setupSettingsForm() {
   $("#settingsForm").addEventListener("submit", saveSettings);
+  $("#addProduct").addEventListener("click", () => {
+    $("#packsPerProduct tbody").insertAdjacentHTML("beforeend", ppRow());
+  });
+  $("#packsPerProduct").addEventListener("click", (e) => {
+    if (e.target.classList.contains("pp-remove")) e.target.closest("tr").remove();
+  });
   $("#addChaseRate").addEventListener("click", () => {
     $("#chaseRates tbody").insertAdjacentHTML("beforeend", chaseRateRow());
   });
@@ -969,8 +983,10 @@ async function saveSettings(e) {
     return toast("Pull-rate model is not valid JSON", true);
   }
   const packsPerProduct = {};
-  $$("#packsPerProduct input[data-product]").forEach((i) => {
-    packsPerProduct[i.dataset.product] = Number(i.value);
+  $$("#packsPerProduct tbody tr").forEach((tr) => {
+    const name = tr.querySelector(".pp-name").value.trim();
+    const packs = Number(tr.querySelector(".pp-packs").value);
+    if (name && packs >= 0) packsPerProduct[name] = packs;
   });
   const chaseRates = {};
   $$("#chaseRates tbody tr").forEach((tr) => {
