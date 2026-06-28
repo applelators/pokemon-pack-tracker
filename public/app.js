@@ -440,6 +440,18 @@ function renderDealCard(s) {
   if (document.activeElement !== $("#dealCeilingInput")) $("#dealCeilingInput").value = c != null ? c : "";
 }
 
+function renderPackCalc(r) {
+  const P = money(r.price), avg = money(r.avgSingle);
+  if (r.recommendedMore > 0) {
+    const per = r.costPerNewCardNext != null ? money(r.costPerNewCardNext) : "—";
+    return `Buy ~<b>${r.recommendedMore}</b> more pack${r.recommendedMore === 1 ? "" : "s"} at ${P} (through ~pack ${r.stopAtPack}). `
+      + `After that, each new base-set card would cost more than the ~${avg} average single — switch to singles. `
+      + `<span class="muted">Next pack ≈ ${per}/new card. Base-set value only; chase hits are extra upside.</span>`;
+  }
+  return `At ${P}/pack, more packs aren't good <b>base-set</b> value right now — the next pack's new cards would cost over the ~${avg} average single, so buy singles. `
+    + `<span class="muted">(Chase hits are separate upside.)</span>`;
+}
+
 function setupDealCard() {
   $("#dealSave").addEventListener("click", async () => {
     const market = $("#dealMarketInput").value.trim();
@@ -456,6 +468,20 @@ function setupDealCard() {
       toast("Pack price saved");
       loadDashboard();
     } catch (err) { toast(err.message, true); }
+  });
+  let pcTimer;
+  $("#packPriceInput").addEventListener("input", () => {
+    clearTimeout(pcTimer);
+    const v = $("#packPriceInput").value.trim();
+    const out = $("#packCalcResult");
+    if (!v || !(Number(v) > 0)) { out.textContent = ""; return; }
+    out.textContent = "Calculating…";
+    pcTimer = setTimeout(async () => {
+      try {
+        const r = await api(`/sets/${state.currentSetId}/packvalue?price=${encodeURIComponent(v)}&collection=${state.currentCollection}`);
+        out.innerHTML = renderPackCalc(r);
+      } catch (err) { out.textContent = err.message; }
+    }, 450);
   });
   $("#dealRefresh").addEventListener("click", async (e) => {
     const btn = e.target;

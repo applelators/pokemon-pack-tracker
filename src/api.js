@@ -27,20 +27,36 @@ function validateItems(items) {
   return null;
 }
 
-async function computeEstimate(db, set, opened, collected = null) {
-  if (!set.rarities || set.rarities.length === 0) return null;
+// Cached completion curve for a set (re-simulate only when rarities/model/runs change).
+async function getSetCurve(db, set) {
   const raw = await getRawSettings(db);
   let packModel;
   try { packModel = JSON.parse(raw.pack_model); } catch { packModel = { slots: [] }; }
   const runs = Number(raw.monte_carlo_runs) || 3000;
-  // Cache the heavy curve per set; only re-simulate when rarities/model/runs change.
   const signature = JSON.stringify({ v: 2, r: set.rarities.map((x) => [x.rarity, x.count]), m: packModel, runs });
   let cc = await getEstimateCache(db, set.id, signature);
   if (!cc) {
     cc = computeCurve({ rarities: set.rarities, packModel, runs });
     await saveEstimateCache(db, set.id, signature, cc);
   }
-  return applyProgress(cc, opened, collected);
+  return cc;
+}
+
+async function computeEstimate(db, set, opened, collected = null) {
+  if (!set.rarities || set.rarities.length === 0) return null;
+  return applyProgress(await getSetCurve(db, set), opened, collected);
+}
+
+// Average price of one base-set card (weighted by rarity counts), or null.
+function avgBaseSingle(set) {
+  const priceByRar = {};
+  for (const r of set.allRarities || []) priceByRar[r.rarity] = r.avg_price;
+  let num = 0, den = 0;
+  for (const r of set.rarities || []) {
+    const p = priceByRar[r.rarity];
+    if (p != null) { num += p * r.count; den += r.count; }
+  }
+  return den ? num / den : null;
 }
 
 // Expected value of one pack ($) from current single-card prices (pokemontcg.io).
@@ -115,6 +131,38 @@ export async function handleApi(request, env, url) {
       // GET /api/sets/:id/cards — live card list for the "tag pulls" picker
       if (seg.length === 4 && seg[3] === "cards" && method === "GET") {
         return json(await listSetCards(db, setId));
+      }
+      // GET /api/sets/:id/packvalue?price=&collection= — how many packs to buy at $price
+      if (seg.length === 4 && seg[3] === "packvalue" && method === "GET") {
+        const set = await getCachedSet(db, setId);
+        if (!set || !set.rarities || !set.rarities.length) return json({ error: "Set not imported" }, 404);
+        const price = Number(url.searchParams.get("price"));
+        if (!(price > 0)) return json({ error: "Enter a positive pack price." }, 400);
+        const avg = avgBaseSingle(set);
+        if (!avg || avg <= 0) return json({ error: "No single-card price data for this set yet — re-import once pokemontcg.io has priced it." }, 400);
+        const collection = url.searchParams.get("collection") || "mine";
+        const totals = await setTotals(db, setId, collection);
+        const progress = await getProgress(db, setId, collection);
+        const opened = progress.packs_opened != null ? Math.min(progress.packs_opened, totals.totalPacks) : totals.totalPacks;
+        const cc = await getSetCurve(db, set);
+        const fwd = cc.fwd || [];
+        const cap = fwd.length - 1;
+        const threshold = price / avg; // min NEW cards/pack for a pack to beat buying singles
+        let stop = opened;
+        for (let k = opened + 1; k <= cap; k++) {
+          if (fwd[k] - fwd[k - 1] >= threshold) stop = k; else break;
+        }
+        const nextMarginal = opened + 1 <= cap ? fwd[opened + 1] - fwd[opened] : 0;
+        return json({
+          price,
+          avgSingle: Math.round(avg * 100) / 100,
+          opened,
+          recommendedMore: Math.max(0, stop - opened),
+          stopAtPack: stop,
+          thresholdCardsPerPack: Math.round(threshold * 100) / 100,
+          costPerNewCardNext: nextMarginal > 0 ? Math.round((price / nextMarginal) * 100) / 100 : null,
+          baseSetSize: cc.N,
+        });
       }
       if (seg.length === 4 && seg[3] === "summary" && method === "GET") {
         const set = await getCachedSet(db, setId);

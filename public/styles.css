@@ -324,6 +324,10 @@ table.grid input { width: 100%; }
 .deal-edit summary { cursor: pointer; color: var(--accent-2); font-size: 0.85rem; }
 .deal-edit-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-top: 10px; }
 .deal-edit-row input { width: 110px; }
+.pack-calc { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.pack-calc label { flex-direction: row; align-items: center; gap: 4px; flex-wrap: wrap; color: var(--text); }
+.pack-calc input { width: 84px; }
+#packCalcResult { margin-top: 8px; line-height: 1.5; }
 
 /* ===== Your collection (actuals) inputs ===== */
 .progress-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
