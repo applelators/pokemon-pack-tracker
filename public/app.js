@@ -338,7 +338,22 @@ function setupBrowse() {
 }
 
 // ---- dashboard -----------------------------------------------------------
-// Set-banner: live logo + faint symbol watermark from pokemontcg.io.
+// Per-set official art (hotlinked from Pokémon's CDN). Add an entry per set id.
+const ART_CDN = "https://d1i787aglh9bmb.cloudfront.net/assets/img";
+const SET_ART = {
+  me4: {
+    hero: `${ART_CDN}/me-expansions/me04/header/en-us/me04-small-fallback.png`,
+    featured: `${ART_CDN}/global/cards/en-us/me04.png`,
+    products: [
+      { name: "Booster Bundle", img: `${ART_CDN}/me-expansions/me04/collections/en-us/me04-booster-bundle-en.png` },
+      { name: "Elite Trainer Box", img: `${ART_CDN}/me-expansions/me04/collections/en-us/me04-etb-en.png` },
+      { name: "Booster Display", img: `${ART_CDN}/me-expansions/me04/collections/en-us/me04-booster-display-en.png` },
+      { name: "Build & Battle Box", img: `${ART_CDN}/me-expansions/me04/collections/en-us/me04-build-battle-en.png` },
+    ],
+  },
+};
+
+// Set-banner: live logo + symbol watermark, or full key art when we have it.
 function populateBanner(set) {
   $("#sbName").textContent = set.name || "—";
   $("#sbSeries").textContent = set.series || "";
@@ -348,11 +363,33 @@ function populateBanner(set) {
   if (set.logo_url) { logo.src = set.logo_url; logo.classList.remove("hidden"); }
   else { logo.removeAttribute("src"); logo.classList.add("hidden"); }
   const art = $("#sbArt");
-  art.style.backgroundImage = set.symbol_url ? `url("${set.symbol_url}")` : "";
-  art.classList.toggle("has-symbol", !!set.symbol_url);
-  // Theme the browser tab icon with the active set's symbol.
+  const hero = SET_ART[set.id] && SET_ART[set.id].hero;
+  if (hero) {
+    art.style.backgroundImage = `url("${hero}")`;
+    art.classList.add("art-hero");
+    art.classList.remove("has-symbol");
+  } else {
+    art.classList.remove("art-hero");
+    art.style.backgroundImage = set.symbol_url ? `url("${set.symbol_url}")` : "";
+    art.classList.toggle("has-symbol", !!set.symbol_url);
+  }
   const fav = $("#favicon");
   if (fav && set.symbol_url) fav.href = set.symbol_url;
+}
+
+// Render the official-art gallery for sets we have art for.
+function renderSetArt(setId) {
+  const art = SET_ART[setId];
+  const box = $("#setArt");
+  if (!art) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <h3 class="dash-h">Expansion art <span class="dash-hint">official artwork</span></h3>
+    <div class="art-wrap">
+      ${art.featured ? `<img class="art-featured" src="${art.featured}" loading="lazy" alt="Featured cards" />` : ""}
+      ${art.products && art.products.length ? `<div class="art-products">${art.products.map((p) =>
+        `<figure class="art-prod"><img src="${p.img}" loading="lazy" alt="${p.name}" /><figcaption>${p.name}</figcaption></figure>`).join("")}</div>` : ""}
+    </div>`;
 }
 
 // ---- Loose-pack deal check -----------------------------------------------
@@ -504,6 +541,7 @@ async function loadDashboard() {
     const s = await api(`/sets/${state.currentSetId}/summary?collection=${state.currentCollection}`);
     state.summary = s;
     populateBanner(s.set);
+    renderSetArt(s.set.id);
     renderDealCard(s);
     $("#statSpent").textContent = money(s.totalSpent);
     $("#statPacks").textContent = s.totalPacks;
