@@ -7,6 +7,7 @@ import {
 } from "./store.js";
 import { searchSets, importSet, listSetCards } from "./pokemontcg.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
+import { fetchSealedRipPrices } from "./tcgcsv.js";
 import { fetchEbayPackPrice } from "./ebay.js";
 import { computeCurve, applyProgress, chaseEstimate } from "./estimator.js";
 
@@ -248,32 +249,43 @@ export async function handleApi(request, env, url) {
         const set = await getCachedSet(db, setId);
         if (!set) return json({ error: "Set not imported" }, 404);
 
-        let pc = null, ebay = null;
+        let pc = null, ebay = null, tcg = null;
+        try { tcg = await fetchSealedRipPrices(set.name, set.release_date); } catch (e) { tcg = { _err: e.message }; }
         try { pc = await fetchPriceChartingPoints(db, set.name); } catch (e) { pc = { _err: e.message }; }
         try { ebay = await fetchEbayPackPrice(db, set.name); } catch (e) { ebay = { _err: e.message }; }
         const ev = await computeEV(db, set);
 
+        // "Market" = the cheapest way to rip an equivalent REGULAR pack: the lowest of
+        // loose single, box-per-pack, and bundle-per-pack across TCGplayer (via TCGCSV),
+        // PriceCharting, and eBay loose singles. Sleeved is a premium SKU (same cards,
+        // ~2× price) — shown for context but excluded so it can't inflate the deal check.
         const parts = [];
-        const singles = []; // single loose-pack price points -> the "typical market"
-        if (pc && pc.loose != null) { singles.push(pc.loose); parts.push(`PC loose $${pc.loose.toFixed(2)}`); }
-        if (pc && pc.sleeved != null) { singles.push(pc.sleeved); parts.push(`PC sleeved $${pc.sleeved.toFixed(2)}`); }
-        if (ebay && ebay.median != null) { singles.push(ebay.median); parts.push(`eBay ~$${ebay.median.toFixed(2)} (n=${ebay.n})`); }
-        const bulk = [pc && pc.boxPerPack, pc && pc.bundlePerPack].filter((v) => v != null);
-        const floor = bulk.length ? Math.min(...bulk) : null;
-        if (floor != null) parts.push(`bulk/pack ~$${floor.toFixed(2)}`);
+        const rip = []; // regular single-pack-equivalent rip prices
+        const add = (label, v) => { if (v != null && v > 0) { rip.push(v); parts.push(`${label} $${v.toFixed(2)}`); } };
+        add("TCG loose", tcg && tcg.loose);
+        add("TCG box/pack", tcg && tcg.boxPerPack);
+        add("TCG bundle/pack", tcg && tcg.bundlePerPack);
+        add("PC loose", pc && pc.loose);
+        add("PC box/pack", pc && pc.boxPerPack);
+        add("PC bundle/pack", pc && pc.bundlePerPack);
+        if (ebay && ebay.median != null) { rip.push(ebay.median); parts.push(`eBay ~$${ebay.median.toFixed(2)} (n=${ebay.n})`); }
+        if (pc && pc.sleeved != null) parts.push(`sleeved $${pc.sleeved.toFixed(2)} (excluded)`);
         if (ev != null) parts.push(`EV $${ev.toFixed(2)}`);
 
-        const median = (arr) => { const a = [...arr].sort((x, y) => x - y); const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
-        const market = singles.length ? Math.round(median(singles) * 100) / 100 : (floor ?? ev);
+        let market, basis;
+        if (rip.length) { market = Math.min(...rip); basis = "cheapest rip"; }
+        else if (pc && pc.sleeved != null) { market = pc.sleeved; basis = "sleeved only — no regular price"; }
+        else if (ev != null) { market = ev; basis = "EV fallback — no sealed price"; }
         if (market == null) {
-          return json({ error: "No market price found from any source (PriceCharting/eBay/EV).", sources: { pc, ebay, ev } }, 404);
+          return json({ error: "No market price found from any source (TCGCSV/PriceCharting/eBay/EV).", sources: { tcg, pc, ebay, ev } }, 404);
         }
+        market = Math.round(market * 100) / 100;
         const saved = await setSetPricing(db, setId, {
           market_price: market,
           ceiling: market,
-          note: `Blended: ${parts.join(" · ")}`,
+          note: `Cheapest rip $${market.toFixed(2)} (${basis}) · ${parts.join(" · ")}`,
         });
-        return json({ ...saved, sources: { pc, ebay, ev, floor, market } });
+        return json({ ...saved, sources: { tcg, pc, ebay, ev, market, basis } });
       }
       // PUT /api/sets/:id/progress
       if (seg.length === 4 && seg[3] === "progress" && method === "PUT") {

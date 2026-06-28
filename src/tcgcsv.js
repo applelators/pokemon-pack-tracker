@@ -63,6 +63,33 @@ function repMarket(rows) {
   return best;
 }
 
+// Cheapest-rip per-pack price points for a set's REGULAR sealed products, via TCGCSV
+// (TCGplayer market). Returns { loose, boxPerPack, bundlePerPack } in USD (nulls when
+// a product isn't listed). Sleeved is intentionally ignored — it's a premium SKU.
+export async function fetchSealedRipPrices(name, releaseDate, groupIdOverride) {
+  const groupId = groupIdOverride || (await findGroupId(name, releaseDate));
+  if (!groupId) return null;
+  const [products, prices] = await Promise.all([
+    getJson(`${BASE}/${POKEMON_CATEGORY}/${groupId}/products`),
+    getJson(`${BASE}/${POKEMON_CATEGORY}/${groupId}/prices`),
+  ]);
+  const priceRows = {};
+  for (const p of prices) (priceRows[p.productId] = priceRows[p.productId] || []).push(p);
+  const mkt = (id) => repMarket(priceRows[id] || []);
+  const byName = (re, notRe) =>
+    products.find((p) => re.test(p.name || "") && !(notRe && notRe.test(p.name || "")));
+  const loose = byName(/booster pack/i, /(sleeved|box|bundle|case|blister)/i);
+  const box = byName(/booster box/i, /(case|enhanced)/i); // plain 36-pack box
+  const bundle = byName(/booster bundle/i); // 6 packs
+  const round2 = (x) => (x && x > 0 ? Math.round(x * 100) / 100 : null);
+  return {
+    groupId,
+    loose: loose ? round2(mkt(loose.productId)) : null,
+    boxPerPack: box ? round2(mkt(box.productId) / 36) : null,
+    bundlePerPack: bundle ? round2(mkt(bundle.productId) / 6) : null,
+  };
+}
+
 // Per-rarity average market price (USD) for a set's singles, via TCGCSV. Rarity
 // strings ("Illustration Rare", "Mega Hyper Rare", …) match pokemontcg.io's, so
 // the result drops straight into set_all_rarities.avg_price.

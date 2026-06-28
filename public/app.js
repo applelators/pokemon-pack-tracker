@@ -463,9 +463,9 @@ function renderPackCalc(r) {
       let mk = "";
       if (d.market != null) {
         const mq = d.premiumVsMarket <= 0
-          ? `at or below the ~${money(d.market)} market`
-          : `~${money(d.premiumVsMarket)}/pack over the ~${money(d.market)} market`;
-        mk = ` <span class="muted">(Per-pack price is ${mq} — that's a separate question from the MSRP premium.)</span>`;
+          ? `at or below the cheapest way to rip (~${money(d.market)}/pack via loose or box) — a fair price`
+          : `~${money(d.premiumVsMarket)}/pack over the cheapest way to rip (~${money(d.market)} loose/box) — you could rip cheaper elsewhere`;
+        mk = ` <span class="muted">(Per-pack price is ${mq}.)</span>`;
       }
       dr = `<b>Diminishing returns × premium:</b> at ${P} you pay ${prem}/pack over the ~${M} MSRP. Weighing that growing premium against diminishing new-card returns, ${baseTxt}; ${allTxt} — beyond that you're paying mostly for the fun of ripping.${mk}`;
     }
@@ -527,7 +527,7 @@ function setupDealCard() {
     btn.disabled = true; btn.textContent = "↻ Refreshing…";
     try {
       const r = await api(`/sets/${state.currentSetId}/pricing/refresh`, { method: "POST" });
-      toast(`Blended market: ${money(r.pack_market_price)}`);
+      toast(`Cheapest rip: ${money(r.pack_market_price)}/pack`);
       loadDashboard();
     } catch (err) {
       toast(err.message, true);
