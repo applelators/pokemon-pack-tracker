@@ -442,25 +442,31 @@ function renderDealCard(s) {
 
 function renderPackCalc(r) {
   const P = money(r.price), avg = money(r.avgSingle);
-  // Lead line — diminishing returns × cumulative premium, anchored to the CHEAPEST RIP.
-  // One number: how many packs before the cumulative overpay above the cheapest way to
-  // rip (market, else MSRP) outweighs the new base-card value those packs add.
+  // Lead — anchored to the CHEAPEST RIP. When over it, show BOTH a strict efficiency
+  // verdict ("rip at $B instead") and a lenient tripwire ("if you rip here anyway, the
+  // overpay is covered by new-card value for ~N packs"). At/below it: rip freely.
   let dr = "";
   if (r.dr) {
     const d = r.dr, B = money(d.baseline);
-    const anchor = d.baselineType === "rip" ? "cheapest rip (loose/box)" : "MSRP";
+    const be = d.breakEven;
     if (d.unlimited) {
+      const anchor = d.baselineType === "rip" ? "cheapest rip (loose/box)" : "MSRP";
       dr = `<b>Diminishing returns × premium:</b> ${P} is at/below the ~${B} ${anchor} — best price to rip, go as far as you want.`;
+    } else if (d.baselineType === "msrp") {
+      // No live market price (brand-new set) — compare to MSRP, crediting chase.
+      const prem = money(d.premiumPerPack), chase = money(r.chaseEv || 0);
+      const tail = ` <span class="muted">(No live market price yet — compared to MSRP.)</span>`;
+      if (be.unbounded) dr = `<b>Diminishing returns × premium:</b> at ${P} you pay ${prem}/pack over the ~${B} MSRP, and the ~${chase}/pack chase upside covers it — packs stay +value as far as you'd go.${tail}`;
+      else if (be.recommendedMore <= 0) dr = `<b>Diminishing returns × premium:</b> at ${P} (${prem}/pack over the ~${B} MSRP) even the next pack's new cards don't cover it.${tail}`;
+      else dr = `<b>Diminishing returns × premium:</b> ${P} is ${prem}/pack over the ~${B} MSRP — covered by new-card value for ~<span class="deal-good">${be.recommendedMore}</span> more pack${be.recommendedMore === 1 ? "" : "s"}.${tail}`;
     } else {
-      const prem = money(d.premiumPerPack), be = d.breakEven;
-      if (be.unbounded) {
-        const chase = money(r.chaseEv || 0);
-        dr = `<b>Diminishing returns × premium:</b> at ${P} you pay ${prem}/pack over the ~${B} MSRP, and the ~${chase}/pack chase upside covers that — so packs stay +value as far as you'd go. <span class="muted">(No live market price yet — compared to MSRP.)</span>`;
-      } else if (be.recommendedMore <= 0) {
-        dr = `<b>Diminishing returns × premium:</b> at ${P} (${prem}/pack over the ~${B} ${anchor}) even the next pack's new cards don't cover the overpay — rip at ~${B} instead.`;
-      } else {
-        dr = `<b>Diminishing returns × premium:</b> ${P} is ${prem}/pack over the ~${B} ${anchor} — the overpay stays covered by new-card value for ~<span class="deal-good">${be.recommendedMore}</span> more pack${be.recommendedMore === 1 ? "" : "s"}, then you're just overpaying. <span class="muted">Cheaper to rip at ~${B} if you can.</span>`;
-      }
+      // Over the cheapest rip, with live market — show both stances.
+      const over = money(d.premiumVsMarket);
+      const strict = `<b>Vs cheapest rip:</b> ${P} is ${over}/pack over the ~${B} cheapest rip (loose/box) — the efficient move is to rip at ~${B} instead.`;
+      const lenient = be.recommendedMore <= 0
+        ? `<span class="muted"><b>If you rip here anyway:</b> even the next pack's new cards don't cover the overpay.</span>`
+        : `<span class="muted"><b>If you rip here anyway:</b> the overpay stays covered by new-card value for ~<span class="deal-good">${be.recommendedMore}</span> more pack${be.recommendedMore === 1 ? "" : "s"}, then you're just overpaying.</span>`;
+      dr = `${strict}<br>${lenient}`;
     }
   }
   // Line — base-set completion value only.
