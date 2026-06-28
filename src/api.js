@@ -174,25 +174,36 @@ export async function handleApi(request, env, url) {
         const stopAllIn = allInUnbounded ? cap : stopFor(allInThr);
         const nextMarginal = opened + 1 <= cap ? fwd[opened + 1] - fwd[opened] : 0;
 
-        // Diminishing-returns vs MSRP: how many packs before the premium over MSRP
-        // ($5 baseline) buys too few NEW base-set cards to be worth it. At/below MSRP
-        // every pack is best value (unbounded). Above it, the premium per new card
-        // must stay under an anchor — the card's own single value (strict), or half
-        // an MSRP (looser).
+        // Diminishing returns × cumulative premium: the break-even pack count where
+        // the cumulative premium over MSRP (linear: k·premium) overtakes the cumulative
+        // value of the NEW base cards those k packs add (fwd flattens — diminishing
+        // returns). At/below MSRP there's no premium (unbounded). Computed base-only
+        // (strict) and all-in (also counting the constant chase upside per pack).
         const msrp = set.pack_msrp != null && set.pack_msrp > 0 ? set.pack_msrp : 5;
-        const halfMsrp = msrp / 2;
         const premium = Math.round(Math.max(0, price - msrp) * 100) / 100;
         const unlimited = premium <= 0;
-        const drStop = (anchor) => (unlimited ? cap : stopFor(premium / anchor));
-        const valueStop = drStop(avg);       // premium per new card ≤ a single's price
-        const looseStop = drStop(halfMsrp);  // premium per new card ≤ half an MSRP (~$2.50)
+        // Largest k≥0 where (fwd[opened+k]−fwd[opened])·avg + k·extra ≥ k·premium.
+        // newCardValue(k) is concave-increasing, k·net is linear ⇒ single crossing.
+        const breakEven = (extra) => {
+          if (unlimited) return { unbounded: true, recommendedMore: Math.max(0, cap - opened) };
+          const net = premium - extra;
+          if (net <= 0) return { unbounded: true, recommendedMore: Math.max(0, cap - opened) };
+          let best = 0;
+          for (let k = 1; opened + k <= cap; k++) {
+            const newVal = (fwd[opened + k] - fwd[opened]) * avg;
+            if (newVal >= k * net) best = k; else break;
+          }
+          return { unbounded: false, recommendedMore: best };
+        };
+        const market = set.pack_market_price;
         const dr = {
           msrp: Math.round(msrp * 100) / 100,
-          looseAnchor: Math.round(halfMsrp * 100) / 100,
           premiumPerPack: premium,
           unlimited,
-          byCardValue: { stopAtPack: valueStop, recommendedMore: Math.max(0, valueStop - opened) },
-          byHalfMsrp: { stopAtPack: looseStop, recommendedMore: Math.max(0, looseStop - opened) },
+          market: market != null && market > 0 ? Math.round(market * 100) / 100 : null,
+          premiumVsMarket: market != null && market > 0 ? Math.round((price - market) * 100) / 100 : null,
+          baseBreakEven: breakEven(0),         // premium vs new base-card value only
+          allInBreakEven: breakEven(chaseEv),  // also counts ~chaseEv/pack chase upside
         };
 
         return json({
