@@ -959,7 +959,7 @@ function ppRow(name = "", packs = "") {
 function chaseRateRow(rarity = "", prob = "") {
   return `<tr>
     <td><input type="text" class="cr-rarity" value="${rarity}" placeholder="Illustration Rare" /></td>
-    <td><input type="number" class="cr-prob" step="0.0001" min="0" value="${prob}" placeholder="0.111" /></td>
+    <td><input type="number" class="cr-prob" step="any" min="0" value="${prob}" placeholder="0.111" /></td>
     <td><button type="button" class="ghost cr-remove">✕</button></td>
   </tr>`;
 }
