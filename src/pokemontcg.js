@@ -1,6 +1,7 @@
 // pokemontcg.io client. Runs inside the Worker; caches results into D1 via store.
 import { getRawSettings, saveSet, getCachedSet } from "./store.js";
 import { fetchOfficialArt } from "./officialart.js";
+import { fetchRarityPrices } from "./tcgcsv.js";
 
 const BASE_URL = "https://api.pokemontcg.io/v2";
 
@@ -147,6 +148,19 @@ export async function importSet(db, setId) {
   }
   const allRarityPrices = {};  // rarity -> avg market price
   for (const r of Object.keys(priceN)) allRarityPrices[r] = priceSum[r] / priceN[r];
+
+  // Fill any rarities pokemontcg.io hasn't priced yet (it lags on brand-new sets)
+  // from TCGCSV, a free daily TCGplayer mirror. Gap-fill only — keeps already-priced
+  // rarities as-is. Best-effort: never let a TCGCSV hiccup fail the import.
+  const missingPrices = Object.keys(allRarityCounts).filter((r) => allRarityPrices[r] == null);
+  if (missingPrices.length) {
+    try {
+      const tcg = await fetchRarityPrices(s.name, s.releaseDate);
+      if (tcg && tcg.prices) {
+        for (const r of missingPrices) if (tcg.prices[r] != null) allRarityPrices[r] = tcg.prices[r];
+      }
+    } catch { /* TCGCSV best-effort; ignore */ }
+  }
 
   // Best-effort: grab official art from the expansion's tcg.pokemon.com page.
   let artJson = null;
