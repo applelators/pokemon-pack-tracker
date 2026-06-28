@@ -128,6 +128,19 @@ export function computeCurve({ rarities, packModel, runs = 3000 }) {
   const firstBelow = (t) => { for (let k = 1; k <= CURVE_CAP; k++) if (curve[k] - curve[k - 1] < t) return k; return null; };
   const packsTo = (target) => { for (let k = 1; k <= CURVE_CAP; k++) if (curve[k] >= target) return k; return null; };
 
+  // Compact, cache-friendly projections of the curve (instead of all 4001 points):
+  //   fwd[k] = expected distinct after k packs (k = 0..FWD_CAP)
+  //   inv[c] = packs to reach c distinct cards (c = 0..N)
+  const FWD_CAP = Math.min(1000, CURVE_CAP);
+  const fwd = [];
+  for (let k = 0; k <= FWD_CAP; k++) fwd.push(Math.round(curve[k] * 100) / 100);
+  const inv = new Array(N + 1);
+  let kk = 0;
+  for (let c = 0; c <= N; c++) {
+    while (kk < CURVE_CAP && curve[kk] < c) kk++;
+    inv[c] = kk;
+  }
+
   return {
     N,
     expectedTotalPacks: Math.round(mean),
@@ -136,7 +149,7 @@ export function computeCurve({ rarities, packModel, runs = 3000 }) {
     diminishingReturnsPacks: firstBelow(1) ?? CURVE_CAP,
     diminishingReturnsPacksSteep: firstBelow(0.2) ?? CURVE_CAP,
     setMilestones: { pct50: packsTo(0.5 * N), pct90: packsTo(0.9 * N), pct95: packsTo(0.95 * N) },
-    curve,
+    fwd, inv,
   };
 }
 
@@ -153,9 +166,8 @@ export function applyProgress(cc, opened = 0, collected = null) {
     opened,
   };
   if (!N) return base;
-  const curve = cc.curve || [];
-  const cap = curve.length - 1;
-  const colAtOpened = opened <= 0 ? 0 : (curve[Math.min(opened, cap)] ?? N);
+  const fwd = cc.fwd || [0];
+  const colAtOpened = opened <= 0 ? 0 : (opened < fwd.length ? fwd[opened] : N);
   base.expectedCollectedAtOpened = Math.round(colAtOpened);
   base.expectedPctAtOpened = Math.round((colAtOpened / N) * 1000) / 10;
   base.packsRemaining = Math.max(0, Math.round(cc.expectedTotalPacks - opened));
@@ -164,8 +176,8 @@ export function applyProgress(cc, opened = 0, collected = null) {
     base.collected = c;
     base.actualPct = Math.round((c / N) * 1000) / 10;
     base.cardsRemaining = Math.max(0, N - c);
-    let eq = c >= N ? cc.expectedTotalPacks : null;
-    if (eq == null) { for (let k = 1; k <= cap; k++) if (curve[k] >= c) { eq = k; break; } if (eq == null) eq = 0; }
+    const inv = cc.inv || [];
+    const eq = c >= N ? cc.expectedTotalPacks : (inv[c] != null ? inv[c] : 0);
     base.equivalentPacks = eq;
     base.packsRemainingFromCards = Math.max(0, Math.round(cc.expectedTotalPacks - eq));
   }

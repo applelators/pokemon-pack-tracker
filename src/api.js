@@ -33,7 +33,7 @@ async function computeEstimate(db, set, opened, collected = null) {
   try { packModel = JSON.parse(raw.pack_model); } catch { packModel = { slots: [] }; }
   const runs = Number(raw.monte_carlo_runs) || 3000;
   // Cache the heavy curve per set; only re-simulate when rarities/model/runs change.
-  const signature = JSON.stringify({ r: set.rarities.map((x) => [x.rarity, x.count]), m: packModel, runs });
+  const signature = JSON.stringify({ v: 2, r: set.rarities.map((x) => [x.rarity, x.count]), m: packModel, runs });
   let cc = await getEstimateCache(db, set.id, signature);
   if (!cc) {
     cc = computeCurve({ rarities: set.rarities, packModel, runs });
