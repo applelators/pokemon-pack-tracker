@@ -461,13 +461,20 @@ function renderPackCalc(r) {
       else if (be.recommendedMore <= 0) dr = `<b>Diminishing returns × premium:</b> at ${P} (${prem}/pack over the ~${B} MSRP) even the next pack's new cards don't cover it.${tail}`;
       else dr = `<b>Diminishing returns × premium:</b> ${P} is ${prem}/pack over the ~${B} MSRP — covered by new-card value for ~<span class="deal-good">${be.recommendedMore}</span> more pack${be.recommendedMore === 1 ? "" : "s"}.${tail}`;
     } else {
-      // Over the cheapest rip, with live market — show both stances.
+      // Over the cheapest rip, with live market — efficient verdict + realistic buy.
       const over = money(d.premiumVsMarket);
       const strict = `<b>Vs cheapest rip:</b> ${P} is ${over}/pack over the ~${B} cheapest rip (loose/box) — the efficient move is to rip at ~${B} instead.`;
-      const lenient = be.recommendedMore <= 0
-        ? `<span class="muted"><b>If you rip here anyway:</b> even the next pack's new cards don't cover the overpay.</span>`
-        : `<span class="muted"><b>If you rip here anyway:</b> the overpay stays covered by new-card value for ~<span class="deal-good">${be.recommendedMore}</span> more pack${be.recommendedMore === 1 ? "" : "s"}, then you're just overpaying.</span>`;
-      dr = `${strict}<br>${lenient}`;
+      const rb = d.realisticBuy;
+      let real;
+      if (rb && rb.packs >= 1) {
+        real = `<b>Realistic buy:</b> if you're ripping here for the experience, ~<span class="deal-good">${rb.packs}</span> pack${rb.packs === 1 ? "" : "s"} (about a ${money(rb.pool)} "overpay-for-fun" budget ÷ ${over}/pack), then stop.`;
+      } else {
+        real = `<b>Realistic buy:</b> skip — ${over}/pack is steep enough that a ${money(rb ? rb.pool : 6)} fun budget won't even cover one pack; rip at ~${B} instead.`;
+      }
+      const lenient = be.recommendedMore > 0
+        ? ` <span class="muted">(Value-wise, the overpay stays covered for ~${be.recommendedMore} packs.)</span>`
+        : "";
+      dr = `${strict}<br>${real}${lenient}`;
     }
   }
   // Line — base-set completion value only.
@@ -1212,6 +1219,7 @@ function renderSettings() {
   $("#setPcKey").value = s.pricecharting_api_key ?? "";
   $("#setEbayId").value = s.ebay_client_id ?? "";
   $("#setEbaySecret").value = s.ebay_client_secret ?? "";
+  $("#setFunPool").value = s.fun_overpay_pool ?? 6;
   $("#setRuns").value = s.monte_carlo_runs ?? 3000;
   const tbody = $("#packsPerProduct tbody");
   tbody.innerHTML = Object.entries(s.packs_per_product || {})
@@ -1285,6 +1293,7 @@ async function saveSettings(e) {
         pricecharting_api_key: $("#setPcKey").value,
         ebay_client_id: $("#setEbayId").value,
         ebay_client_secret: $("#setEbaySecret").value,
+        fun_overpay_pool: Number($("#setFunPool").value || 6),
         monte_carlo_runs: Number($("#setRuns").value || 3000),
         packs_per_product: packsPerProduct,
         chase_pull_rates: chaseRates,
