@@ -3,10 +3,11 @@ import {
   listSets, getCachedSet, setExists,
   listOrders, getOrder, createOrder, updateOrder, deleteOrder, orderExists,
   setTotals, getProgress, setProgress, setSetPricing,
+  getEstimateCache, saveEstimateCache,
 } from "./store.js";
 import { searchSets, importSet, listSetCards } from "./pokemontcg.js";
 import { fetchPackPrice } from "./pricecharting.js";
-import { estimate, chaseEstimate } from "./estimator.js";
+import { computeCurve, applyProgress, chaseEstimate } from "./estimator.js";
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -31,7 +32,14 @@ async function computeEstimate(db, set, opened, collected = null) {
   let packModel;
   try { packModel = JSON.parse(raw.pack_model); } catch { packModel = { slots: [] }; }
   const runs = Number(raw.monte_carlo_runs) || 3000;
-  return estimate({ rarities: set.rarities, packModel, opened, runs, collected });
+  // Cache the heavy curve per set; only re-simulate when rarities/model/runs change.
+  const signature = JSON.stringify({ r: set.rarities.map((x) => [x.rarity, x.count]), m: packModel, runs });
+  let cc = await getEstimateCache(db, set.id, signature);
+  if (!cc) {
+    cc = computeCurve({ rarities: set.rarities, packModel, runs });
+    await saveEstimateCache(db, set.id, signature, cc);
+  }
+  return applyProgress(cc, opened, collected);
 }
 
 // Expected value of one pack ($) from current single-card prices (pokemontcg.io).

@@ -106,6 +106,15 @@ CREATE TABLE IF NOT EXISTS order_pull_cards (
   PRIMARY KEY (order_id, card_id)
 );
 
+-- Cached Monte-Carlo completion curve per set (keyed by a signature of
+-- rarities + pack model + runs) so the dashboard doesn't re-simulate every load.
+CREATE TABLE IF NOT EXISTS estimate_cache (
+  set_id    TEXT PRIMARY KEY REFERENCES sets(id) ON DELETE CASCADE,
+  signature TEXT NOT NULL,
+  data      TEXT NOT NULL,
+  updated   TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_orders_set ON orders(set_id);
 CREATE INDEX IF NOT EXISTS idx_pullcards_order ON order_pull_cards(order_id);
 CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);

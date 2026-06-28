@@ -325,6 +325,9 @@ table.grid input { width: 100%; }
 .circle-check { flex-direction: row; align-items: center; gap: 9px; margin: 2px 0 12px; color: var(--text); font-size: 0.86rem; cursor: pointer; }
 .circle-check input { width: auto; }
 .discount { color: var(--good); }
+.deal-good { color: var(--good); font-weight: 600; }
+.deal-bad { color: var(--danger); font-weight: 600; }
+.deal-fair { color: var(--muted); }
 .order-totals span.discount b { color: var(--good); }
 
 .order-totals { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }

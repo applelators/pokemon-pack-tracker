@@ -121,6 +121,21 @@ export async function setSetPricing(db, setId, { market_price, ceiling, msrp, no
   return getCachedSet(db, setId);
 }
 
+// ---- cached completion curve (heavy Monte-Carlo result) ------------------
+export async function getEstimateCache(db, setId, signature) {
+  const row = await db.prepare("SELECT data FROM estimate_cache WHERE set_id = ? AND signature = ?").bind(setId, signature).first();
+  if (!row) return null;
+  try { return JSON.parse(row.data); } catch { return null; }
+}
+
+export async function saveEstimateCache(db, setId, signature, data) {
+  await db
+    .prepare(`INSERT INTO estimate_cache (set_id, signature, data, updated) VALUES (?, ?, ?, ?)
+              ON CONFLICT(set_id) DO UPDATE SET signature=excluded.signature, data=excluded.data, updated=excluded.updated`)
+    .bind(setId, signature, JSON.stringify(data), new Date().toISOString())
+    .run();
+}
+
 // ---- orders --------------------------------------------------------------
 function computeOrder(order, items) {
   const subtotal = items.reduce((a, i) => a + i.quantity * i.unit_price, 0);

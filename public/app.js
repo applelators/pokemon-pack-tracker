@@ -356,14 +356,34 @@ function populateBanner(set) {
 }
 
 // ---- Loose-pack deal check -----------------------------------------------
+// Reference price lines for a set: good-deal ceiling, typical market, bad-deal line.
+function dealRefs(s) {
+  const set = s.set || {};
+  const ev = s.packEv;
+  const ceiling = set.pack_price_ceiling != null ? set.pack_price_ceiling : ev; // good-deal line
+  const market = set.pack_market_price != null ? set.pack_market_price : ev;     // typical market
+  const bad = market != null ? Math.round(market * 1.25 * 100) / 100 : null;     // ~25% over market = overpaying
+  return { ceiling, market, bad, ev };
+}
+
+// Classify a per-pack price against the references.
+function dealFlag(perPack, refs) {
+  if (perPack == null || (refs.ceiling == null && refs.bad == null)) return { label: "—", cls: "" };
+  if (refs.ceiling != null && perPack <= refs.ceiling) return { label: "Good deal", cls: "deal-good" };
+  if (refs.bad != null && perPack >= refs.bad) return { label: "Overpaid", cls: "deal-bad" };
+  return { label: "Fair", cls: "deal-fair" };
+}
+
 function renderDealCard(s) {
   const set = s.set;
   const ev = s.packEv;
   const c = set.pack_price_ceiling, m = set.pack_market_price, msrp = set.pack_msrp;
+  const refs = dealRefs(s);
   const effCeiling = c != null ? c : ev;  // default the good-deal line to EV when no manual ceiling
   $("#dealCeiling").textContent = effCeiling != null ? money(effCeiling) : "—";
   $("#dealEv").textContent = ev != null ? money(ev) : "no price data yet";
   $("#dealMarket").textContent = m != null ? money(m) : "—";
+  $("#dealBad").textContent = refs.bad != null ? money(refs.bad) : "—";
   $("#dealMsrp").textContent = msrp != null ? money(msrp) : "—";
   const note = $("#dealNote");
   if (set.pack_price_note || set.pack_price_updated) {
@@ -540,9 +560,14 @@ async function loadDashboard() {
 
     const tbody = $("#breakdownTable tbody");
     const entries = Object.entries(s.breakdown);
+    const refs = dealRefs(s);
     tbody.innerHTML = entries.length
-      ? entries.map(([p, b]) => `<tr><td data-label="Product">${productIcon(p)}${p}</td><td data-label="Qty">${b.quantity}</td><td data-label="Packs">${b.packs}</td><td data-label="Spend">${money(b.spend)}</td></tr>`).join("")
-      : '<tr><td colspan="4" class="muted">No purchases yet.</td></tr>';
+      ? entries.map(([p, b]) => {
+          const perPack = b.packs > 0 ? b.spend / b.packs : null;
+          const f = dealFlag(perPack, refs);
+          return `<tr><td data-label="Product">${productIcon(p)}${p}</td><td data-label="Qty">${b.quantity}</td><td data-label="Packs">${b.packs}</td><td data-label="Spend">${money(b.spend)}</td><td data-label="$/pack">${perPack != null ? money(perPack) : "—"}</td><td data-label="Deal"><span class="${f.cls}">${f.label}</span></td></tr>`;
+        }).join("")
+      : '<tr><td colspan="6" class="muted">No purchases yet.</td></tr>';
 
     $("#rarityList").innerHTML = (s.set.rarities || [])
       .map((r) => `<span class="chip">${raritySymbol(r.rarity)} ${r.rarity} <b>${r.count}</b></span>`)

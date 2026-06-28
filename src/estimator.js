@@ -93,40 +93,28 @@ function drawInto(compiled, collected) {
   return fresh;
 }
 
-export function estimate({ rarities, packModel, opened = 0, runs = 3000, collected = null }) {
+// Heavy part — depends only on (rarities, packModel, runs), so it's cache-able.
+// Returns the averaged collection curve + completion stats. `opened`/`collected`
+// are applied cheaply afterwards by applyProgress().
+export function computeCurve({ rarities, packModel, runs = 3000 }) {
   const { N, compiled } = buildDraws(rarities, packModel);
-  if (N === 0 || compiled.length === 0) {
-    return { baseSetSize: N, expectedTotalPacks: 0, packsRemaining: 0,
-      p50: 0, p90: 0, expectedCollectedAtOpened: 0, expectedPctAtOpened: 0,
-      runs: 0, opened };
-  }
-
-  const MAX_PACKS = 500000;
-  // Track the average collection curve up to CURVE_CAP packs so we can find the
-  // "diminishing returns" point and set-completion milestones (which all occur
-  // well before 100% completion).
   const CURVE_CAP = 4000;
-  const curveSum = new Float64Array(CURVE_CAP + 1); // curveSum[k] = sum of distinct after k packs
+  if (N === 0 || compiled.length === 0) {
+    return { N: 0, expectedTotalPacks: 0, p50: 0, p90: 0, diminishingReturnsPacks: 0,
+      diminishingReturnsPacksSteep: 0, setMilestones: { pct50: null, pct90: null, pct95: null }, curve: [0] };
+  }
+  const MAX_PACKS = 500000;
+  const curveSum = new Float64Array(CURVE_CAP + 1);
   const totals = new Array(runs);
-  let sumCollectedAtOpened = 0;
 
   for (let run = 0; run < runs; run++) {
     const collected = new Uint8Array(N);
-    let distinct = 0;
-    let packs = 0;
-    let snapped = opened === 0;
-
+    let distinct = 0, packs = 0;
     while (distinct < N && packs < MAX_PACKS) {
       distinct += drawInto(compiled, collected);
       packs++;
       if (packs <= CURVE_CAP) curveSum[packs] += distinct;
-      if (!snapped && packs === opened) {
-        sumCollectedAtOpened += distinct;
-        snapped = true;
-      }
     }
-    if (!snapped) sumCollectedAtOpened += N;
-    // Once complete, the curve stays at N for the rest of the window.
     for (let k = packs + 1; k <= CURVE_CAP; k++) curveSum[k] += N;
     totals[run] = packs;
   }
@@ -134,62 +122,58 @@ export function estimate({ rarities, packModel, opened = 0, runs = 3000, collect
   totals.sort((a, b) => a - b);
   const mean = totals.reduce((a, b) => a + b, 0) / runs;
   const pct = (p) => totals[Math.min(runs - 1, Math.floor(p * runs))];
-  const expectedCollectedAtOpened = sumCollectedAtOpened / runs;
-
-  // Average curve + derived metrics.
   const curve = new Array(CURVE_CAP + 1);
   for (let k = 0; k <= CURVE_CAP; k++) curve[k] = curveSum[k] / runs;
 
-  // Diminishing returns breakpoints: the first pack whose marginal expected new
-  // base-set cards drops below a threshold.
-  //   mild  (< 1.0): the next pack is, on average, mostly duplicates.
-  //   steep (< 0.2): you'd average more than ~5 packs per new card.
-  const firstPackBelow = (threshold) => {
-    for (let k = 1; k <= CURVE_CAP; k++) {
-      if (curve[k] - curve[k - 1] < threshold) return k;
-    }
-    return null;
-  };
-  const diminishingReturnsPacks = firstPackBelow(1) ?? CURVE_CAP;
-  const diminishingReturnsPacksSteep = firstPackBelow(0.2) ?? CURVE_CAP;
-  // Packs to collect a given fraction of the whole base set.
-  const packsTo = (target) => {
-    for (let k = 1; k <= CURVE_CAP; k++) if (curve[k] >= target) return k;
-    return null; // not reached within the window
-  };
-  const packsToPct = (frac) => packsTo(frac * N);
-
-  // If the user told us how many distinct base-set cards they ACTUALLY have, use
-  // it: find the pack count whose expected progress matches that many cards, and
-  // base the remaining estimate on real collection progress (accounts for luck).
-  let cardsRemaining = null, packsRemainingFromCards = null, equivalentPacks = null, actualPct = null;
-  if (collected != null && collected >= 0) {
-    const c = Math.min(collected, N);
-    actualPct = Math.round((c / N) * 1000) / 10;
-    cardsRemaining = Math.max(0, N - c);
-    equivalentPacks = c >= N ? Math.round(mean) : (packsTo(c) ?? 0);
-    packsRemainingFromCards = Math.max(0, Math.round(mean - equivalentPacks));
-  }
+  const firstBelow = (t) => { for (let k = 1; k <= CURVE_CAP; k++) if (curve[k] - curve[k - 1] < t) return k; return null; };
+  const packsTo = (target) => { for (let k = 1; k <= CURVE_CAP; k++) if (curve[k] >= target) return k; return null; };
 
   return {
-    baseSetSize: N,
+    N,
     expectedTotalPacks: Math.round(mean),
-    packsRemaining: Math.max(0, Math.round(mean - opened)),
     p50: pct(0.5),
     p90: pct(0.9),
-    expectedCollectedAtOpened: Math.round(expectedCollectedAtOpened),
-    expectedPctAtOpened: Math.round((expectedCollectedAtOpened / N) * 1000) / 10,
-    diminishingReturnsPacks,
-    diminishingReturnsPacksSteep,
-    setMilestones: { pct50: packsToPct(0.5), pct90: packsToPct(0.9), pct95: packsToPct(0.95) },
-    collected: collected != null ? Math.min(collected, N) : null,
-    actualPct,
-    cardsRemaining,
-    equivalentPacks,
-    packsRemainingFromCards,
-    runs,
+    diminishingReturnsPacks: firstBelow(1) ?? CURVE_CAP,
+    diminishingReturnsPacksSteep: firstBelow(0.2) ?? CURVE_CAP,
+    setMilestones: { pct50: packsTo(0.5 * N), pct90: packsTo(0.9 * N), pct95: packsTo(0.95 * N) },
+    curve,
+  };
+}
+
+// Cheap — apply the user's opened-packs / cards-collected to a (cached) curve.
+export function applyProgress(cc, opened = 0, collected = null) {
+  const N = cc.N || 0;
+  const base = {
+    baseSetSize: N, expectedTotalPacks: cc.expectedTotalPacks || 0,
+    p50: cc.p50 || 0, p90: cc.p90 || 0,
+    diminishingReturnsPacks: cc.diminishingReturnsPacks, diminishingReturnsPacksSteep: cc.diminishingReturnsPacksSteep,
+    setMilestones: cc.setMilestones || { pct50: null, pct90: null, pct95: null },
+    expectedCollectedAtOpened: 0, expectedPctAtOpened: 0, packsRemaining: 0,
+    collected: null, actualPct: null, cardsRemaining: null, equivalentPacks: null, packsRemainingFromCards: null,
     opened,
   };
+  if (!N) return base;
+  const curve = cc.curve || [];
+  const cap = curve.length - 1;
+  const colAtOpened = opened <= 0 ? 0 : (curve[Math.min(opened, cap)] ?? N);
+  base.expectedCollectedAtOpened = Math.round(colAtOpened);
+  base.expectedPctAtOpened = Math.round((colAtOpened / N) * 1000) / 10;
+  base.packsRemaining = Math.max(0, Math.round(cc.expectedTotalPacks - opened));
+  if (collected != null && collected >= 0) {
+    const c = Math.min(collected, N);
+    base.collected = c;
+    base.actualPct = Math.round((c / N) * 1000) / 10;
+    base.cardsRemaining = Math.max(0, N - c);
+    let eq = c >= N ? cc.expectedTotalPacks : null;
+    if (eq == null) { for (let k = 1; k <= cap; k++) if (curve[k] >= c) { eq = k; break; } if (eq == null) eq = 0; }
+    base.equivalentPacks = eq;
+    base.packsRemainingFromCards = Math.max(0, Math.round(cc.expectedTotalPacks - eq));
+  }
+  return base;
+}
+
+export function estimate({ rarities, packModel, opened = 0, runs = 3000, collected = null }) {
+  return applyProgress(computeCurve({ rarities, packModel, runs }), opened, collected);
 }
 
 // Average packs to pull a chase card (Illustration Rare, Ultra Rare, Special
