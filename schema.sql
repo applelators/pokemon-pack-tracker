@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS sets (
   pack_price_ceiling REAL,   -- "good deal under this" recommendation
   pack_msrp          REAL,   -- original retail per pack
   pack_price_note    TEXT,   -- sources + methodology
-  pack_price_updated TEXT    -- ISO date the price was last researched/edited
+  pack_price_updated TEXT,   -- ISO date the price was last researched/edited
+  art_json           TEXT    -- official art (hero + product renders) scraped on import
 );
 
 -- Upgrading an existing database? Columns added later — run once each:
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS sets (
 --   ALTER TABLE sets ADD COLUMN pack_msrp REAL;
 --   ALTER TABLE sets ADD COLUMN pack_price_note TEXT;
 --   ALTER TABLE sets ADD COLUMN pack_price_updated TEXT;
+--   ALTER TABLE sets ADD COLUMN art_json TEXT;
 
 CREATE TABLE IF NOT EXISTS set_rarities (
   set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,

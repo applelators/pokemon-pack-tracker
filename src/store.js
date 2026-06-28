@@ -75,19 +75,22 @@ export async function getCachedSet(db, id) {
     .prepare("SELECT rarity, count, avg_price FROM set_all_rarities WHERE set_id = ? ORDER BY count DESC")
     .bind(id)
     .all();
-  return { ...set, rarities: results, allRarities: all };
+  let art = null;
+  if (set.art_json) { try { art = JSON.parse(set.art_json); } catch { art = null; } }
+  return { ...set, rarities: results, allRarities: all, art };
 }
 
-export async function saveSet(db, set, rarityCounts, allRarityCounts = {}, allRarityPrices = {}) {
+export async function saveSet(db, set, rarityCounts, allRarityCounts = {}, allRarityPrices = {}, artJson = null) {
   const stmts = [
     db.prepare(
-      `INSERT INTO sets (id, name, series, printed_total, total, release_date, logo_url, symbol_url, fetched_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO sets (id, name, series, printed_total, total, release_date, logo_url, symbol_url, fetched_at, art_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name=excluded.name, series=excluded.series, printed_total=excluded.printed_total,
          total=excluded.total, release_date=excluded.release_date,
-         logo_url=excluded.logo_url, symbol_url=excluded.symbol_url, fetched_at=excluded.fetched_at`
-    ).bind(set.id, set.name, set.series, set.printed_total, set.total, set.release_date, set.logo_url ?? null, set.symbol_url ?? null, set.fetched_at),
+         logo_url=excluded.logo_url, symbol_url=excluded.symbol_url, fetched_at=excluded.fetched_at,
+         art_json=COALESCE(excluded.art_json, sets.art_json)`
+    ).bind(set.id, set.name, set.series, set.printed_total, set.total, set.release_date, set.logo_url ?? null, set.symbol_url ?? null, set.fetched_at, artJson),
     db.prepare("DELETE FROM set_rarities WHERE set_id = ?").bind(set.id),
     db.prepare("DELETE FROM set_all_rarities WHERE set_id = ?").bind(set.id),
   ];

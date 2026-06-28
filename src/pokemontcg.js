@@ -1,5 +1,6 @@
 // pokemontcg.io client. Runs inside the Worker; caches results into D1 via store.
 import { getRawSettings, saveSet, getCachedSet } from "./store.js";
+import { fetchOfficialArt } from "./officialart.js";
 
 const BASE_URL = "https://api.pokemontcg.io/v2";
 
@@ -133,6 +134,10 @@ export async function importSet(db, setId) {
   const allRarityPrices = {};  // rarity -> avg market price
   for (const r of Object.keys(priceN)) allRarityPrices[r] = priceSum[r] / priceN[r];
 
+  // Best-effort: grab official art from the expansion's tcg.pokemon.com page.
+  let artJson = null;
+  try { const art = await fetchOfficialArt(s.name); if (art) artJson = JSON.stringify(art); } catch { /* ignore */ }
+
   await saveSet(
     db,
     {
@@ -148,7 +153,8 @@ export async function importSet(db, setId) {
     },
     rarityCounts,
     allRarityCounts,
-    allRarityPrices
+    allRarityPrices,
+    artJson
   );
 
   return getCachedSet(db, s.id);

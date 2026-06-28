@@ -338,22 +338,7 @@ function setupBrowse() {
 }
 
 // ---- dashboard -----------------------------------------------------------
-// Per-set official art (hotlinked from Pokémon's CDN). Add an entry per set id.
-const ART_CDN = "https://d1i787aglh9bmb.cloudfront.net/assets/img";
-const SET_ART = {
-  me4: {
-    hero: `${ART_CDN}/me-expansions/me04/header/en-us/me04-small-fallback.png`,
-    featured: `${ART_CDN}/global/cards/en-us/me04.png`,
-    products: [
-      { name: "Booster Bundle", img: `${ART_CDN}/me-expansions/me04/collections/en-us/me04-booster-bundle-en.png` },
-      { name: "Elite Trainer Box", img: `${ART_CDN}/me-expansions/me04/collections/en-us/me04-etb-en.png` },
-      { name: "Booster Display", img: `${ART_CDN}/me-expansions/me04/collections/en-us/me04-booster-display-en.png` },
-      { name: "Build & Battle Box", img: `${ART_CDN}/me-expansions/me04/collections/en-us/me04-build-battle-en.png` },
-    ],
-  },
-};
-
-// Set-banner: live logo + symbol watermark, or full key art when we have it.
+// Set-banner: live logo + symbol watermark, or full key art when the set has it.
 function populateBanner(set) {
   $("#sbName").textContent = set.name || "—";
   $("#sbSeries").textContent = set.series || "";
@@ -363,7 +348,7 @@ function populateBanner(set) {
   if (set.logo_url) { logo.src = set.logo_url; logo.classList.remove("hidden"); }
   else { logo.removeAttribute("src"); logo.classList.add("hidden"); }
   const art = $("#sbArt");
-  const hero = SET_ART[set.id] && SET_ART[set.id].hero;
+  const hero = set.art && set.art.hero;
   if (hero) {
     art.style.backgroundImage = `url("${hero}")`;
     art.classList.add("art-hero");
@@ -377,16 +362,18 @@ function populateBanner(set) {
   if (fav && set.symbol_url) fav.href = set.symbol_url;
 }
 
-// Render the official-art gallery for sets we have art for.
-function renderSetArt(setId) {
-  const art = SET_ART[setId];
+// Render the official-art gallery (key art + product renders) for the set.
+function renderSetArt(set) {
+  const art = set && set.art;
   const box = $("#setArt");
-  if (!art) { box.classList.add("hidden"); box.innerHTML = ""; return; }
+  if (!art || (!art.hero && !(art.products && art.products.length))) {
+    box.classList.add("hidden"); box.innerHTML = ""; return;
+  }
   box.classList.remove("hidden");
   box.innerHTML = `
     <h3 class="dash-h">Expansion art <span class="dash-hint">official artwork</span></h3>
     <div class="art-wrap">
-      ${art.featured ? `<img class="art-featured" src="${art.featured}" loading="lazy" alt="Featured cards" />` : ""}
+      ${art.hero ? `<img class="art-featured" src="${art.hero}" loading="lazy" alt="${set.name} key art" />` : ""}
       ${art.products && art.products.length ? `<div class="art-products">${art.products.map((p) =>
         `<figure class="art-prod"><img src="${p.img}" loading="lazy" alt="${p.name}" /><figcaption>${p.name}</figcaption></figure>`).join("")}</div>` : ""}
     </div>`;
@@ -541,7 +528,7 @@ async function loadDashboard() {
     const s = await api(`/sets/${state.currentSetId}/summary?collection=${state.currentCollection}`);
     state.summary = s;
     populateBanner(s.set);
-    renderSetArt(s.set.id);
+    renderSetArt(s.set);
     renderDealCard(s);
     $("#statSpent").textContent = money(s.totalSpent);
     $("#statPacks").textContent = s.totalPacks;
