@@ -442,14 +442,25 @@ function renderDealCard(s) {
 
 function renderPackCalc(r) {
   const P = money(r.price), avg = money(r.avgSingle);
+  // Line 1 — base-set completion value only.
+  let base;
   if (r.recommendedMore > 0) {
     const per = r.costPerNewCardNext != null ? money(r.costPerNewCardNext) : "—";
-    return `Buy ~<b>${r.recommendedMore}</b> more pack${r.recommendedMore === 1 ? "" : "s"} at ${P} (through ~pack ${r.stopAtPack}). `
-      + `After that, each new base-set card would cost more than the ~${avg} average single — switch to singles. `
-      + `<span class="muted">Next pack ≈ ${per}/new card. Base-set value only; chase hits are extra upside.</span>`;
+    base = `<b>Base-set value:</b> buy ~<b>${r.recommendedMore}</b> more pack${r.recommendedMore === 1 ? "" : "s"} at ${P} (through ~pack ${r.stopAtPack}); after that each new base card costs over the ~${avg} avg single — buy singles. <span class="muted">Next pack ≈ ${per}/new card.</span>`;
+  } else {
+    base = `<b>Base-set value:</b> not worth more packs at ${P} — a new base card would cost over the ~${avg} avg single, so buy singles.`;
   }
-  return `At ${P}/pack, more packs aren't good <b>base-set</b> value right now — the next pack's new cards would cost over the ~${avg} average single, so buy singles. `
-    + `<span class="muted">(Chase hits are separate upside.)</span>`;
+  // Line 2 — all-in: base value + constant chase upside per pack.
+  const chase = money(r.chaseEv || 0);
+  let allin;
+  if (r.allInUnbounded) {
+    allin = `<b>All-in value:</b> the chase upside alone (~${chase}/pack from IR/UR/SIR/MHR) covers ${P} — packs stay +value as far as you'd want to go.`;
+  } else if (r.recommendedMoreAllIn > 0) {
+    allin = `<b>All-in value:</b> counting ~${chase}/pack chase upside, buy ~<b>${r.recommendedMoreAllIn}</b> more (through ~pack ${r.stopAtPackAllIn}).`;
+  } else {
+    allin = `<b>All-in value:</b> even with ~${chase}/pack chase upside, ${P} isn't worth more packs — buy singles / specific chase cards.`;
+  }
+  return `${base}<br>${allin}`;
 }
 
 function setupDealCard() {

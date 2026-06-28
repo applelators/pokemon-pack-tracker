@@ -147,19 +147,44 @@ export async function handleApi(request, env, url) {
         const cc = await getSetCurve(db, set);
         const fwd = cc.fwd || [];
         const cap = fwd.length - 1;
-        const threshold = price / avg; // min NEW cards/pack for a pack to beat buying singles
-        let stop = opened;
-        for (let k = opened + 1; k <= cap; k++) {
-          if (fwd[k] - fwd[k - 1] >= threshold) stop = k; else break;
+
+        // Constant chase upside per pack (secret rarities; doesn't diminish with dupes).
+        const raw = await getRawSettings(db);
+        let rates = {};
+        try { rates = JSON.parse(raw.chase_pull_rates); } catch { /* none */ }
+        const priceByRar = {};
+        for (const r of set.allRarities || []) priceByRar[r.rarity] = r.avg_price;
+        let chaseEv = 0;
+        for (const [rar, rate] of Object.entries(rates)) {
+          const p = Number(rate), pr = priceByRar[rar];
+          if (p > 0 && pr != null) chaseEv += p * pr;
         }
+
+        // Stop point for a given per-pack threshold (min new base cards to be "worth it").
+        const stopFor = (thr) => {
+          if (thr <= 0) return cap; // every pack worth it -> unbounded (cap)
+          let s = opened;
+          for (let k = opened + 1; k <= cap; k++) { if (fwd[k] - fwd[k - 1] >= thr) s = k; else break; }
+          return s;
+        };
+        const baseThr = price / avg;                          // base-set value only
+        const allInThr = (price - chaseEv) / avg;             // base value + chase upside
+        const stop = stopFor(baseThr);
+        const allInUnbounded = allInThr <= 0;
+        const stopAllIn = allInUnbounded ? cap : stopFor(allInThr);
         const nextMarginal = opened + 1 <= cap ? fwd[opened + 1] - fwd[opened] : 0;
+
         return json({
           price,
           avgSingle: Math.round(avg * 100) / 100,
+          chaseEv: Math.round(chaseEv * 100) / 100,
           opened,
           recommendedMore: Math.max(0, stop - opened),
           stopAtPack: stop,
-          thresholdCardsPerPack: Math.round(threshold * 100) / 100,
+          recommendedMoreAllIn: Math.max(0, stopAllIn - opened),
+          stopAtPackAllIn: stopAllIn,
+          allInUnbounded,
+          thresholdCardsPerPack: Math.round(baseThr * 100) / 100,
           costPerNewCardNext: nextMarginal > 0 ? Math.round((price / nextMarginal) * 100) / 100 : null,
           baseSetSize: cc.N,
         });
