@@ -2,7 +2,7 @@ import {
   getSettings, updateSettings, getRawSettings,
   listSets, getCachedSet, setExists,
   listOrders, getOrder, createOrder, updateOrder, deleteOrder, orderExists,
-  setTotals, getProgress, setProgress,
+  setTotals, getProgress, setProgress, setSetPricing,
 } from "./store.js";
 import { searchSets, importSet } from "./pokemontcg.js";
 import { estimate, chaseEstimate } from "./estimator.js";
@@ -91,6 +91,12 @@ export async function handleApi(request, env, url) {
         const completion = await computeEstimate(db, set, packsOpened, progress.cards_collected);
         const chase = await computeChase(db, set);
         return json({ set, ...totals, packsBought: totals.totalPacks, packsOpened, progress, completion, chase });
+      }
+      // PUT /api/sets/:id/pricing — loose-pack deal pricing
+      if (seg.length === 4 && seg[3] === "pricing" && method === "PUT") {
+        if (!(await getCachedSet(db, setId))) return json({ error: "Set not imported" }, 404);
+        const b = await body();
+        return json(await setSetPricing(db, setId, b));
       }
       // PUT /api/sets/:id/progress
       if (seg.length === 4 && seg[3] === "progress" && method === "PUT") {

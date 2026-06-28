@@ -283,6 +283,19 @@ table.grid input { width: 100%; }
 .os-step.has .os-next { color: var(--good); }
 .os-caption { margin: -2px 0 10px; }
 
+/* ===== Loose-pack deal check ===== */
+.deal-card { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+.deal-ceiling { background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 22px; text-align: center; min-width: 150px; }
+.dc-eyebrow { font-size: 0.66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.dc-num { font-family: "Space Grotesk", sans-serif; font-size: 2rem; font-weight: 800; color: var(--good); }
+.deal-meta { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.deal-row { font-size: 0.95rem; }
+.deal-row b { font-family: "Space Grotesk", sans-serif; }
+.deal-edit { margin-top: 6px; }
+.deal-edit summary { cursor: pointer; color: var(--accent-2); font-size: 0.85rem; }
+.deal-edit-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-top: 10px; }
+.deal-edit-row input { width: 110px; }
+
 /* ===== Your collection (actuals) inputs ===== */
 .progress-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
 .pinput { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }

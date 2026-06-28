@@ -103,6 +103,28 @@
           </div>
         </div>
 
+        <!-- Loose pack deal check -->
+        <h3 class="dash-h">Loose pack deal check <span class="dash-hint">should I grab a single pack?</span></h3>
+        <div class="deal-card">
+          <div class="deal-ceiling">
+            <div class="dc-eyebrow">Good deal under</div>
+            <div class="dc-num" id="dealCeiling">—</div>
+          </div>
+          <div class="deal-meta">
+            <div class="deal-row">Typical market (median): <b id="dealMarket">—</b></div>
+            <div class="deal-row">MSRP: <b id="dealMsrp">—</b></div>
+            <div class="muted small" id="dealNote"></div>
+            <details class="deal-edit">
+              <summary>Edit / refresh</summary>
+              <div class="deal-edit-row">
+                <label>Typical market $<input type="number" id="dealMarketInput" step="0.01" min="0" /></label>
+                <label>Good-deal ceiling $<input type="number" id="dealCeilingInput" step="0.01" min="0" /></label>
+                <button type="button" id="dealSave">Save</button>
+              </div>
+            </details>
+          </div>
+        </div>
+
         <!-- Your collection (user-entered actuals feed the model) -->
         <h3 class="dash-h">Your collection <span class="dash-hint">enter your real numbers to sharpen the estimate</span></h3>
         <div class="progress-inputs">

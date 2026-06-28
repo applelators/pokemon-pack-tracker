@@ -16,13 +16,23 @@ CREATE TABLE IF NOT EXISTS sets (
   release_date  TEXT,
   logo_url      TEXT,
   symbol_url    TEXT,
-  fetched_at    TEXT NOT NULL
+  fetched_at    TEXT NOT NULL,
+  -- Loose-pack deal check (researched, editable; set-level not binder-level):
+  pack_market_price  REAL,   -- aggregated median price of one loose pack
+  pack_price_ceiling REAL,   -- "good deal under this" recommendation
+  pack_msrp          REAL,   -- original retail per pack
+  pack_price_note    TEXT,   -- sources + methodology
+  pack_price_updated TEXT    -- ISO date the price was last researched/edited
 );
 
--- Upgrading an existing database? The two image columns were added later.
--- Run these once (they are no-ops on a fresh schema created above):
+-- Upgrading an existing database? Columns added later — run once each:
 --   ALTER TABLE sets ADD COLUMN logo_url TEXT;
 --   ALTER TABLE sets ADD COLUMN symbol_url TEXT;
+--   ALTER TABLE sets ADD COLUMN pack_market_price REAL;
+--   ALTER TABLE sets ADD COLUMN pack_price_ceiling REAL;
+--   ALTER TABLE sets ADD COLUMN pack_msrp REAL;
+--   ALTER TABLE sets ADD COLUMN pack_price_note TEXT;
+--   ALTER TABLE sets ADD COLUMN pack_price_updated TEXT;
 
 CREATE TABLE IF NOT EXISTS set_rarities (
   set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,

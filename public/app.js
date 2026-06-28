@@ -117,6 +117,7 @@ async function init() {
   setupSetSwitcher();
   setupCollectionToggle();
   setupProgressInputs();
+  setupDealCard();
   setupOrderForm();
   setupSettingsForm();
   await loadSettings();
@@ -285,6 +286,42 @@ function populateBanner(set) {
   if (fav && set.symbol_url) fav.href = set.symbol_url;
 }
 
+// ---- Loose-pack deal check -----------------------------------------------
+function renderDealCard(set) {
+  const c = set.pack_price_ceiling, m = set.pack_market_price, msrp = set.pack_msrp;
+  $("#dealCeiling").textContent = c != null ? money(c) : "—";
+  $("#dealMarket").textContent = m != null ? money(m) : "—";
+  $("#dealMsrp").textContent = msrp != null ? money(msrp) : "—";
+  const note = $("#dealNote");
+  if (set.pack_price_note || set.pack_price_updated) {
+    const date = set.pack_price_updated ? set.pack_price_updated.slice(0, 10) : "";
+    note.textContent = (set.pack_price_note || "") + (date ? ` · as of ${date}` : "");
+  } else {
+    note.textContent = "No price set yet — ask Claude to research current loose-pack prices, or enter them below.";
+  }
+  if (document.activeElement !== $("#dealMarketInput")) $("#dealMarketInput").value = m != null ? m : "";
+  if (document.activeElement !== $("#dealCeilingInput")) $("#dealCeilingInput").value = c != null ? c : "";
+}
+
+function setupDealCard() {
+  $("#dealSave").addEventListener("click", async () => {
+    const market = $("#dealMarketInput").value.trim();
+    const ceiling = $("#dealCeilingInput").value.trim();
+    try {
+      await api(`/sets/${state.currentSetId}/pricing`, {
+        method: "PUT",
+        body: {
+          market_price: market === "" ? null : Number(market),
+          ceiling: ceiling === "" ? null : Number(ceiling),
+          note: "Manually entered",
+        },
+      });
+      toast("Pack price saved");
+      loadDashboard();
+    } catch (err) { toast(err.message, true); }
+  });
+}
+
 // ---- "Your collection" actuals (feed the model) --------------------------
 function renderProgressInputs(s) {
   const N = s.set.printed_total;
@@ -359,6 +396,7 @@ async function loadDashboard() {
     const s = await api(`/sets/${state.currentSetId}/summary?collection=${state.currentCollection}`);
     state.summary = s;
     populateBanner(s.set);
+    renderDealCard(s.set);
     $("#statSpent").textContent = money(s.totalSpent);
     $("#statPacks").textContent = s.totalPacks;
     $("#statOrders").textContent = s.orderCount;

@@ -103,6 +103,22 @@ export async function saveSet(db, set, rarityCounts, allRarityCounts = {}) {
   await db.batch(stmts);
 }
 
+// Loose-pack deal pricing (set-level). Null/blank fields are left unchanged.
+export async function setSetPricing(db, setId, { market_price, ceiling, msrp, note }) {
+  const num = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+  await db
+    .prepare(`UPDATE sets SET
+        pack_market_price  = COALESCE(?, pack_market_price),
+        pack_price_ceiling = COALESCE(?, pack_price_ceiling),
+        pack_msrp          = COALESCE(?, pack_msrp),
+        pack_price_note    = COALESCE(?, pack_price_note),
+        pack_price_updated = ?
+      WHERE id = ?`)
+    .bind(num(market_price), num(ceiling), num(msrp), note ?? null, new Date().toISOString(), setId)
+    .run();
+  return getCachedSet(db, setId);
+}
+
 // ---- orders --------------------------------------------------------------
 function computeOrder(order, items) {
   const subtotal = items.reduce((a, i) => a + i.quantity * i.unit_price, 0);
