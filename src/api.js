@@ -272,9 +272,20 @@ export async function handleApi(request, env, url) {
         if (pc && pc.sleeved != null) parts.push(`sleeved $${pc.sleeved.toFixed(2)} (excluded)`);
         if (ev != null) parts.push(`EV $${ev.toFixed(2)}`);
 
+        // Cheapest rip, but guard against a single flaky source (PriceCharting's
+        // product matching occasionally returns an implausible low). Drop any point
+        // below 60% of the median before taking the min.
         let market, basis;
-        if (rip.length) { market = Math.min(...rip); basis = "cheapest rip"; }
-        else if (pc && pc.sleeved != null) { market = pc.sleeved; basis = "sleeved only — no regular price"; }
+        if (rip.length) {
+          const sorted = [...rip].sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          const med = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+          const floor = 0.6 * med;
+          const kept = rip.filter((v) => v >= floor);
+          const dropped = rip.length - kept.length;
+          market = Math.min(...(kept.length ? kept : rip));
+          basis = dropped ? `cheapest rip (dropped ${dropped} low outlier${dropped === 1 ? "" : "s"})` : "cheapest rip";
+        } else if (pc && pc.sleeved != null) { market = pc.sleeved; basis = "sleeved only — no regular price"; }
         else if (ev != null) { market = ev; basis = "EV fallback — no sealed price"; }
         if (market == null) {
           return json({ error: "No market price found from any source (TCGCSV/PriceCharting/eBay/EV).", sources: { tcg, pc, ebay, ev } }, 404);
