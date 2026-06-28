@@ -90,7 +90,7 @@ export async function handleApi(request, env, url) {
       return json(await listSets(db));
     }
     if (pathname === "/api/sets/search" && method === "GET") {
-      return json(await searchSets(db, url.searchParams.get("q")));
+      return json(await searchSets(db, url.searchParams.get("q"), url.searchParams.get("all") === "1"));
     }
     // /api/sets/:id  and  /api/sets/:id/import  and  /api/sets/:id/summary
     if (seg[0] === "api" && seg[1] === "sets" && seg[2]) {

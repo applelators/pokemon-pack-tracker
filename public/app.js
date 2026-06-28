@@ -120,6 +120,7 @@ async function init() {
   setupCollectionToggle();
   setupProgressInputs();
   setupDealCard();
+  setupBrowse();
   setupOrderForm();
   setupSettingsForm();
   await loadSettings();
@@ -134,6 +135,7 @@ function setupTabs() {
       $$(".tab").forEach((t) => t.classList.remove("active"));
       btn.classList.add("active");
       $("#" + btn.dataset.tab).classList.add("active");
+      if (btn.dataset.tab === "browse") loadBrowse();
     });
   });
 }
@@ -200,7 +202,7 @@ function setupSetSwitcher() {
     openSetMenu(false);
     if (item.dataset.set !== state.currentSetId) selectSet(item.dataset.set);
   });
-  $("#setMenuAdd").addEventListener("click", () => { openSetMenu(false); $("#setModal").classList.remove("hidden"); });
+  $("#setMenuAdd").addEventListener("click", () => { openSetMenu(false); $("#setModal").classList.remove("hidden"); runSetSearch(); });
   document.addEventListener("click", (e) => { if (!e.target.closest("#setSwitcher")) openSetMenu(false); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") openSetMenu(false); });
 }
@@ -231,6 +233,55 @@ function setupModal() {
   $("#closeModal").addEventListener("click", () => $("#setModal").classList.add("hidden"));
   $("#setSearchBtn").addEventListener("click", runSetSearch);
   $("#setSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") runSetSearch(); });
+  $("#setResults").addEventListener("click", onSetTableClick);
+}
+
+// Shared rich expansion table (symbol · logo · name · cards · release · abbr),
+// grouped by series. Used in both the Add-a-set modal and the Browse tab.
+function renderSetTable(sets) {
+  if (!sets.length) return '<div class="muted">No sets found.</div>';
+  const groups = [];
+  const idx = {};
+  for (const s of sets) {
+    const g = s.series || "Other";
+    if (!(g in idx)) { idx[g] = groups.length; groups.push([g, []]); }
+    groups[idx[g]][1].push(s);
+  }
+  const row = (s) => {
+    const tracked = state.trackedSets.some((t) => t.id === s.id);
+    const cards = `${s.printedTotal}${s.secret > 0 ? ` <span class="muted">+${s.secret}</span>` : ""}`;
+    return `<tr class="set-row" data-id="${s.id}" title="${tracked ? "Open" : "Import"} ${s.name}">
+      <td class="sr-sym">${s.symbol ? `<img src="${s.symbol}" loading="lazy" alt="" />` : ""}</td>
+      <td class="sr-logo">${s.logo ? `<img src="${s.logo}" loading="lazy" alt="${s.name}" />` : ""}</td>
+      <td class="sr-name">${s.name}${tracked ? ' <span class="coll-badge mine">tracked</span>' : ""}</td>
+      <td>${cards}</td>
+      <td>${s.releaseDate || "—"}</td>
+      <td>${s.abbr || "—"}</td>
+    </tr>`;
+  };
+  return groups.map(([series, list]) => `
+    <div class="set-group">
+      <h4 class="set-series">${series}</h4>
+      <table class="set-table">
+        <thead><tr><th>Sym</th><th>Logo</th><th>Name</th><th>Cards</th><th>Released</th><th>Abbr</th></tr></thead>
+        <tbody>${list.map(row).join("")}</tbody>
+      </table>
+    </div>`).join("");
+}
+
+async function onSetTableClick(e) {
+  const row = e.target.closest(".set-row");
+  if (!row) return;
+  const id = row.dataset.id;
+  row.style.opacity = "0.5";
+  if (state.trackedSets.some((t) => t.id === id)) {
+    selectSet(id);
+    $("#setModal").classList.add("hidden");
+    document.querySelector('nav#tabs button[data-tab="dashboard"]').click();
+  } else {
+    await importSet(id);
+  }
+  row.style.opacity = "";
 }
 
 async function runSetSearch() {
@@ -238,36 +289,52 @@ async function runSetSearch() {
   const box = $("#setResults");
   box.innerHTML = '<div class="muted">Searching…</div>';
   try {
-    const sets = await api("/sets/search?q=" + encodeURIComponent(q));
-    if (!sets.length) { box.innerHTML = '<div class="muted">No sets found.</div>'; return; }
-    box.innerHTML = sets.map((s) => `
-      <div class="result-row">
-        <div>
-          <div><b>${s.name}</b></div>
-          <div class="meta">${s.series || ""} · base set ${s.printedTotal} · released ${s.releaseDate || "?"}</div>
-        </div>
-        <button data-import="${s.id}">Import</button>
-      </div>`).join("");
-    box.querySelectorAll("[data-import]").forEach((btn) => {
-      btn.addEventListener("click", () => importSet(btn.dataset.import, btn));
-    });
+    box.innerHTML = renderSetTable(await api("/sets/search?q=" + encodeURIComponent(q)));
   } catch (err) {
     box.innerHTML = `<div class="muted">Error: ${err.message}</div>`;
   }
 }
 
-async function importSet(id, btn) {
-  btn.disabled = true; btn.textContent = "Importing…";
+async function importSet(id) {
+  toast("Importing…");
   try {
     const set = await api(`/sets/${id}/import`, { method: "POST" });
     toast(`Imported ${set.name}`);
     await loadTrackedSets();
+    if (state.browseSets) renderBrowse();   // refresh "tracked" badges
     selectSet(id);
     $("#setModal").classList.add("hidden");
+    document.querySelector('nav#tabs button[data-tab="dashboard"]').click();
   } catch (err) {
     toast(err.message, true);
-    btn.disabled = false; btn.textContent = "Import";
   }
+}
+
+// ---- Browse tab ----------------------------------------------------------
+async function loadBrowse() {
+  if (state.browseSets) return;            // load once
+  const box = $("#browseResults");
+  try {
+    state.browseSets = await api("/sets/search?all=1");
+    renderBrowse();
+  } catch (err) {
+    box.innerHTML = `<div class="muted">Couldn't load expansions: ${err.message}</div>`;
+  }
+}
+
+function renderBrowse() {
+  const q = $("#browseSearch").value.trim().toLowerCase();
+  let sets = state.browseSets || [];
+  if (q) sets = sets.filter((s) =>
+    (s.name || "").toLowerCase().includes(q) ||
+    (s.series || "").toLowerCase().includes(q) ||
+    (s.abbr || "").toLowerCase().includes(q));
+  $("#browseResults").innerHTML = renderSetTable(sets);
+}
+
+function setupBrowse() {
+  $("#browseResults").addEventListener("click", onSetTableClick);
+  $("#browseSearch").addEventListener("input", renderBrowse);
 }
 
 // ---- dashboard -----------------------------------------------------------

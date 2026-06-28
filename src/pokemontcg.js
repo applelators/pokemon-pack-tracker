@@ -57,12 +57,13 @@ export async function listSetCards(db, setId) {
   return out;
 }
 
-export async function searchSets(db, query) {
+export async function searchSets(db, query, all = false) {
   const q = (query || "").trim();
   const param = q ? `q=${encodeURIComponent(`name:"*${q}*"`)}&` : "";
+  const pageSize = all ? 250 : 50;
   const json = await apiGet(
     db,
-    `/sets?${param}orderBy=-releaseDate&pageSize=50&select=id,name,series,printedTotal,total,releaseDate`
+    `/sets?${param}orderBy=-releaseDate&pageSize=${pageSize}&select=id,name,series,printedTotal,total,releaseDate,ptcgoCode,images`
   );
   return (json.data || []).map((s) => ({
     id: s.id,
@@ -70,7 +71,11 @@ export async function searchSets(db, query) {
     series: s.series,
     printedTotal: s.printedTotal,
     total: s.total,
+    secret: (s.total || 0) - (s.printedTotal || 0),
     releaseDate: s.releaseDate,
+    abbr: s.ptcgoCode || null,
+    symbol: s.images?.symbol || null,
+    logo: s.images?.logo || null,
   }));
 }
 

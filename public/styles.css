@@ -350,6 +350,18 @@ table.grid input { width: 100%; }
 .result-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 14px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; }
 .result-row .meta { color: var(--muted); font-size: 0.82rem; }
 
+/* ===== Expansion browse table (modal + Browse tab) ===== */
+.set-group { margin-bottom: 22px; overflow-x: auto; }
+.set-series { font-family: "Space Grotesk", sans-serif; font-weight: 700; margin: 0 0 8px; font-size: 1rem; color: var(--text); }
+.set-table { width: 100%; border-collapse: collapse; }
+.set-table th { text-align: left; font-size: 0.66rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.set-table td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 0.9rem; white-space: nowrap; }
+.set-row { cursor: pointer; }
+.set-row:hover { background: var(--panel-2); }
+.sr-sym img { width: 26px; height: 26px; object-fit: contain; display: block; }
+.sr-logo img { height: 30px; max-width: 130px; object-fit: contain; display: block; }
+.sr-name { font-weight: 600; white-space: normal; }
+
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 12px 20px; border-radius: 10px; z-index: 100; max-width: 92vw; }
 .toast.error { border-color: var(--danger); color: var(--danger); }
 

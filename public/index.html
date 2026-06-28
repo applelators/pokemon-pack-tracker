@@ -38,6 +38,7 @@
     <nav id="tabs">
       <button data-tab="dashboard" class="active">Dashboard</button>
       <button data-tab="orders">Orders</button>
+      <button data-tab="browse">Browse</button>
       <button data-tab="settings">Settings</button>
     </nav>
   </header>
@@ -276,6 +277,16 @@
         <h2 class="page-h">Orders</h2>
         <div id="ordersList"></div>
       </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <!-- BROWSE -->
+    <section id="browse" class="tab">
+      <h2 class="page-h">Browse expansions</h2>
+      <div class="row">
+        <input type="text" id="browseSearch" class="grow" placeholder="Filter by name, series, or abbreviation…" />
+      </div>
+      <div id="browseResults"><div class="muted">Loading expansions…</div></div>
     </section>
 
     <!-- SETTINGS -->
