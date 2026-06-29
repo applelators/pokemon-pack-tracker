@@ -70,14 +70,27 @@ CREATE TABLE IF NOT EXISTS orders (
 --   ALTER TABLE orders ADD COLUMN store TEXT;
 --   ALTER TABLE orders ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0;
 
+-- Orders are MULTI-SET: one receipt can mix line items from different expansions,
+-- so the set link lives on each line (order_items.set_id), not on the order. The
+-- order's "sets" = the distinct set_ids across its lines; per-set spend/packs/orders
+-- are derived live from these lines (see store.setTotals), never stored statically.
+-- orders.set_id above is legacy (kept NOT NULL for old engines; set to the first
+-- line's set on insert, but never read).
 CREATE TABLE IF NOT EXISTS order_items (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   order_id       INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  set_id         TEXT REFERENCES sets(id),
   product_type   TEXT NOT NULL,
   quantity       INTEGER NOT NULL,
   unit_price     REAL NOT NULL,
   packs_per_unit INTEGER NOT NULL
 );
+
+-- Upgrading an existing database? order_items.set_id was added later. The Worker
+-- auto-applies this on first boot (see ensureMigrated in src/api.js), but to run it
+-- by hand:
+--   ALTER TABLE order_items ADD COLUMN set_id TEXT REFERENCES sets(id);
+--   UPDATE order_items SET set_id = (SELECT o.set_id FROM orders o WHERE o.id = order_items.order_id) WHERE set_id IS NULL;
 
 -- Secret (non-base-set) cards the user pulled from an order's packs, by rarity.
 CREATE TABLE IF NOT EXISTS order_finds (
@@ -120,6 +133,7 @@ CREATE TABLE IF NOT EXISTS estimate_cache (
 CREATE INDEX IF NOT EXISTS idx_orders_set ON orders(set_id);
 CREATE INDEX IF NOT EXISTS idx_pullcards_order ON order_pull_cards(order_id);
 CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_set ON order_items(set_id);
 CREATE INDEX IF NOT EXISTS idx_finds_order ON order_finds(order_id);
 
 -- Default settings (only inserted if absent).

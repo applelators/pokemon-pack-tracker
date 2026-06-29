@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pack Tracker — redesign prototype</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23fff' stroke='%2311161f' stroke-width='6'/%3E%3Cpath d='M5 50a45 45 0 0 1 90 0Z' fill='%23ee1c25'/%3E%3Crect x='5' y='46' width='90' height='8' fill='%2311161f'/%3E%3Ccircle cx='50' cy='50' r='15' fill='%23fff' stroke='%2311161f' stroke-width='6'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0e16; --panel:#151b29; --panel2:#0f1422; --panel3:#161d2c; --chip:#222c40;
+    --border:#2b3346; --border2:#2e3650; --line:#232b3e;
+    --text:#eef1f8; --muted:#7d889e; --muted2:#9aa4ba; --soft:#aeb7ca;
+    --accent:#ffcb05; --accent-ink:#1a1300; --blue:#4a82f0;
+    --good:#2fd58a; --fair:#ffb020; --bad:#f76b6b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh; background:radial-gradient(120% 80% at 50% -10%, #141b2b 0%, #0b0e16 60%);
+    color:var(--text); font-family:'Hanken Grotesk',system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+    padding-bottom:90px;
+  }
+  .disp{font-family:'Space Grotesk',sans-serif;}
+  ::-webkit-scrollbar{height:8px;width:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;}
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
+  button{font-family:inherit;}
+  input,select{font-family:inherit;}
+  @keyframes popIn{from{transform:translateY(8px) scale(.99);opacity:0;}to{transform:none;opacity:1;}}
+  @keyframes sheetUp{from{transform:translateY(24px);opacity:.4;}to{transform:none;opacity:1;}}
+  @keyframes fade{from{opacity:0;}to{opacity:1;}}
+
+  .wrap{max-width:1060px;margin:0 auto;padding:22px 18px 0;}
+
+  .switcher{position:fixed;bottom:16px;left:16px;z-index:80;display:flex;align-items:center;gap:7px;
+    background:rgba(15,20,34,.82);backdrop-filter:blur(10px);border:1px solid var(--border);
+    border-radius:999px;padding:5px 7px 5px 13px;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+  .switcher .lab{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8b95ab;font-weight:600;}
+  .switcher button{width:30px;height:30px;border-radius:999px;border:none;cursor:pointer;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;background:transparent;color:var(--muted2);}
+  .switcher button.on{background:var(--accent);color:var(--accent-ink);}
+
+  .head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:11px;}
+  .brand .name{font-weight:700;font-size:20px;letter-spacing:-.02em;}
+  .pill-label{font-size:11px;color:#75809a;border:1px solid var(--border);border-radius:999px;padding:3px 9px;letter-spacing:.04em;}
+  .seg{display:flex;background:var(--panel3);border:1px solid var(--border);border-radius:999px;padding:4px;gap:2px;}
+  .seg.sq{border-radius:11px;}
+  .seg button{border:none;cursor:pointer;font-size:13px;font-weight:600;padding:6px 16px;border-radius:999px;background:transparent;color:var(--soft);}
+  .seg.sq button{border-radius:8px;padding:7px 15px;}
+  .seg button.on{background:var(--accent);color:var(--accent-ink);}
+
+  .eyebrow{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#75809a;font-weight:600;}
+  .uplabel{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+
+  .pills{display:flex;gap:9px;overflow-x:auto;padding-bottom:6px;margin:9px 0 20px;}
+  .pill{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:9px 14px 9px 10px;border-radius:14px;cursor:pointer;
+    border:1px solid var(--border);background:#141a27;}
+  .pill.on{border-color:var(--accent);background:linear-gradient(180deg,#1e2842,#18203358);box-shadow:0 0 0 1px #ffcb0533,0 8px 20px rgba(0,0,0,.25);}
+  .pill .sym{display:grid;place-items:center;width:38px;height:38px;border-radius:9px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;color:rgba(255,255,255,.92);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 2px,transparent 2px 9px);}
+  .pill .pn{font-size:14px;font-weight:700;color:#cfd6e6;line-height:1.15;}
+  .pill.on .pn{color:#fff;}
+  .pill .pm{font-size:11px;color:var(--muted);}
+  .pill .col{display:flex;flex-direction:column;align-items:flex-start;}
+  .pill.add{border:1px dashed #39435a;background:transparent;color:var(--muted2);font-size:13px;font-weight:600;padding:0 16px;gap:7px;}
+
+  .modebar{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .modebar .hint{font-size:12px;color:var(--muted);}
+
+  .banner{position:relative;border-radius:20px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border);min-height:150px;display:flex;align-items:flex-end;}
+  .banner .stripe{position:absolute;inset:0;opacity:.5;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 2px,transparent 2px 11px);}
+  .banner .tag{position:absolute;top:14px;right:16px;font-family:monospace;font-size:10px;letter-spacing:.06em;color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:3px 8px;}
+  .banner .bc{position:relative;padding:22px;}
+  .banner .bs{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7);font-weight:600;}
+  .banner .bn{font-weight:700;font-size:30px;letter-spacing:-.02em;margin-top:2px;}
+  .banner .bsub{font-size:13px;color:rgba(255,255,255,.75);margin-top:3px;}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;}
+  .hero{background:linear-gradient(180deg,#18202f 0%,#141a27 100%);border:1px solid var(--border2);border-radius:20px;padding:18px 18px 20px;margin-bottom:16px;box-shadow:0 14px 40px rgba(0,0,0,.32);}
+  .hero-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+  .hero-title{font-weight:700;font-size:17px;}
+  .hero-set{font-size:12px;color:var(--muted);}
+
+  .deal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(252px,1fr));gap:18px;align-items:stretch;}
+  .stepbox{background:var(--panel2);border:1px solid var(--border);border-radius:16px;padding:18px;display:flex;flex-direction:column;justify-content:center;}
+  .stepper{display:flex;align-items:center;justify-content:center;gap:9px;}
+  .b5{width:40px;height:40px;border-radius:11px;border:1px solid var(--border);background:#1a2233;color:var(--soft);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;}
+  .b1{width:52px;height:52px;border-radius:14px;border:1px solid #39435a;background:#222c40;color:var(--text);cursor:pointer;font-size:26px;line-height:1;}
+  .price{min-width:128px;text-align:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:46px;letter-spacing:-.02em;}
+  .verdict{border-radius:16px;padding:18px;display:flex;flex-direction:column;justify-content:center;animation:popIn .22s ease;}
+  .vword{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:40px;line-height:.9;letter-spacing:-.01em;}
+  .vrec{display:flex;align-items:center;gap:9px;margin-top:13px;padding-top:13px;border-top:1px solid rgba(255,255,255,.09);}
+  .refs{display:flex;flex-wrap:wrap;gap:18px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);align-items:center;}
+  .ref{display:flex;align-items:baseline;gap:6px;font-size:12px;color:var(--muted);}
+  .ref b{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;color:var(--text);}
+  .refresh-wrap{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
+  .refresh-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+  .refresh-meta.stale{color:var(--fair);font-weight:600;}
+  .refresh-meta .dot{width:6px;height:6px;border-radius:50%;background:var(--fair);box-shadow:0 0 0 3px rgba(255,176,32,.18);}
+  .refresh{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--panel3);color:var(--muted2);border-radius:9px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+  .refresh.rec{border-color:var(--fair);color:var(--fair);}
+
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:16px;}
+  .drnum{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:44px;line-height:1;color:var(--accent);}
+  .bar{height:8px;background:var(--panel2);border-radius:99px;margin-top:13px;overflow:hidden;}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--good));border-radius:99px;}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 15px;}
+  .stat .k{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+  .stat .v{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;margin-top:5px;}
+
+  .gauge-wrap{display:flex;align-items:center;gap:18px;margin-top:12px;}
+  .gauge{position:relative;width:96px;height:96px;flex:0 0 auto;}
+  .gauge .g-c{position:absolute;inset:0;display:grid;place-items:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;}
+  .chase{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px;}
+  .slot{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:11px 12px;}
+  .slot .stars{font-size:13px;letter-spacing:1px;}
+  .slot .pk{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;margin-top:5px;}
+  .art-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;}
+  .art{flex:0 0 auto;width:118px;}
+  .art .ph{height:148px;border-radius:12px;border:1px solid var(--border);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.045) 0 2px,transparent 2px 10px);display:grid;place-items:center;}
+  .art .ph span{font-family:monospace;font-size:10px;color:rgba(255,255,255,.55);}
+  .art .cap{font-size:11.5px;color:var(--muted2);margin-top:7px;text-align:center;}
+
+  .sec-head{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px;}
+  .sec-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;}
+  .btn-primary{display:flex;align-items:center;gap:7px;border:none;cursor:pointer;font-size:13px;font-weight:700;padding:9px 16px;border-radius:11px;background:var(--accent);color:var(--accent-ink);}
+
+  .order{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;}
+  .order .o-meta{min-width:200px;}
+  .order .o-row1{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+  .order .o-date{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;}
+  .order .o-vendor{font-size:14px;font-weight:600;}
+  .order .o-binder{font-size:10.5px;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;}
+  .order .o-row2{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  .setchip{font-size:11px;font-weight:700;font-family:'Space Grotesk',sans-serif;background:#1a2233;border-radius:6px;padding:3px 8px;}
+  .order .o-items{font-size:12px;color:var(--muted);}
+  .order .o-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+  .order .o-fig{display:flex;align-items:center;gap:20px;}
+  .order .o-fig .k{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:right;}
+  .order .o-fig .v{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;text-align:right;}
+  .flag{font-size:12px;font-weight:700;border-radius:8px;padding:6px 11px;white-space:nowrap;}
+  .order-acts{display:flex;gap:6px;}
+  .icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--panel3);color:var(--muted2);cursor:pointer;font-size:14px;display:grid;place-items:center;}
+  .icon-btn:hover{color:var(--text);}
+  .icon-btn.del:hover{color:var(--bad);border-color:var(--bad);}
+
+  .scrim{position:fixed;inset:0;z-index:70;background:rgba(5,7,12,.78);backdrop-filter:blur(5px);display:flex;align-items:flex-end;justify-content:center;animation:fade .15s ease;}
+  .sheet{width:100%;max-width:740px;max-height:94vh;overflow-y:auto;background:#101624;border:1px solid var(--border2);border-bottom:none;border-radius:22px 22px 0 0;box-shadow:0 -20px 60px rgba(0,0,0,.5);animation:sheetUp .28s cubic-bezier(.22,1,.36,1);}
+  .sheet-head{position:sticky;top:0;z-index:2;background:#101624;border-bottom:1px solid var(--line);padding:18px 20px;display:flex;align-items:center;justify-content:space-between;border-radius:22px 22px 0 0;}
+  .sheet-body{padding:18px 20px;}
+  .close{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);background:var(--panel3);color:var(--soft);cursor:pointer;font-size:16px;}
+  .field{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted2);font-weight:600;}
+  .field input,.field select{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:14px;}
+  .metagrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px;}
+  .seg.fill button{flex:1;}
+  .quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+  .qchip{display:flex;align-items:center;gap:7px;border:1px solid var(--border);background:var(--panel3);color:#cfd6e6;border-radius:10px;padding:9px 13px;font-size:13px;font-weight:600;cursor:pointer;}
+  .lines{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:16px;}
+  .lrow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;padding:13px;border-bottom:1px solid #1d2433;background:var(--panel2);}
+  .lrow:last-child{border-bottom:none;}
+  .lcol{display:flex;flex-direction:column;gap:5px;}
+  .lcol .lk{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+  .lrow select,.lrow input{background:var(--panel3);border:1px solid var(--border);border-radius:9px;padding:9px 10px;color:var(--text);font-size:13.5px;}
+  .lrow select{font-weight:600;cursor:pointer;}
+  .lt{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;padding:9px 0;}
+  .lrm{width:32px;height:32px;border-radius:9px;border:1px solid var(--border);background:var(--panel3);color:var(--bad);cursor:pointer;font-size:15px;}
+  .lart{width:46px;height:58px;border-radius:8px;border:1px solid var(--border);display:grid;place-items:center;flex:0 0 auto;align-self:flex-end;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 2px,transparent 2px 9px);box-shadow:0 2px 8px rgba(0,0,0,.3);}
+  .lart span{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:10px;color:rgba(255,255,255,.9);letter-spacing:.02em;}
+  .accord{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:18px;}
+  .accord-btn{width:100%;display:flex;align-items:center;justify-content:space-between;border:none;cursor:pointer;background:var(--panel2);color:#cfd6e6;padding:13px 15px;font-size:13.5px;font-weight:600;}
+  .accord-body{padding:14px 15px;border-top:1px solid #1d2433;background:var(--panel2);font-size:12.5px;color:var(--muted);}
+  .sec-steps{display:flex;flex-direction:column;gap:8px;}
+  .sec-step{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;}
+  .sec-step.has{border-color:var(--accent);}
+  .sec-tag{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--soft);flex-wrap:wrap;}
+  .sec-odds{font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;}
+  .sec-ctrl{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+  .sec-b{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;font-size:17px;line-height:1;}
+  .sec-b:disabled{opacity:.35;cursor:not-allowed;}
+  .sec-n{font-family:'Space Grotesk',sans-serif;font-weight:700;min-width:18px;text-align:center;}
+  .tag-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;margin-top:12px;}
+  .tagcard{display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid var(--border);background:var(--panel3);border-radius:10px;padding:11px 6px;cursor:pointer;}
+  .tagcard.on{border-color:var(--accent);background:rgba(255,203,5,.10);}
+  .tnum{font-size:10px;color:var(--muted2);font-weight:600;}
+  .bd-row{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--line);}
+  .bd-row:last-child{border-bottom:none;}
+  .bd-name{flex:1;font-weight:600;}
+  .bd-pp{font-family:'Space Grotesk',sans-serif;color:var(--soft);}
+  .rar-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+  .rchip{font-size:12px;color:var(--muted2);background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
+  .rchip b{font-family:'Space Grotesk',sans-serif;color:var(--text);}
+  .rprob{font-size:10.5px;color:var(--muted);margin-left:2px;}
+  .scale{margin-top:8px;}
+  .scale-bar{position:relative;height:12px;display:flex;margin-top:30px;}
+  .scale-bar .z{height:100%;}
+  .scale-bar .z:first-child{border-radius:99px 0 0 99px;}
+  .scale-bar .z:last-child{border-radius:0 99px 99px 0;}
+  .scale-ptr{position:absolute;top:-24px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;}
+  .scale-ptr::after{content:"▾";color:var(--text);font-size:14px;line-height:1;margin-top:1px;}
+  .scale-bub{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12px;background:#0f1422;border:1px solid var(--border);border-radius:7px;padding:2px 7px;white-space:nowrap;}
+  .scale-labels{display:flex;justify-content:space-between;margin-top:11px;font-size:11.5px;font-weight:600;}
+  .scale-cap{font-size:12px;color:var(--muted);margin-top:9px;line-height:1.5;}
+  .scale-cap b{color:var(--soft);font-family:'Space Grotesk',sans-serif;}
+  .set-toggle{display:flex;flex-direction:column;align-items:flex-start;width:100%;border:1px solid var(--border);background:var(--panel2);color:var(--soft);border-radius:10px;padding:11px 13px;font-size:13px;font-weight:600;cursor:pointer;text-align:left;}
+  .set-toggle.on{border-color:var(--accent);color:var(--text);background:rgba(255,203,5,.08);}
+  .set-toggle small{font-weight:400;font-size:11.5px;color:var(--muted);margin-top:3px;}
+  .actual-wrap{display:flex;flex-direction:column;gap:5px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-top:10px;}
+  .actual-wrap input{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;color:var(--text);font-size:14px;font-family:'Space Grotesk',sans-serif;max-width:170px;}
+  .totbar{position:sticky;bottom:0;background:#101624;border-top:1px solid var(--line);padding:16px 0 4px;}
+  .totline{display:flex;flex-wrap:wrap;gap:18px;align-items:baseline;margin-bottom:14px;}
+  .tot{display:flex;align-items:baseline;gap:6px;font-size:12px;color:var(--muted);}
+  .tot b{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;color:var(--text);}
+  .grand{margin-left:auto;}
+  .grand b{font-size:24px;color:var(--accent);font-weight:700;}
+  .acts{display:flex;gap:10px;}
+  .save{flex:1;border:none;cursor:pointer;font-size:14px;font-weight:700;padding:13px;border-radius:12px;background:var(--accent);color:var(--accent-ink);}
+  .cancel{border:1px solid var(--border);cursor:pointer;font-size:14px;font-weight:600;padding:13px 20px;border-radius:12px;background:transparent;color:var(--soft);}
+
+  /* expansion list (Add a set) */
+  .exp-list{border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+  .exp-grouphdr{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:12px 14px 6px;background:var(--panel2);}
+  .exp-row{display:flex;align-items:center;gap:13px;padding:12px 14px;border-top:1px solid #1d2433;background:var(--panel2);}
+  .exp-num{width:48px;height:48px;border-radius:10px;display:grid;place-items:center;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12px;color:rgba(255,255,255,.92);flex:0 0 auto;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 2px,transparent 2px 9px);}
+  .exp-info{flex:1;min-width:0;}
+  .exp-name{font-weight:700;font-size:14px;}
+  .exp-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .exp-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto;}
+  .badge{font-size:10.5px;font-weight:700;color:var(--good);background:rgba(47,213,138,.12);border-radius:6px;padding:5px 9px;}
+  .btn-import{border:none;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:12.5px;padding:9px 15px;border-radius:9px;cursor:pointer;}
+
+  .sym,.exp-num,.lart{position:relative;}
+  .sym.sp::before,.exp-num.sp::before,.lart.sp::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;background:linear-gradient(135deg,#ffd86b,#ff9ad5,#7ad8ff,#9b8cff);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;}
+  .sp-chip{font-size:10px;font-weight:700;color:#241a00;background:linear-gradient(135deg,#ffd86b,#ff9ad5,#7ad8ff);border-radius:5px;padding:2px 6px;margin-left:7px;vertical-align:middle;}
+  .oop{font-size:10.5px;font-weight:600;color:var(--fair);border:1px solid rgba(255,176,32,.4);border-radius:5px;padding:2px 7px;margin-left:7px;white-space:nowrap;}
+  .exp-stats{font-size:12px;color:var(--muted2);margin-top:5px;}
+  .exp-stats b{font-family:'Space Grotesk',sans-serif;font-weight:600;color:var(--soft);}
+  .confirm-card{width:100%;max-width:390px;margin:0 16px;background:#101624;border:1px solid var(--border2);border-radius:18px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.55);animation:popIn .18s ease;}
+  .confirm-card h3{font-family:'Space Grotesk',sans-serif;font-size:18px;margin:0 0 7px;}
+  .confirm-card p{font-size:13.5px;color:var(--muted2);margin:0 0 18px;line-height:1.5;}
+  .confirm-acts{display:flex;gap:10px;}
+  .btn-danger{flex:1;border:none;cursor:pointer;font-size:14px;font-weight:700;padding:12px;border-radius:11px;background:var(--bad);color:#240a0a;}
+  .scrim.center{align-items:center;}
+  .circle-toggle{display:flex;align-items:center;gap:8px;width:100%;border:1px solid var(--border);background:var(--panel2);color:var(--soft);border-radius:10px;padding:11px 13px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;text-align:left;}
+  .circle-toggle.on{border-color:var(--accent);color:var(--text);background:rgba(255,203,5,.08);}
+  .icon-btn.off{opacity:.32;cursor:not-allowed;}
+  .set-section{margin-bottom:18px;}
+  .set-section h4{font-family:'Space Grotesk',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 11px;}
+  .adv-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);background:var(--panel2);color:#cfd6e6;border-radius:12px;padding:13px 15px;font-size:13.5px;font-weight:600;cursor:pointer;margin-bottom:14px;}
+  .set-table{border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .set-trow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #1d2433;background:var(--panel2);}
+  .set-trow:last-child{border-bottom:none;}
+  .set-trow .nm{flex:1;font-size:13px;}
+  .set-trow input{width:92px;background:var(--panel3);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-size:13px;}
+  .set-ta{width:100%;min-height:130px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:11px;color:var(--text);font-family:monospace;font-size:12px;resize:vertical;}
+  @keyframes rowIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  .backchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--panel3);color:var(--soft);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600;cursor:pointer;margin-bottom:14px;}
+  .hub-head{display:flex;align-items:flex-end;justify-content:space-between;margin:4px 0 16px;}
+  .hub-title{font-size:24px;font-weight:700;letter-spacing:-.02em;}
+  .hub-tagline{font-size:13px;color:var(--muted);margin-top:2px;}
+  .hub-list{display:flex;flex-direction:column;gap:14px;}
+  .hubrow{display:flex;background:var(--panel);border:1px solid var(--border);border-radius:18px;overflow:hidden;min-height:152px;transition:border-color .15s,transform .15s,box-shadow .15s;}
+  .hubrow:hover{border-color:#3a445f;transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.28);}
+  .hub-art{position:relative;width:132px;flex:0 0 auto;display:grid;place-items:center;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 2px,transparent 2px 11px);}
+  .hub-code{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:21px;color:rgba(255,255,255,.95);}
+  .hub-sp{position:absolute;top:10px;left:11px;font-size:13px;color:#fff;}
+  .hub-mid{flex:1;min-width:0;padding:16px 18px;display:flex;flex-direction:column;gap:6px;justify-content:center;}
+  .hub-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;}
+  .hub-sub{font-size:12.5px;color:var(--muted);}
+  .hub-stats{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted2);margin-top:2px;}
+  .hub-stats b{font-family:'Space Grotesk',sans-serif;color:var(--text);font-weight:600;}
+  .hub-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;}
+  .hub-open{border:none;cursor:pointer;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:9px;}
+  .hub-mini{border:1px solid var(--border);cursor:pointer;background:var(--panel3);color:var(--soft);font-weight:600;font-size:12.5px;padding:8px 12px;border-radius:9px;}
+  .hub-deal{width:194px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:16px;}
+  .hub-deal-top{display:flex;align-items:center;gap:8px;}
+  .hub-verdict{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:26px;line-height:1;}
+  .hub-stepper{display:flex;align-items:center;gap:8px;}
+  .b1.sm{width:38px;height:38px;border-radius:11px;font-size:20px;}
+  .hub-price{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;min-width:62px;text-align:center;}
+  .hub-rip{font-size:11px;color:var(--muted);text-align:center;}
+  .stale-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--fair);margin:0 2px;vertical-align:middle;}
+  .hub-import{display:flex;align-items:center;gap:14px;background:transparent;border:1px dashed #39435a;border-radius:18px;padding:18px;cursor:pointer;font-family:inherit;text-align:left;}
+  .hub-import:hover{border-color:var(--accent);}
+  .hub-import-plus{display:grid;place-items:center;width:48px;height:48px;border-radius:12px;background:var(--panel3);font-size:24px;color:var(--soft);flex:0 0 auto;}
+  .hub-import>span{display:flex;flex-direction:column;align-items:flex-start;font-size:15px;font-weight:700;color:var(--text);}
+  .hub-import small{font-weight:400;font-size:12px;color:var(--muted);margin-top:2px;}
+  @media (max-width:640px){
+    .hubrow{flex-wrap:wrap;}
+    .hub-art{width:100%;height:62px;}
+    .hub-deal{width:100%;flex-direction:row;justify-content:space-between;border-left:none;border-top:1px solid var(--border);}
+  }
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:90;background:#1d2536;border:1px solid #39435a;color:var(--text);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;box-shadow:0 12px 32px rgba(0,0,0,.4);animation:popIn .2s ease;}
+  .hidden{display:none !important;}
+  @media (max-width:640px){
+    .wrap{padding:16px 14px 0;}
+    .head{margin-bottom:16px;}
+    .deal-grid{gap:12px;}
+    .price{font-size:40px;min-width:92px;}
+    .b1{width:46px;height:46px;font-size:23px;}
+    .b5{width:36px;height:36px;}
+    .hero-top{gap:8px;}
+    .banner{min-height:128px;}
+    .banner .bn{font-size:24px;}
+    .order .o-right{gap:12px;}
+    .order .o-fig{gap:14px;}
+    .sheet{max-width:none;}
+    .vword{font-size:34px;}
+    .exp-row{gap:10px;padding:11px 12px;}
+    .exp-num{width:42px;height:42px;}
+  }
+</style>
+</head>
+<body>
+  <div class="switcher">
+    <span class="lab">Layout</span>
+    <button data-act="dir" data-v="A" title="Deal Desk — scan-fast">A</button>
+    <button data-act="dir" data-v="B" title="Field / Desk modes">B</button>
+    <button data-act="dir" data-v="C" title="Gallery — art-forward">C</button>
+  </div>
+  <div id="app" class="wrap"></div>
+  <div id="composer"></div>
+  <div id="setsmodal"></div>
+  <div id="confirm"></div>
+  <div id="settings"></div>
+  <div id="pulls"></div>
+  <div id="toast-host"></div>
+
+<script>
+const TODAY = "2026-06-28";
+const money = (n) => "$" + (Number(n) || 0).toFixed(2);
+const PPU = { "Booster Pack":1, "Sleeved Booster":1, "Booster Bundle":6, "Elite Trainer Box":9, "Mini Tin":2, "Regular Tin":3 };
+
+// Master expansion list (newest → oldest). `code` = set number, shown on every icon.
+const SETS = [
+  { id:"sv10", code:"SV10", name:"Destined Rivals", series:"Scarlet & Violet", rs:202505, tint:"#c2495a",
+    base:182, total:244, release:"May 2025", tracked:false, packsOpened:0, packsBought:0, collected:0, spent:0, ordersCount:0,
+    ev:4.20, market:5.50, ceiling:5.50, msrp:4.49, drPacks:150, bundlePacks:6, bundleMarket:27.50, lastRefresh:TODAY },
+  { id:"sv09", code:"SV09", name:"Journey Together", series:"Scarlet & Violet", rs:202503, tint:"#2f7fb0",
+    base:159, total:190, release:"Mar 2025", tracked:true, packsOpened:12, packsBought:24, collected:48, spent:88.20, ordersCount:2,
+    ev:4.60, market:4.80, ceiling:5.25, msrp:4.49, drPacks:150, bundlePacks:6, bundleMarket:28.80, lastRefresh:"2026-06-27" },
+  { id:"pre", code:"SV8.5", name:"Prismatic Evolutions", series:"Scarlet & Violet — Special", rs:202501, tint:"#7a5cc4",
+    base:131, total:180, release:"Jan 2025", tracked:true, packsOpened:30, packsBought:36, collected:96, spent:410.00, ordersCount:4,
+    ev:6.80, market:10.50, ceiling:8.00, msrp:4.99, drPacks:80, bundlePacks:6, bundleMarket:89.99, lastRefresh:"2026-06-10" },
+  { id:"sv08", code:"SV08", name:"Surging Sparks", series:"Scarlet & Violet", rs:202411, tint:"#caa11e",
+    base:191, total:252, release:"Nov 2024", tracked:true, packsOpened:84, packsBought:108, collected:150, spent:312.40, ordersCount:5,
+    ev:4.10, market:4.50, ceiling:5.00, msrp:4.49, drPacks:140, bundlePacks:6, bundleMarket:26.94, lastRefresh:"2026-06-25" },
+  { id:"sv07", code:"SV07", name:"Stellar Crown", series:"Scarlet & Violet", rs:202409, tint:"#2f9e6f",
+    base:142, total:175, release:"Sep 2024", tracked:false, packsOpened:0, packsBought:0, collected:0, spent:0, ordersCount:0,
+    ev:4.40, market:5.00, ceiling:5.25, msrp:4.49, drPacks:145, bundlePacks:6, bundleMarket:27.00, lastRefresh:TODAY },
+  { id:"sv65", code:"SV6.5", name:"Shrouded Fable", series:"Scarlet & Violet — Special", rs:202408, tint:"#4b5566",
+    base:64, total:99, release:"Aug 2024", tracked:false, packsOpened:0, packsBought:0, collected:0, spent:0, ordersCount:0,
+    ev:5.50, market:7.00, ceiling:6.50, msrp:4.99, drPacks:60, bundlePacks:6, bundleMarket:41.00, lastRefresh:TODAY },
+  { id:"sv06", code:"SV06", name:"Twilight Masquerade", series:"Scarlet & Violet", rs:202405, tint:"#6a4fa0",
+    base:167, total:226, release:"May 2024", tracked:false, packsOpened:0, packsBought:0, collected:0, spent:0, ordersCount:0,
+    ev:4.30, market:5.00, ceiling:5.25, msrp:4.49, drPacks:150, bundlePacks:6, bundleMarket:27.00, lastRefresh:TODAY },
+  { id:"sv05", code:"SV05", name:"Temporal Forces", series:"Scarlet & Violet", rs:202403, tint:"#b06b2e",
+    base:162, total:218, release:"Mar 2024", tracked:false, packsOpened:0, packsBought:0, collected:0, spent:0, ordersCount:0,
+    ev:4.20, market:5.00, ceiling:5.25, msrp:4.49, drPacks:150, bundlePacks:6, bundleMarket:27.00, lastRefresh:TODAY },
+  { id:"sv45", code:"SV4.5", name:"Paldean Fates", series:"Scarlet & Violet — Special", rs:202401, tint:"#c9a23a",
+    base:91, total:245, release:"Jan 2024", tracked:false, packsOpened:0, packsBought:0, collected:0, spent:0, ordersCount:0,
+    ev:5.80, market:8.00, ceiling:7.00, msrp:4.99, drPacks:70, bundlePacks:6, bundleMarket:47.00, lastRefresh:TODAY },
+  { id:"sv04", code:"SV04", name:"Paradox Rift", series:"Scarlet & Violet", rs:202311, tint:"#3a72a8",
+    base:182, total:266, release:"Nov 2023", tracked:false, packsOpened:0, packsBought:0, collected:0, spent:0, ordersCount:0,
+    ev:4.10, market:5.00, ceiling:5.25, msrp:4.49, drPacks:160, bundlePacks:6, bundleMarket:27.00, lastRefresh:TODAY },
+  { id:"sv35", code:"SV3.5", name:"151", series:"Scarlet & Violet — Special", rs:202309, tint:"#d05a3c",
+    base:165, total:207, release:"Sep 2023", tracked:false, packsOpened:0, packsBought:0, collected:0, spent:0, ordersCount:0,
+    ev:6.20, market:8.50, ceiling:7.50, msrp:4.99, drPacks:90, bundlePacks:6, bundleMarket:50.00, lastRefresh:TODAY },
+];
+const CHASE = [
+  { abbr:"IR",  stars:"★",   color:"#e6b54a", rate:0.111 },
+  { abbr:"UR",  stars:"★★",  color:"#c9d2e0", rate:0.05 },
+  { abbr:"SIR", stars:"★★",  color:"#e6b54a", rate:0.0139 },
+  { abbr:"MHR", stars:"★★★", color:"#f0c987", rate:0.000794 },
+];
+const setById = (id) => SETS.find(s => s.id === id) || SETS.find(s=>s.tracked) || SETS[0];
+const trackedSets = () => SETS.filter(s => s.tracked);
+const marketOf = (s) => Math.max(5, s.market);            // cheapest rip never under $5
+const daysSince = (iso) => Math.floor((Date.parse(TODAY) - Date.parse(iso)) / 86400000);
+const isSpecial = (s) => /Special/.test(s.series);
+const monthsOld = (s) => (2026 - Math.floor(s.rs/100))*12 + (6 - (s.rs%100));
+const isOOP = (s) => monthsOld(s) > 24;
+const SECRET = [
+  { abbr:"IR",  name:"Illustration Rare", rate:0.111, color:"#e6b54a", glyph:"★" },
+  { abbr:"UR",  name:"Ultra Rare", rate:0.05, color:"#c9d2e0", glyph:"★★" },
+  { abbr:"SIR", name:"Special Illustration Rare", rate:0.0139, color:"#e6b54a", glyph:"★★" },
+  { abbr:"MHR", name:"Mega Hyper Rare", rate:0.000794, color:"#f0c987", glyph:"★★★" },
+];
+function binomAtLeast(K,p,m){ if(m<=0) return 1; if(p<=0||K<=0) return 0; let pmf=Math.pow(1-p,K), lower=pmf; for(let k=1;k<=m-1;k++){ pmf*=((K-k+1)/k)*(p/(1-p)); lower+=pmf; } return Math.max(0,Math.min(1,1-lower)); }
+function estimateOf(set, bought){
+  const total=Math.round(set.base*2.2);
+  const typical=Math.max(0,total-bought);
+  const unlucky=Math.round(typical*1.4);
+  const to50=Math.max(0,Math.round(set.base*0.55)-bought);
+  const to95=Math.max(0,Math.round(set.base*1.5)-bought);
+  return { total, typical, unlucky, to50, to95 };
+}
+function productBreakdown(set){
+  const map={};
+  state.orders.filter(o=>o.binder===state.binder).forEach(o=>o.lines.filter(l=>l.setId===set.id).forEach(l=>{
+    const q=Number(l.qty)||0,p=Number(l.price)||0,packs=q*(PPU[l.product]||1);
+    if(!map[l.product]) map[l.product]={qty:0,packs:0,spend:0};
+    map[l.product].qty+=q; map[l.product].packs+=packs; map[l.product].spend+=q*p;
+  }));
+  return Object.keys(map).map(prod=>({ prod, qty:map[prod].qty, packs:map[prod].packs, spend:map[prod].spend, perPack: map[prod].packs>0?map[prod].spend/map[prod].packs:0 }));
+}
+function rarityCounts(set){
+  const N=set.base;
+  return [
+    { r:"Common", c:Math.round(N*0.36), glyph:"●", color:"#aeb7ca" },
+    { r:"Uncommon", c:Math.round(N*0.27), glyph:"◆", color:"#aeb7ca" },
+    { r:"Rare", c:Math.round(N*0.15), glyph:"★", color:"#aeb7ca", prob:0.66 },
+    { r:"Double Rare", c:Math.round(N*0.08), glyph:"★★", color:"#cfd6e6", prob:0.18 },
+    { r:"Illustration Rare", c:Math.round(N*0.07), glyph:"★", color:"#e6b54a", prob:0.111 },
+    { r:"Ultra Rare", c:Math.round(N*0.04), glyph:"★★", color:"#c9d2e0", prob:0.05 },
+    { r:"Special Illus. Rare", c:Math.max(1,Math.round(N*0.02)), glyph:"★★", color:"#e6b54a", prob:0.0139 },
+  ];
+}
+
+// ---- persisted state ----
+const LS = "ppt_proto_v3";
+function loadSaved(){ try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch(e){ return {}; } }
+const saved = loadSaved();
+const initSetId = (saved.setId && setById(saved.setId).tracked) ? saved.setId : trackedSets()[0].id;
+const state = {
+  direction: saved.direction || "C",
+  mode: saved.mode || "field",
+  setId: initSetId,
+  binder: saved.binder || "mine",
+  dealTab: "loose",
+  loosePrice: Math.round(marketOf(setById(initSetId))),
+  bundlePrice: Math.round(setById(initSetId).bundleMarket),
+  composerOpen: false,
+  setsOpen: false,
+  secretOpen: false,
+  editingId: null,
+  confirm: null,
+  settingsOpen: false,
+  settingsAdvanced: false,
+  settings: {
+    salesTax: 6, funBudget: 6, mcRuns: 3000, showShared: false,
+    pokeKey: "", pcKey: "", ebayId: "", ebaySecret: "",
+    ppp: { ...PPU },
+    chase: [
+      { name:"Illustration Rare", rate:0.111 },
+      { name:"Ultra Rare", rate:0.05 },
+      { name:"Special Illustration Rare", rate:0.0139 },
+      { name:"Mega Hyper Rare", rate:0.000794 },
+    ],
+    packModel: '{\n  "slots": [\n    { "name":"Common", "count":4, "pool":["Common"] },\n    { "name":"Reverse Holo", "count":1, "pool":["Common","Uncommon","Rare"] },\n    { "name":"Hit", "count":1, "weights":{"Rare":0.66,"Double Rare":0.18,"Ultra Rare":0.06,"Illustration Rare":0.05,"ACE SPEC Rare":0.05} }\n  ]\n}',
+  },
+  view: "hub",
+  hubPrice: {},
+  hubAnimated: false,
+  tagOpen: false,
+  actuals: saved.actuals || {},
+  pullsOpen: false, pullsId: null, pullsFinds: {}, pullsTagged: [], pullsTagOpen: false,
+  draft: null,
+  orders: saved.orders || [
+    { id:101, dateISO:"2026-06-22", vendor:"Off the Charts Games", binder:"mine", tax:6,
+      lines:[{ product:"Booster Bundle", setId:"sv08", qty:3, price:26.94 }] },
+    { id:102, dateISO:"2026-06-14", vendor:"Anime Expo — Booth 412", binder:"mine", tax:0,
+      lines:[{ product:"Booster Bundle", setId:"sv08", qty:1, price:26.94 },
+             { product:"Booster Bundle", setId:"pre", qty:1, price:89.99 },
+             { product:"Booster Bundle", setId:"sv09", qty:1, price:28.80 }] },
+    { id:104, dateISO:"2026-06-02", vendor:"Too Many Games", binder:"mine", tax:0,
+      finds:{ IR:2, UR:1 },
+      lines:[{ product:"Elite Trainer Box", setId:"sv08", qty:2, price:49.99 }] },
+    { id:105, dateISO:"2026-05-18", vendor:"Offcourt TCG", binder:"mine", tax:6,
+      lines:[{ product:"Booster Bundle", setId:"sv08", qty:6, price:25.50 }] },
+    { id:106, dateISO:"2026-04-28", vendor:"Target", binder:"mine", tax:8.25, store:"Target", circle:true,
+      lines:[{ product:"Elite Trainer Box", setId:"sv08", qty:4, price:49.99 }] },
+    { id:107, dateISO:"2026-01-20", vendor:"Too Many Games", binder:"mine", tax:6,
+      finds:{ SIR:1, IR:3 },
+      lines:[{ product:"Elite Trainer Box", setId:"pre", qty:1, price:119.99 }] },
+    { id:108, dateISO:"2026-02-10", vendor:"Offcourt TCG", binder:"mine", tax:6,
+      lines:[{ product:"Booster Bundle", setId:"pre", qty:3, price:74.99 }] },
+    { id:109, dateISO:"2026-03-30", vendor:"Offcourt TCG", binder:"mine", tax:6,
+      lines:[{ product:"Booster Bundle", setId:"sv09", qty:3, price:28.80 }] },
+    { id:103, dateISO:"2026-05-30", vendor:"Target", binder:"shared", tax:8.25, store:"Target", circle:true,
+      lines:[{ product:"Elite Trainer Box", setId:"pre", qty:1, price:49.99 }] },
+  ],
+};
+function persist(){ localStorage.setItem(LS, JSON.stringify({ direction:state.direction, mode:state.mode, setId:state.setId, binder:state.binder, orders:state.orders, settings:state.settings, actuals:state.actuals })); }
+if (saved.settings) Object.assign(state.settings, saved.settings);
+if (!state.settings.showShared) state.binder = "mine";
+
+const urlp = new URLSearchParams(location.search);
+if (urlp.get("layout")) state.direction = urlp.get("layout").toUpperCase();
+const LOCKED = !!urlp.get("layout");
+
+// ---- deal math ----
+function verdict(perPack, set){
+  const M = marketOf(set);
+  if (perPack <= set.ceiling) return { word:"BUY", icon:"✓", color:"var(--good)", bg:"rgba(47,213,138,.10)", border:"rgba(47,213,138,.35)", tone:"good" };
+  if (perPack >= M*1.25) return { word:"PASS", icon:"✕", color:"var(--bad)", bg:"rgba(247,107,107,.10)", border:"rgba(247,107,107,.35)", tone:"bad" };
+  return { word:"FAIR", icon:"~", color:"var(--fair)", bg:"rgba(255,176,32,.10)", border:"rgba(255,176,32,.35)", tone:"fair" };
+}
+function looseRec(perPack, set, v){
+  const M = marketOf(set);
+  const rem = Math.max(0, set.drPacks - set.packsBought);
+  if (v.tone==="good") return { big:"Buy ~"+rem, text:"value holds until diminishing returns kick in." };
+  if (v.tone==="fair"){ const over = Math.max(0, perPack-M); const n = over>0 ? Math.max(1, Math.floor(6/over)) : rem; return { big:"Buy ~"+n, text:"a few for fun — the premium adds up after that." }; }
+  return { big:"Pass", text:"rip nearer "+money(M)+"/pack instead." };
+}
+function bundleRec(perPack, set, v){
+  if (v.tone==="good") return { big:"Grab it", text:money(perPack)+"/pack across "+set.bundlePacks+" packs — solid." };
+  if (v.tone==="fair") return { big:"Maybe", text:money(perPack)+"/pack — fine if you want it sealed." };
+  return { big:"Pass", text:money(perPack)+"/pack is above a fair rip." };
+}
+
+// ---- orders ----
+function computeOrder(o){
+  let subtotal=0, packs=0, qty=0;
+  o.lines.forEach(l=>{ const q=Number(l.qty)||0, p=Number(l.price)||0; subtotal+=q*p; packs+=q*(PPU[l.product]||1); qty+=q; });
+  const discount = (o.store==="Target" && o.circle) ? subtotal*0.05 : 0;
+  const taxable = subtotal - discount;
+  const tax = taxable*(Number(o.tax)||0)/100;
+  const sets=[...new Set(o.lines.map(l=>l.setId))];
+  let items;
+  if (sets.length>1) items = sets.length+" sets · "+packs+" packs";
+  else if (o.lines.length===1) items = o.lines[0].qty+"× "+o.lines[0].product+" · "+packs+" packs";
+  else items = o.lines.length+" lines · "+packs+" packs";
+  const total = taxable+tax;
+  return { subtotal, discount, tax, total, packs, sets, items, perPack: packs>0 ? total/packs : 0 };
+}
+
+// ---- actions ----
+function liveStats(setId, binder){
+  let spent=0, packs=0, orders=0;
+  state.orders.forEach(o=>{
+    if(o.binder!==binder) return;
+    let sub=0, pk=0;
+    o.lines.forEach(l=>{ if(l.setId===setId){ const q=Number(l.qty)||0,p=Number(l.price)||0; sub+=q*p; pk+=q*(PPU[l.product]||1); } });
+    if(pk>0||sub>0){ orders++; const disc=(o.store==="Target"&&o.circle)?0.95:1; spent+=sub*disc*(1+(Number(o.tax)||0)/100); packs+=pk; }
+  });
+  return { spent, packs, orders };
+}
+function collectedOf(set){ return state.actuals[set.id]!=null ? state.actuals[set.id] : set.collected; }
+function pullsTotal(o){ return Object.values(o.finds||{}).reduce((a,b)=>a+(Number(b)||0),0); }
+function setDir(d){ state.direction=d; persist(); render(); }
+function setMode(m){ state.mode=m; persist(); render(); }
+function setBinder(b){ state.binder=b; persist(); render(); }
+function selectSet(id){ const s=setById(id); state.setId=id; state.dealTab="loose"; state.loosePrice=Math.round(marketOf(s)); state.bundlePrice=Math.round(s.bundleMarket); persist(); render(); }
+function setTab(t){ state.dealTab=t; render(); }
+function stepPrice(d){ if(state.dealTab==="loose") state.loosePrice=Math.max(0,state.loosePrice+d); else state.bundlePrice=Math.max(0,state.bundlePrice+d); render(); }
+function headerHTML(){
+  return `<div class="head">
+    <div class="brand" data-act="gohub" style="cursor:pointer;">
+      <svg viewBox="0 0 100 100" width="30" height="30"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#0b0e16" stroke-width="6"/><path d="M5 50a45 45 0 0 1 90 0Z" fill="#ee1c25"/><rect x="5" y="46" width="90" height="8" fill="#0b0e16"/><circle cx="50" cy="50" r="15" fill="#fff" stroke="#0b0e16" stroke-width="6"/></svg>
+      <span class="name disp">Pack Tracker</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      ${state.settings.showShared?`<div class="seg"><button data-act="binder" data-v="mine" class="${on(state.binder==='mine')}">Mine</button><button data-act="binder" data-v="shared" class="${on(state.binder==='shared')}">Shared</button></div>`:""}
+      <button class="icon-btn" data-act="settings" title="Settings" style="width:38px;height:38px;border-radius:999px;font-size:16px;">⚙</button>
+    </div>
+  </div>`;
+}
+function hubPriceOf(id){ if(state.hubPrice[id]==null) state.hubPrice[id]=Math.round(marketOf(setById(id))); return state.hubPrice[id]; }
+function hubStep(id,d){ state.hubPrice[id]=Math.max(0, hubPriceOf(id)+d); render(); }
+function goHub(){ state.view="hub"; state.hubAnimated=false; render(); }
+function openSetView(id){ const s=setById(id); state.view="set"; state.setId=id; state.dealTab="loose"; state.loosePrice=Math.round(marketOf(s)); state.bundlePrice=Math.round(s.bundleMarket); persist(); render(); }
+function hubAddOrder(id){ state.setId=id; openComposer(); }
+function hubRefresh(id){ const s=setById(id); s.lastRefresh=TODAY; render(); toast("Market refreshed for "+s.name); }
+function renderHub(){
+  const anim=!state.hubAnimated;
+  const sets=trackedSets().slice().sort((a,b)=>b.rs-a.rs);
+  const rows=sets.map((s,i)=>{
+    const price=hubPriceOf(s.id), v=verdict(price,s), stale=daysSince(s.lastRefresh)>7;
+    const hls=liveStats(s.id, state.binder), hbought=hls.packs;
+    const comp=Math.round(collectedOf(s)/s.base*100), drRem=Math.max(0,s.drPacks-hbought);
+    const aStyle=anim?`animation:rowIn .34s cubic-bezier(.22,1,.36,1) backwards;animation-delay:${i*55}ms;`:"";
+    return `<div class="hubrow" style="${aStyle}">
+      <div class="hub-art${isSpecial(s)?' sp':''}" style="background:linear-gradient(160deg, ${s.tint} 0%, #0e1422 80%)"><span class="hub-code">${s.code}</span>${isSpecial(s)?'<span class="hub-sp">✦</span>':''}</div>
+      <div class="hub-mid">
+        <div class="hub-name">${s.name}${isOOP(s)?'<span class="oop">likely out of print</span>':''}</div>
+        <div class="hub-sub">${s.series} · ${s.release}</div>
+        <div class="hub-stats"><span><b>${comp}%</b> complete</span><span><b>${drRem}</b> to DR</span><span><b>${money(hls.spent)}</b> spent</span><span><b>${hls.orders}</b> orders</span></div>
+        <div class="hub-acts"><button class="hub-open" data-act="opensetview" data-v="${s.id}">Open dashboard →</button><button class="hub-mini" data-act="hubaddorder" data-v="${s.id}">+ Order</button><button class="hub-mini" data-act="hubrefresh" data-v="${s.id}">↻ Refresh</button></div>
+      </div>
+      <div class="hub-deal" style="background:${v.bg};border-left:1px solid ${v.border}">
+        <div class="hub-deal-top"><span class="hub-verdict" style="color:${v.color}">${v.word}</span><span style="font-size:18px">${v.icon}</span></div>
+        <div class="hub-stepper"><button class="b1 sm" data-act="hubdec" data-v="${s.id}">−</button><span class="hub-price">${money(price)}</span><button class="b1 sm" data-act="hubinc" data-v="${s.id}">+</button></div>
+        <div class="hub-rip">rip ${money(marketOf(s))} · upd ${fmtDate(s.lastRefresh)}${stale?' · <span class="stale-dot"></span>refresh':''}</div>
+      </div>
+    </div>`;
+  }).join("");
+  state.hubAnimated=true;
+  document.getElementById("app").innerHTML = headerHTML() + `
+    <div class="hub-head"><div><div class="hub-title disp">Your sets</div><div class="hub-tagline">Pick a set to check deals &amp; log orders</div></div></div>
+    <div class="hub-list">${rows}
+      <button class="hub-import" data-act="addset" style="${anim?`animation:rowIn .34s cubic-bezier(.22,1,.36,1) backwards;animation-delay:${sets.length*55}ms;`:''}"><span class="hub-import-plus">+</span><span>Import a set<small>browse expansions, newest first</small></span></button>
+    </div>`;
+}
+function refreshMarket(){ const s=setById(state.setId); s.lastRefresh=TODAY; toast("Market price refreshed for "+s.name); render(); }
+
+// composer
+function freshDraft(){ return { date:TODAY, vendor:"", store:"", circle:true, finds:{}, tagged:[], tax:state.settings.salesTax, binder:state.binder, lines:[{ id:1, product:"Booster Pack", setId:state.setId, qty:1, price:"" }] }; }
+function openComposer(){ state.editingId=null; state.composerOpen=true; state.secretOpen=false; state.tagOpen=false; state.draft=freshDraft(); renderComposer(); }
+function editOrder(id){
+  const o=state.orders.find(x=>x.id===id); if(!o) return;
+  state.editingId=id; state.composerOpen=true; state.secretOpen=false; state.tagOpen=false;
+  state.draft={ date:o.dateISO, vendor:o.vendor, tax:o.tax, binder:o.binder, store:o.store||"", circle:o.circle!==false, finds:{...(o.finds||{})}, tagged:[...(o.tagged||[])],
+    lines:o.lines.map((l,i)=>({ id:i+1, product:l.product, setId:l.setId, qty:l.qty, price:l.price })) };
+  renderComposer();
+}
+function deleteOrder(id){ state.orders=state.orders.filter(o=>o.id!==id); persist(); render(); toast("Order deleted"); }
+function askConfirm(msg, detail, onYes){ state.confirm={ msg, detail, onYes }; renderConfirm(); }
+function closeConfirm(){ state.confirm=null; renderConfirm(); }
+function requestDeleteOrder(id){
+  const o=state.orders.find(x=>x.id===id); if(!o) return;
+  const co=computeOrder(o);
+  askConfirm("Delete this order?", fmtDate(o.dateISO)+" · "+o.vendor+" · "+money(co.total)+" ("+co.packs+" packs). This can\u2019t be undone.", ()=>deleteOrder(id));
+}
+function closeComposer(){ state.composerOpen=false; state.editingId=null; state.draft=null; renderComposer(); }
+function addLine(product){ const d=state.draft; const nid=d.lines.reduce((m,l)=>Math.max(m,l.id),0)+1; d.lines.push({ id:nid, product, setId:state.setId, qty:1, price:"" }); renderLines(); recalc(); }
+function removeLine(id){ const d=state.draft; if(d.lines.length>1) d.lines=d.lines.filter(l=>l.id!==id); renderLines(); recalc(); }
+function toggleSecret(){ state.secretOpen=!state.secretOpen; renderComposer(); }
+function draftTotals(){ return computeOrder(state.draft); }
+function saveOrder(){
+  const d=state.draft, t=computeOrder(d);
+  if(t.packs<=0 && t.subtotal<=0){ toast("Add a product line first"); return; }
+  const lines=d.lines.map(l=>({ product:l.product, setId:l.setId, qty:Number(l.qty)||0, price:Number(l.price)||0 }));
+  if(state.editingId){
+    state.orders=state.orders.map(o=>o.id===state.editingId ? { ...o, dateISO:d.date, vendor:d.vendor||"Unnamed vendor", binder:d.binder, tax:d.tax, store:d.store, circle:d.circle, finds:d.finds, tagged:d.tagged, lines } : o);
+    toast("Order updated");
+  } else {
+    state.orders.unshift({ id:Date.now(), dateISO:d.date, vendor:d.vendor||"Unnamed vendor", binder:d.binder, tax:d.tax, store:d.store, circle:d.circle, finds:d.finds, tagged:d.tagged, lines });
+    const n=t.sets.length; toast(n>1 ? "Saved — "+n+"-set order logged" : "Order saved");
+  }
+  state.editingId=null; state.composerOpen=false; state.draft=null; persist();
+  renderComposer(); render();
+}
+
+// sets modal
+function openSetsModal(){ state.setsOpen=true; renderSetsModal(); }
+function closeSetsModal(){ state.setsOpen=false; renderSetsModal(); }
+function importSet(id){ const s=setById(id); s.tracked=true; s.lastRefresh=TODAY; state.setsOpen=false; selectSet(id); renderSetsModal(); toast("Imported "+s.name); }
+function reimportSet(id){ const s=setById(id); s.lastRefresh=TODAY; renderSetsModal(); render(); toast("Reimported "+s.name+" — art & prices refreshed"); }
+function setHasData(id){ return state.orders.some(o=>o.lines.some(l=>l.setId===id)); }
+function deleteSetTracked(id){
+  const s=setById(id);
+  if(setHasData(id)){ toast("Can’t remove "+s.name+" — you have orders or packs from it"); return; }
+  if(trackedSets().length<=1){ toast("Keep at least one tracked set"); return; }
+  s.tracked=false;
+  if(state.setId===id){ selectSet(trackedSets()[0].id); }
+  renderSetsModal(); render(); toast("Removed "+s.name+" (orders untouched)");
+}
+function openSettings(){ state.settingsOpen=true; renderSettings(); }
+function closeSettings(){ state.settingsOpen=false; renderSettings(); }
+function toggleAdvanced(){ state.settingsAdvanced=!state.settingsAdvanced; renderSettings(); }
+
+let toastTimer;
+function toast(msg){
+  const host=document.getElementById("toast-host");
+  host.innerHTML = '<div class="toast"></div>';
+  host.firstChild.textContent = msg;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ host.innerHTML=""; }, 2600);
+}
+
+// ---- render ----
+function on(active){ return active ? " on" : ""; }
+function fmtDate(iso){ try{ return new Date(iso+"T00:00:00").toLocaleString("en-US",{month:"short",day:"numeric"}); }catch(e){ return iso; } }
+
+function render(){
+  if(state.view==="hub"){ renderHub(); return; }
+  const set = setById(state.setId);
+  const dir = state.direction;
+  const isB = dir==="B", isC = dir==="C";
+  const mobile = window.innerWidth <= 640;
+  const showDesk = isC ? !mobile : (isB && state.mode==="desk");
+
+  const isLoose = state.dealTab==="loose";
+  const rawPrice = isLoose ? state.loosePrice : state.bundlePrice;
+  const perPack = isLoose ? state.loosePrice : (set.bundlePacks ? state.bundlePrice/set.bundlePacks : state.bundlePrice);
+  const v = verdict(perPack, set);
+  const rec = isLoose ? looseRec(perPack,set,v) : bundleRec(perPack,set,v);
+
+  document.querySelectorAll(".switcher button").forEach(b => b.classList.toggle("on", b.dataset.v===dir));
+
+  const ls = liveStats(set.id, state.binder);
+  const bought = ls.packs;
+  const collected = collectedOf(set);
+  const drRem = Math.max(0, set.drPacks - bought);
+  const drFill = Math.min(100, Math.round(bought/set.drPacks*100));
+  const completion = Math.round(collected/set.base*100);
+  const C = 2*Math.PI*52, gaugeDash = ((completion/100)*C)+" "+C;
+  const dirLabel = dir==="A" ? "Deal Desk" : dir==="B" ? "Field / Desk" : "Gallery";
+  const M = marketOf(set);
+  const stale = daysSince(set.lastRefresh) > 7;
+
+  const pills = trackedSets().map(s => `
+    <button class="pill${on(s.id===state.setId)}" data-act="set" data-v="${s.id}">
+      <span class="sym${isSpecial(s)?' sp':''}" style="background-color:#10182a;background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)">${s.code}</span>
+      <span class="col"><span class="pn">${s.name}</span><span class="pm">${s.base} base · ${s.total} total</span></span>
+    </button>`).join("");
+
+  const stats = [
+    ["Spent", money(ls.spent), ""],
+    ["Packs bought", bought, ""],
+    ["Complete", completion+"%", "color:var(--accent)"],
+    ["Orders", ls.orders, ""],
+  ].map(([k,val,st]) => `<div class="stat"><div class="k">${k}</div><div class="v" style="${st}">${val}</div></div>`).join("");
+
+  const chase = CHASE.map(c => {
+    const odds = c.rate>0 ? "1 in "+Math.round(1/c.rate) : "—";
+    return `<div class="slot"><div style="display:flex;align-items:center;gap:7px;"><span class="stars" style="color:${c.color}">${c.stars}</span><span style="font-size:11px;font-weight:700;color:var(--soft)">${c.abbr}</span></div>
+      <div class="pk">${c.rate>0?Math.round(1/c.rate):"—"}<span style="font-size:11px;color:var(--muted);font-weight:500"> pks</span></div>
+      <div style="font-size:11px;color:var(--muted)">${odds}</div></div>`;
+  }).join("");
+
+  const artTiles = [["booster pack","Booster Pack"],["ETB","Elite Trainer Box"],["bundle","Booster Bundle"],["box","Booster Box"]]
+    .map(([kind,name]) => `<div class="art"><div class="ph" style="background:linear-gradient(160deg, ${set.tint} 0%, #10182a 75%)"><span>${kind}</span></div><div class="cap">${name}</div></div>`).join("");
+
+  const orders = state.orders.filter(o => o.binder===state.binder).map(o => {
+    const co = computeOrder(o);
+    const avgCeil = co.sets.reduce((m,id)=>m+setById(id).ceiling,0)/co.sets.length;
+    const avgMkt = co.sets.reduce((m,id)=>m+marketOf(setById(id)),0)/co.sets.length;
+    let f;
+    if (co.perPack<=avgCeil) f={l:"Good deal",c:"var(--good)",bg:"rgba(47,213,138,.12)"};
+    else if (co.perPack>=avgMkt*1.25) f={l:"Overpaid",c:"var(--bad)",bg:"rgba(247,107,107,.12)"};
+    else f={l:"Fair",c:"var(--fair)",bg:"rgba(255,176,32,.12)"};
+    const chips = co.sets.map(id => `<span class="setchip" style="color:${setById(id).tint}">${setById(id).code}</span>`).join("");
+    return `<div class="order">
+      <div class="o-meta">
+        <div class="o-row1"><span class="o-date">${fmtDate(o.dateISO)}</span><span class="o-vendor">${o.vendor}</span><span class="o-binder">${o.binder==="shared"?"Shared":"Mine"}</span>${o.store?`<span class="o-binder">${o.store}</span>`:""}</div>
+        <div class="o-row2">${chips}<span class="o-items">${co.items}</span>${pullsTotal(o)>0?`<span class="setchip" style="color:#e6b54a">🃏 ${pullsTotal(o)} pull${pullsTotal(o)>1?'s':''}</span>`:""}</div>
+      </div>
+      <div class="o-right">
+        <div class="o-fig">
+          <div><div class="k">Total</div><div class="v">${money(co.total)}</div></div>
+          <div><div class="k">$/pack</div><div class="v">${money(co.perPack)}</div></div>
+        </div>
+        <span class="flag" style="color:${f.c};background:${f.bg}">${f.l}</span>
+        <div class="order-acts">
+          <button class="icon-btn" data-act="pulls" data-v="${o.id}" title="Tag secret cards pulled">🃏</button>
+          <button class="icon-btn" data-act="editorder" data-v="${o.id}" title="Edit order">✎</button>
+          <button class="icon-btn del" data-act="delorder" data-v="${o.id}" title="Delete order">🗑</button>
+        </div>
+      </div></div>`;
+  }).join("") || `<div style="color:var(--muted);font-size:13px;padding:8px 2px;">No orders in this binder yet.</div>`;
+
+  const modeBar = isB ? `
+    <div class="modebar">
+      <div class="seg sq">
+        <button data-act="mode" data-v="field" class="${on(state.mode==='field')}">⚡ Field</button>
+        <button data-act="mode" data-v="desk" class="${on(state.mode==='desk')}">☕ Desk</button>
+      </div>
+      <span class="hint">${state.mode==="field" ? "Big & fast — just the decision." : "Full detail — estimates, chase odds, art."}</span>
+    </div>` : "";
+
+  const banner = isC ? `
+    <div class="banner" style="background:linear-gradient(115deg, ${set.tint} 0%, #101626 70%)">
+      <div class="stripe"></div>
+      <div class="tag">key art · pokemontcg.io</div>
+      <div class="bc"><div class="bs">${set.series}</div><div class="bn">${set.name}</div>
+        <div class="bsub">${set.base}-card base set · ${set.total} total · released ${set.release}</div></div>
+    </div>` : "";
+
+  const est = estimateOf(set, bought);
+  const refsM = marketOf(set);
+  const bd = productBreakdown(set);
+  const bdRows = bd.length ? bd.map(b=>{
+    let fl; if(b.perPack<=set.ceiling) fl={l:"Good",c:"var(--good)"}; else if(b.perPack>=refsM*1.25) fl={l:"Over",c:"var(--bad)"}; else fl={l:"Fair",c:"var(--fair)"};
+    return `<div class="bd-row"><span class="bd-name">${b.prod}</span><span>${b.qty}×</span><span>${b.packs} pk</span><span>${money(b.spend)}</span><span class="bd-pp">${money(b.perPack)}/pk</span><span style="color:${fl.c};font-weight:700;font-size:11.5px">${fl.l}</span></div>`;
+  }).join("") : `<div style="font-size:13px;color:var(--muted);padding:6px 0;">No orders for this set in this binder yet.</div>`;
+  const rarChips = rarityCounts(set).map(c=>{
+    const pl = c.prob ? (c.prob>=0.1 ? `~${Math.round(c.prob*100)}%/pack` : `1 in ${Math.round(1/c.prob)}`) : "guaranteed";
+    return `<span class="rchip"><span style="color:${c.color};letter-spacing:1px">${c.glyph}</span> ${c.r} <b>${c.c}</b> <span class="rprob">${pl}</span></span>`;
+  }).join("");
+  const deskDetail = showDesk ? `
+    <div class="grid2">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;"><div class="uplabel">Set completion</div><div style="font-size:12px;color:var(--muted)">${collected} / ${set.base}</div></div>
+        <div class="gauge-wrap">
+          <div class="gauge"><svg viewBox="0 0 120 120" width="96" height="96"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="12"/><circle cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" transform="rotate(-90 60 60)" stroke-dasharray="${gaugeDash}"/></svg><div class="g-c">${completion}%</div></div>
+          <div style="flex:1;">
+            <div style="font-size:13px;color:var(--soft);line-height:1.5;">${collected} of ${set.base} base-set cards — about ${set.base-collected} to go.</div>
+            <label class="actual-wrap">Your real card count<input type="number" min="0" max="${set.base}" data-actual="${set.id}" value="${state.actuals[set.id]!=null?state.actuals[set.id]:''}" placeholder="${set.collected} (estimate)"></label>
+            ${state.actuals[set.id]!=null?`<div style="font-size:11.5px;margin-top:6px;font-weight:600;color:${(collected-set.collected)>=0?'var(--good)':'var(--fair)'}">${(collected-set.collected)>=0?'+':'−'}${Math.abs(collected-set.collected)} vs the ${set.collected}-card estimate</div>`:""}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="uplabel">Estimated to finish</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-top:8px;"><span class="disp" style="font-weight:700;font-size:38px;line-height:1;color:var(--good)">≈${est.to95}</span><span style="font-size:13px;color:var(--soft)">more packs to 95%</span></div>
+        <div style="font-size:12.5px;color:var(--soft);margin-top:4px;">to reach 95% of the base set — the realistic finish line</div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:11px;font-size:12px;color:var(--muted)"><span>to 50%: <b class="disp" style="color:var(--text)">${est.to50}</b></span><span>to 100%: <b class="disp" style="color:var(--text)">${est.typical}</b></span><span>unlucky 100%: <b class="disp" style="color:var(--text)">${est.unlucky}</b></span></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;">Monte-Carlo estimate from pull rates — real results vary.</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><div class="uplabel">Chase cards</div><div style="font-size:12px;color:var(--muted)">avg packs to first hit</div></div>
+        <div class="chase">${chase}</div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="uplabel" style="margin-bottom:8px;">Product breakdown</div>${bdRows}</div>
+      <div class="card"><div class="uplabel" style="margin-bottom:10px;">Base-set rarity counts</div><div class="rar-chips">${rarChips}</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;"><div class="uplabel">Expansion art</div><span style="font-family:monospace;font-size:10px;color:#5f6a82">official renders · pokemontcg.io</span></div>
+      <div class="art-row">${artTiles}</div>
+    </div>` : "";
+
+  const bad = M*1.25;
+  const hiS = Math.max(bad*1.25, perPack*1.1, set.ev*1.1, set.ceiling*1.3);
+  const posS = (x)=>Math.min(100,Math.max(0, x/hiS*100));
+  const dealScaleHTML = `<div class="scale"><div class="scale-bar"><div class="z" style="background:rgba(47,213,138,.45);flex:${set.ceiling}"></div><div class="z" style="background:rgba(255,176,32,.4);flex:${Math.max(0.01,bad-set.ceiling)}"></div><div class="z" style="background:rgba(247,107,107,.4);flex:${Math.max(0.01,hiS-bad)}"></div><div class="scale-ptr" style="left:${posS(perPack)}%"><span class="scale-bub" style="color:${v.color};border-color:${v.border}">${money(perPack)}/pk</span></div></div><div class="scale-labels"><span style="color:var(--good)">Good deal ≤ ${money(set.ceiling)}</span><span style="color:var(--fair)">Fair</span><span style="color:var(--bad)">Overpriced ≥ ${money(bad)}</span></div><div class="scale-cap">Cheapest a single pack sells for elsewhere is about <b>${money(M)}</b> — the price to beat. The cards inside are worth about <b>${money(set.ev)}</b> on average.</div></div>`;
+  document.getElementById("app").innerHTML = headerHTML() + `
+    <button class="backchip" data-act="gohub">← All sets</button>
+    <div class="eyebrow">Checking deals for</div>
+    <div class="pills">${pills}<button class="pill add" data-act="addset">+ Add set</button></div>
+
+    ${modeBar}
+    ${banner}
+
+    <div class="hero">
+      <div class="hero-top">
+        <div style="display:flex;align-items:center;gap:10px;"><span class="hero-title disp">Should I grab it?</span><span class="hero-set">${set.name}</span></div>
+        <div class="seg sq">
+          <button data-act="tab" data-v="loose" class="${on(isLoose)}">Loose pack</button>
+          <button data-act="tab" data-v="bundle" class="${on(!isLoose)}">Booster bundle</button>
+        </div>
+      </div>
+      <div class="deal-grid">
+        <div class="stepbox">
+          <div class="uplabel" style="text-align:center;margin-bottom:14px;">${isLoose?"Vendor's price per pack":"Vendor's price per bundle"}</div>
+          <div class="stepper">
+            <button class="b5" data-act="step" data-v="-5">−5</button>
+            <button class="b1" data-act="step" data-v="-1">−</button>
+            <div class="price">${money(rawPrice)}</div>
+            <button class="b1" data-act="step" data-v="1">+</button>
+            <button class="b5" data-act="step" data-v="5">+5</button>
+          </div>
+          <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:13px;">${isLoose?("that's "+money(perPack)+" per pack"):(money(perPack)+" per pack across "+set.bundlePacks)}</div>
+        </div>
+        <div class="verdict" style="background:${v.bg};border:1px solid ${v.border}">
+          <div style="display:flex;align-items:center;gap:11px;"><span class="vword" style="color:${v.color}">${v.word}</span><span style="font-size:26px">${v.icon}</span></div>
+          <div style="font-size:13.5px;color:#d6dcea;margin-top:9px;line-height:1.4;">${
+            isLoose
+              ? (v.tone==="good"?("At or under the "+money(set.ceiling)+" good-deal line for this set."):v.tone==="bad"?("More than 25% over the "+money(M)+" cheapest rip."):"Between the good-deal line and overpaying.")
+              : (v.tone==="good"?("Per-pack price beats the "+money(set.ceiling)+" good-deal line."):v.tone==="bad"?"Per-pack price is well over a fair rip.":"Per-pack price sits in the fair range.")
+          }</div>
+          <div class="vrec"><span class="disp" style="font-weight:700;font-size:22px;">${rec.big}</span><span style="font-size:13px;color:#d6dcea;line-height:1.35;">${rec.text}</span></div>
+        </div>
+      </div>
+      <div class="refs">
+        <div class="refresh-wrap" style="margin-left:0;">
+          <span class="refresh-meta${stale?" stale":""}">${stale?'<span class="dot"></span>':""}Updated ${fmtDate(set.lastRefresh)}${stale?" · refresh recommended":""}</span>
+          <button class="refresh${stale?" rec":""}" data-act="refresh">↻ Refresh market</button>
+        </div>
+      </div>
+      ${dealScaleHTML}
+    </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="uplabel">Diminishing returns</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-top:8px;"><span class="drnum">${drRem}</span><span style="font-size:14px;color:var(--soft)">more packs</span></div>
+        <div style="font-size:13px;color:var(--soft);margin-top:4px;">to buy <b style="color:var(--text)">on top of the ${bought} you own</b> before each new pack adds &lt; 1 base card</div>
+        <div class="bar"><i style="width:${drFill}%"></i></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:7px;">${bought} of ~${set.drPacks} packs bought (${drFill}%)</div>
+      </div>
+      <div class="stats">${stats}</div>
+    </div>
+
+    ${deskDetail}
+
+    <div class="sec-head"><div class="sec-title">${state.binder==="shared"?"Shared binder orders":"Recent orders"}</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
+    ${orders}
+  `;
+}
+
+// ---- composer render ----
+function renderComposer(){
+  const host = document.getElementById("composer");
+  if (!state.composerOpen){ host.innerHTML=""; return; }
+  const d = state.draft;
+  const editing = !!state.editingId;
+  const quick = [["Booster Pack","🎴"],["Booster Bundle","📦"],["Elite Trainer Box","🗃️"],["Mini Tin","🥫"]]
+    .map(([l,i]) => `<button class="qchip" data-cact="add" data-v="${l}">${i} ${l}</button>`).join("");
+
+  host.innerHTML = `
+    <div class="scrim" data-cact="bg">
+      <div class="sheet" data-cact="stop">
+        <div class="sheet-head">
+          <div><div class="disp" style="font-weight:700;font-size:18px;">${editing?"Edit order":"New order"}</div><div style="font-size:12px;color:var(--muted);margin-top:1px;">One receipt — mix as many sets as you bought</div></div>
+          <button class="close" data-cact="close">✕</button>
+        </div>
+        <div class="sheet-body">
+          <div class="metagrid">
+            <label class="field">Date<input type="date" data-df="date" value="${d.date}"></label>
+            <label class="field">Vendor<input type="text" data-df="vendor" value="${(d.vendor||'').replace(/"/g,'&quot;')}" placeholder="e.g. Anime Expo — Booth 412"></label>
+            <label class="field">Store
+              <select data-df="store">
+                ${["","Offcourt TCG","Target","Too Many Games","Other"].map(o=>`<option value="${o}"${(d.store||"")===o?" selected":""}>${o||"— none —"}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field">Sales tax %<input type="number" data-df="tax" step="0.001" min="0" value="${d.tax}"></label>
+            <div class="field">Goes to binder
+              <div class="seg sq fill" style="background:var(--panel2);">
+                <button data-cact="dbinder" data-v="mine" class="${on(d.binder==='mine')}">Mine</button>
+                <button data-cact="dbinder" data-v="shared" class="${on(d.binder==='shared')}">Shared</button>
+              </div>
+            </div>
+          </div>
+          ${d.store==="Target" ? `<button class="circle-toggle${d.circle?' on':''}" data-cact="circle">${d.circle?"✓":"○"} Target Circle Card — 5% off subtotal (before tax)</button>` : ""}
+          <div class="uplabel" style="margin-bottom:9px;">Quick add</div>
+          <div class="quick">${quick}</div>
+          <div class="lines" id="lines"></div>
+          <div class="totbar">
+            <div class="totline">
+              <div class="tot">Subtotal <b id="t-sub">$0.00</b></div>
+              <div class="tot" id="t-disc" style="display:none;color:var(--good)">Circle 5% <b id="t-disc-v">-$0.00</b></div>
+              <div class="tot">Tax <b id="t-tax">$0.00</b></div>
+              <div class="tot">Packs <b id="t-packs">0</b></div>
+              <div class="tot grand">Total <b id="t-total">$0.00</b></div>
+            </div>
+            <div class="acts"><button class="save" data-cact="save">${editing?"Update order":"Save order"}</button><button class="cancel" data-cact="close">Cancel</button></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  renderLines();
+  recalc();
+}
+
+function renderLines(){
+  const box = document.getElementById("lines");
+  if (!box) return;
+  const setOpts = (sel) => trackedSets().map(s => `<option value="${s.id}"${s.id===sel?" selected":""}>${s.name}</option>`).join("");
+  box.innerHTML = state.draft.lines.map(l => {
+    const ppu = PPU[l.product]||1; const s = setById(l.setId);
+    return `<div class="lrow" data-line="${l.id}">
+      <div class="lart${isSpecial(s)?' sp':''}" style="background-color:#10182a;background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)"><span>${s.code}</span></div>
+      <div class="lcol" style="flex:1 1 140px;min-width:120px;"><span class="lk">Set</span>
+        <select data-lf="setId">${setOpts(l.setId)}</select></div>
+      <div class="lcol" style="flex:1 1 130px;min-width:120px;"><span class="lk">${l.product}</span><span style="font-size:12px;color:var(--muted);padding:6px 0;">${ppu} pack${ppu>1?"s":""}/unit</span></div>
+      <div class="lcol" style="width:64px;"><span class="lk">Qty</span><input type="number" min="1" data-lf="qty" value="${l.qty}"></div>
+      <div class="lcol" style="width:96px;"><span class="lk">Unit $</span><input type="number" min="0" step="0.01" data-lf="price" value="${l.price}" placeholder="0.00"></div>
+      <div class="lcol" style="width:78px;text-align:right;"><span class="lk">Line</span><span class="lt" data-lt="${l.id}">$0.00</span></div>
+      <button class="lrm" data-cact="rm" data-v="${l.id}">✕</button>
+    </div>`;
+  }).join("");
+}
+
+function recalc(){
+  const t = draftTotals();
+  const sub=document.getElementById("t-sub"); if(!sub) return;
+  sub.textContent = money(t.subtotal);
+  document.getElementById("t-tax").textContent = money(t.tax);
+  document.getElementById("t-packs").textContent = t.packs;
+  document.getElementById("t-total").textContent = money(t.total);
+  const disc=document.getElementById("t-disc");
+  if(disc){ if(t.discount>0){ disc.style.display=""; document.getElementById("t-disc-v").textContent="-"+money(t.discount); } else disc.style.display="none"; }
+  state.draft.lines.forEach(l => {
+    const el = document.querySelector('[data-lt="'+l.id+'"]');
+    if (el) el.textContent = money((Number(l.qty)||0)*(Number(l.price)||0));
+  });
+}
+
+// ---- sets modal render ----
+function renderSetsModal(){
+  const host = document.getElementById("setsmodal");
+  if (!state.setsOpen){ host.innerHTML=""; return; }
+  const rows = SETS.slice().sort((a,b)=>b.rs-a.rs).map(s => {
+    const lockedRemove = setHasData(s.id);
+    const actions = s.tracked
+      ? `<span class="badge">Tracked</span>
+         <button class="icon-btn" data-mact="reimport" data-v="${s.id}" title="Reimport — refresh art & prices">↻</button>
+         <button class="icon-btn del${lockedRemove?' off':''}" ${lockedRemove?'':`data-mact="delset"`} data-v="${s.id}" title="${lockedRemove?'Has orders or packs — can’t remove':'Remove from tracked'}">✕</button>`
+      : `<button class="btn-import" data-mact="import" data-v="${s.id}">Import</button>`;
+    const drRem = Math.max(0, s.drPacks - s.packsBought);
+    const badges = `${isSpecial(s)?'<span class="sp-chip">✦ Special</span>':''}${isOOP(s)?'<span class="oop">likely out of print</span>':''}`;
+    return `<div class="exp-row">
+      <div class="exp-num${isSpecial(s)?' sp':''}" style="background-color:#10182a;background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)">${s.code}</div>
+      <div class="exp-info">
+        <div class="exp-name">${s.name}${badges}</div>
+        <div class="exp-meta">${s.series} · ${s.release} · ${s.base} cards</div>
+        <div class="exp-stats">Loose rip <b>${money(marketOf(s))}</b> · <b>${s.packsBought}/${s.drPacks}</b> packs bought · <b>${drRem}</b> to diminishing returns</div>
+      </div>
+      <div class="exp-actions">${actions}</div>
+    </div>`;
+  }).join("");
+
+  host.innerHTML = `
+    <div class="scrim" data-mact="bg">
+      <div class="sheet" data-mact="stop">
+        <div class="sheet-head">
+          <div><div class="disp" style="font-weight:700;font-size:18px;">Add or manage sets</div><div style="font-size:12px;color:var(--muted);margin-top:1px;">Newest first · import, reimport (refresh art &amp; prices), or remove</div></div>
+          <button class="close" data-mact="close">✕</button>
+        </div>
+        <div class="sheet-body">
+          <div class="exp-grouphdr">Scarlet &amp; Violet era</div>
+          <div class="exp-list">${rows}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ---- event wiring ----
+document.querySelector(".switcher").addEventListener("click", (e)=>{ const b=e.target.closest("button"); if(b&&b.dataset.act==="dir") setDir(b.dataset.v); });
+
+document.getElementById("app").addEventListener("click", (e)=>{
+  const b=e.target.closest("[data-act]"); if(!b) return;
+  const act=b.dataset.act, v=b.dataset.v;
+  if(act==="binder") setBinder(v);
+  else if(act==="set") selectSet(v);
+  else if(act==="tab") setTab(v);
+  else if(act==="mode") setMode(v);
+  else if(act==="step") stepPrice(Number(v));
+  else if(act==="refresh") refreshMarket();
+  else if(act==="addorder") openComposer();
+  else if(act==="addset") openSetsModal();
+  else if(act==="settings") openSettings();
+  else if(act==="pulls") openPulls(Number(v));
+  else if(act==="gohub") goHub();
+  else if(act==="opensetview") openSetView(v);
+  else if(act==="hubinc") hubStep(v,1);
+  else if(act==="hubdec") hubStep(v,-1);
+  else if(act==="hubaddorder") hubAddOrder(v);
+  else if(act==="hubrefresh") hubRefresh(v);
+  else if(act==="editorder") editOrder(Number(v));
+  else if(act==="delorder") requestDeleteOrder(Number(v));
+});
+document.getElementById("app").addEventListener("change",(e)=>{
+  const t=e.target; if(t.dataset.actual===undefined) return;
+  const v=t.value.trim();
+  if(v===""||isNaN(Number(v))) delete state.actuals[t.dataset.actual];
+  else state.actuals[t.dataset.actual]=Math.max(0,Math.round(Number(v)));
+  persist(); render();
+});
+
+document.getElementById("composer").addEventListener("click", (e)=>{
+  const b=e.target.closest("[data-cact]"); if(!b) return;
+  const act=b.dataset.cact, v=b.dataset.v;
+  if(act==="bg"||act==="close") closeComposer();
+  else if(act==="stop") e.stopPropagation();
+  else if(act==="add") addLine(v);
+  else if(act==="rm") removeLine(Number(v));
+  else if(act==="dbinder"){ state.draft.binder=v; renderComposer(); }
+  else if(act==="circle"){ state.draft.circle=!state.draft.circle; renderComposer(); }
+  else if(act==="save") saveOrder();
+});
+document.getElementById("composer").addEventListener("input", (e)=>{
+  const t=e.target;
+  if(t.dataset.df){ state.draft[t.dataset.df] = t.value; if(t.dataset.df==="store") renderComposer(); else recalc(); }
+  else if(t.dataset.lf){
+    const row=t.closest("[data-line]"); const id=Number(row.dataset.line);
+    const line=state.draft.lines.find(l=>l.id===id);
+    if(line){ line[t.dataset.lf] = t.value; if(t.dataset.lf==="setId") renderLines(); recalc(); }
+  }
+});
+
+document.getElementById("setsmodal").addEventListener("click", (e)=>{
+  const b=e.target.closest("[data-mact]"); if(!b) return;
+  const act=b.dataset.mact, v=b.dataset.v;
+  if(act==="bg"||act==="close") closeSetsModal();
+  else if(act==="stop") e.stopPropagation();
+  else if(act==="import") importSet(v);
+  else if(act==="reimport") reimportSet(v);
+  else if(act==="delset") deleteSetTracked(v);
+});
+
+function renderConfirm(){
+  const host=document.getElementById("confirm");
+  if(!state.confirm){ host.innerHTML=""; return; }
+  const c=state.confirm;
+  host.innerHTML = `<div class="scrim center" data-xact="bg"><div class="confirm-card" data-xact="stop">
+    <h3>${c.msg}</h3><p>${c.detail}</p>
+    <div class="confirm-acts"><button class="cancel" data-xact="no" style="flex:1">Cancel</button><button class="btn-danger" data-xact="yes">Delete</button></div>
+  </div></div>`;
+}
+document.getElementById("confirm").addEventListener("click",(e)=>{
+  const b=e.target.closest("[data-xact]"); if(!b) return;
+  const a=b.dataset.xact;
+  if(a==="bg"||a==="no") closeConfirm();
+  else if(a==="stop") e.stopPropagation();
+  else if(a==="yes"){ const fn=state.confirm&&state.confirm.onYes; closeConfirm(); if(fn) fn(); }
+});
+
+function renderSettings(){
+  const host=document.getElementById("settings");
+  if(!state.settingsOpen){ host.innerHTML=""; return; }
+  const st=state.settings;
+  const pppRows = Object.keys(st.ppp).map(k=>`<div class="set-trow"><span class="nm">${k}</span><input type="number" min="0" data-spp="${k}" value="${st.ppp[k]}"></div>`).join("");
+  const chaseRows = st.chase.map((c,i)=>`<div class="set-trow"><span class="nm">${c.name}</span><input type="number" step="0.0001" min="0" data-scr="${i}" value="${c.rate}"></div>`).join("");
+  const adv = state.settingsAdvanced ? `
+    <div class="set-section">
+      <h4>API keys</h4>
+      <label class="field" style="margin-bottom:10px;">pokemontcg.io API key<input type="text" data-sf="pokeKey" value="${st.pokeKey}" placeholder="optional"></label>
+      <label class="field" style="margin-bottom:10px;">PriceCharting API key<input type="text" data-sf="pcKey" value="${st.pcKey}" placeholder="for live loose-pack prices"></label>
+      <div class="metagrid" style="margin-bottom:0;">
+        <label class="field">eBay Client ID<input type="text" data-sf="ebayId" value="${st.ebayId}"></label>
+        <label class="field">eBay Client Secret<input type="text" data-sf="ebaySecret" value="${st.ebaySecret}"></label>
+      </div>
+    </div>
+    <div class="set-section">
+      <h4>Estimate model</h4>
+      <label class="field" style="margin-bottom:14px;">Monte-Carlo runs<input type="number" min="200" step="100" data-sf="mcRuns" value="${st.mcRuns}"></label>
+      <div class="uplabel" style="margin-bottom:8px;">Packs per product</div>
+      <div class="set-table" style="margin-bottom:14px;">${pppRows}</div>
+      <div class="uplabel" style="margin-bottom:8px;">Chase pull rates (per pack)</div>
+      <div class="set-table" style="margin-bottom:14px;">${chaseRows}</div>
+      <div class="uplabel" style="margin-bottom:8px;">Pull-rate model (JSON)</div>
+      <textarea class="set-ta" data-sf="packModel" spellcheck="false">${st.packModel}</textarea>
+    </div>` : "";
+  host.innerHTML = `
+    <div class="scrim" data-gact="bg">
+      <div class="sheet" data-gact="stop">
+        <div class="sheet-head">
+          <div><div class="disp" style="font-weight:700;font-size:18px;">Settings</div><div style="font-size:12px;color:var(--muted);margin-top:1px;">Everyday options up top · technical bits under Advanced</div></div>
+          <button class="close" data-gact="close">✕</button>
+        </div>
+        <div class="sheet-body">
+          <div class="set-section">
+            <h4>General</h4>
+            <div class="metagrid" style="margin-bottom:0;">
+              <label class="field">Default sales tax %<input type="number" step="0.001" min="0" data-sf="salesTax" value="${st.salesTax}"></label>
+              <label class="field">Overpay-for-fun budget $<input type="number" step="1" min="0" data-sf="funBudget" value="${st.funBudget}"></label>
+            </div>
+            <button class="set-toggle${st.showShared?' on':''}" data-gact="toggleshared" style="margin-top:12px;">${st.showShared?"✓":"○"} Show Shared binder<small>adds the Mine / Shared switch to the header</small></button>
+          </div>
+          <button class="adv-toggle" data-gact="adv"><span>⚙ Advanced — API keys, pull-rate model, packs per product</span><span style="color:var(--muted)">${state.settingsAdvanced?"▴":"▾"}</span></button>
+          ${adv}
+          <div class="totbar"><div class="acts"><button class="save" data-gact="close">Done</button></div></div>
+        </div>
+      </div>
+    </div>`;
+}
+document.getElementById("settings").addEventListener("click",(e)=>{
+  const b=e.target.closest("[data-gact]"); if(!b) return;
+  const a=b.dataset.gact;
+  if(a==="bg"||a==="close") closeSettings();
+  else if(a==="stop") e.stopPropagation();
+  else if(a==="adv") toggleAdvanced();
+  else if(a==="toggleshared"){ state.settings.showShared=!state.settings.showShared; if(!state.settings.showShared) state.binder="mine"; persist(); renderSettings(); render(); }
+});
+document.getElementById("settings").addEventListener("input",(e)=>{
+  const t=e.target;
+  if(t.dataset.sf){ state.settings[t.dataset.sf]=t.value; persist(); }
+  else if(t.dataset.spp){ state.settings.ppp[t.dataset.spp]=Number(t.value)||0; persist(); }
+  else if(t.dataset.scr){ state.settings.chase[Number(t.dataset.scr)].rate=Number(t.value)||0; persist(); }
+});
+
+function openPulls(id){ const o=state.orders.find(x=>x.id===id); if(!o) return; state.pullsOpen=true; state.pullsId=id; state.pullsFinds={...(o.finds||{})}; state.pullsTagged=[...(o.tagged||[])]; state.pullsTagOpen=false; renderPulls(); }
+function closePulls(){ state.pullsOpen=false; renderPulls(); }
+function savePulls(){ const o=state.orders.find(x=>x.id===state.pullsId); if(o){ o.finds={...state.pullsFinds}; o.tagged=[...state.pullsTagged]; persist(); } state.pullsOpen=false; renderPulls(); render(); toast("Pulls saved"); }
+function pullsStep(abbr,d){ state.pullsFinds[abbr]=Math.max(0,(Number(state.pullsFinds[abbr])||0)+d); renderPulls(); }
+function pullsTagToggle(){ state.pullsTagOpen=!state.pullsTagOpen; renderPulls(); }
+function pullsTagPick(id){ const t=state.pullsTagged; const i=t.indexOf(id); if(i>=0)t.splice(i,1); else t.push(id); renderPulls(); }
+function renderPulls(){
+  const host=document.getElementById("pulls");
+  if(!state.pullsOpen){ host.innerHTML=""; return; }
+  const o=state.orders.find(x=>x.id===state.pullsId); if(!o){ host.innerHTML=""; return; }
+  const packs=computeOrder(o).packs;
+  const finds=state.pullsFinds;
+  const steps=SECRET.map(r=>{
+    const found=Number(finds[r.abbr])||0, exp=r.rate*packs, pn=binomAtLeast(packs,r.rate,found+1);
+    return `<div class="sec-step${found>0?' has':''}">
+      <div class="sec-tag"><span style="color:${r.color};letter-spacing:1px">${r.glyph}</span> ${r.abbr}<span class="sec-odds">${packs>0?`≈${exp.toFixed(exp<1?2:1)} expected · ${Math.round(pn*100)}% for ${found+1}+`:"no packs in this order"}</span></div>
+      <div class="sec-ctrl"><button class="sec-b" data-pact="dec" data-v="${r.abbr}"${found<=0?" disabled":""}>−</button><span class="sec-n">${found}</span><button class="sec-b" data-pact="inc" data-v="${r.abbr}">+</button></div>
+    </div>`;
+  }).join("");
+  const tagged=state.pullsTagged;
+  const pool=[]; SECRET.forEach((r,ri)=>{ for(let n=1;n<=3;n++) pool.push({id:r.abbr+"-"+n,abbr:r.abbr,color:r.color,glyph:r.glyph,num:String(150+ri*9+n)}); });
+  const cards=pool.map(c=>`<button class="tagcard${tagged.includes(c.id)?' on':''}" data-pact="pick" data-v="${c.id}"><span style="color:${c.color};font-size:15px">${c.glyph}</span><span class="tnum">${c.abbr} ${c.num}</span></button>`).join("");
+  host.innerHTML=`<div class="scrim" data-pact="bg"><div class="sheet" data-pact="stop">
+    <div class="sheet-head"><div><div class="disp" style="font-weight:700;font-size:18px;">Tag pulls</div><div style="font-size:12px;color:var(--muted);margin-top:1px;">${fmtDate(o.dateISO)} · ${o.vendor} · ${packs} packs opened</div></div><button class="close" data-pact="close">✕</button></div>
+    <div class="sheet-body">
+      <div class="uplabel" style="margin-bottom:9px;">Secret cards pulled this order</div>
+      <div class="sec-steps">${steps}</div>
+      <button class="qchip" data-pact="tagtoggle" style="margin-top:14px;">🃏 Tag the exact cards you pulled${tagged.length?` · ${tagged.length} tagged`:""}</button>
+      ${state.pullsTagOpen?`<div class="tag-grid">${cards}</div>`:""}
+      <div class="totbar"><div class="acts"><button class="save" data-pact="save">Save pulls</button><button class="cancel" data-pact="close">Cancel</button></div></div>
+    </div>
+  </div></div>`;
+}
+document.getElementById("pulls").addEventListener("click",(e)=>{
+  const b=e.target.closest("[data-pact]"); if(!b) return;
+  const a=b.dataset.pact, v=b.dataset.v;
+  if(a==="bg"||a==="close") closePulls();
+  else if(a==="stop") e.stopPropagation();
+  else if(a==="inc") pullsStep(v,1);
+  else if(a==="dec") pullsStep(v,-1);
+  else if(a==="tagtoggle") pullsTagToggle();
+  else if(a==="pick") pullsTagPick(v);
+  else if(a==="save") savePulls();
+});
+
+if (LOCKED) { const sw=document.querySelector(".switcher"); if(sw) sw.style.display="none"; document.getElementById("app").style.paddingTop="60px"; }
+let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(render, 150); });
+render();
+</script>
+</body>
+</html>

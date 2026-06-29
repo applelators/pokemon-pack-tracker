@@ -149,9 +149,12 @@ function computeOrder(order, items) {
   const discount = subtotal * discountRate;       // e.g. Target Circle Card 5%
   const taxable = subtotal - discount;            // tax is applied AFTER the discount
   const tax = taxable * order.tax_rate;
+  // An order's "sets" = the distinct expansions across its line items.
+  const sets = [...new Set(items.map((i) => i.set_id).filter(Boolean))];
   return {
     ...order,
     items,
+    sets,
     subtotal: round2(subtotal),
     discount: round2(discount),
     tax: round2(tax),
@@ -184,7 +187,9 @@ export async function getOrder(db, id) {
 export async function listOrders(db, setId, collection) {
   const where = [];
   const args = [];
-  if (setId) { where.push("set_id = ?"); args.push(setId); }
+  // setId now filters by line item (multi-set orders): keep any order that has at
+  // least one line from this expansion. The order still carries ALL its lines.
+  if (setId) { where.push("id IN (SELECT order_id FROM order_items WHERE set_id = ?)"); args.push(setId); }
   if (collection) { where.push("collection = ?"); args.push(collection); }
   const sql = `SELECT * FROM orders ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY purchase_date DESC, id DESC`;
   const orders = (await db.prepare(sql).bind(...args).all()).results;
@@ -218,9 +223,12 @@ export async function listOrders(db, setId, collection) {
 }
 
 export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine", store = null, discount_rate = 0, pull_cards }) {
+  // orders.set_id is legacy/NOT NULL — stash the first line's set to satisfy it, but
+  // every read derives sets from order_items.set_id instead.
+  const legacySet = set_id || (items && items[0] && items[0].set_id) || null;
   const res = await db
     .prepare("INSERT INTO orders (set_id, purchase_date, tax_rate, note, collection, store, discount_rate) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .bind(set_id, purchase_date, Number(tax_rate), note, collection === "shared" ? "shared" : "mine", store || null, Number(discount_rate) || 0)
+    .bind(legacySet, purchase_date, Number(tax_rate), note, collection === "shared" ? "shared" : "mine", store || null, Number(discount_rate) || 0)
     .run();
   const orderId = res.meta.last_row_id;
   await insertItems(db, orderId, items);
@@ -261,8 +269,8 @@ async function insertItems(db, orderId, items) {
   if (!items || !items.length) return;
   const stmts = items.map((it) =>
     db.prepare(
-      "INSERT INTO order_items (order_id, product_type, quantity, unit_price, packs_per_unit) VALUES (?, ?, ?, ?, ?)"
-    ).bind(orderId, it.product_type, Number(it.quantity), Number(it.unit_price), Number(it.packs_per_unit))
+      "INSERT INTO order_items (order_id, set_id, product_type, quantity, unit_price, packs_per_unit) VALUES (?, ?, ?, ?, ?, ?)"
+    ).bind(orderId, it.set_id || null, it.product_type, Number(it.quantity), Number(it.unit_price), Number(it.packs_per_unit))
   );
   await db.batch(stmts);
 }
@@ -325,22 +333,44 @@ export async function setProgress(db, setId, collection, { packs_opened, cards_c
 }
 
 // ---- aggregate totals for a set -----------------------------------------
+// Live per-set stats derived from multi-set orders: only the lines whose set_id
+// matches count toward this set, but each line still carries its parent order's
+// discount + tax. orderCount = orders that include at least one line from this set.
 export async function setTotals(db, setId, collection) {
   const orders = await listOrders(db, setId, collection);
   const breakdown = {};
   let totalSpent = 0;
   let totalPacks = 0;
+  let orderCount = 0;
   for (const o of orders) {
-    totalSpent += o.total;
-    totalPacks += o.packs;
+    let touchesSet = false;
     for (const it of o.items) {
+      if (it.set_id !== setId) continue;            // ignore other expansions on this receipt
+      touchesSet = true;
       const b = (breakdown[it.product_type] ||= { quantity: 0, packs: 0, spend: 0 });
+      const packs = it.quantity * it.packs_per_unit;
+      const spend = it.quantity * it.unit_price * (1 - (o.discount_rate || 0)) * (1 + o.tax_rate);
       b.quantity += it.quantity;
-      b.packs += it.quantity * it.packs_per_unit;
-      // distribute the order's discount + tax proportionally across its line items
-      b.spend += it.quantity * it.unit_price * (1 - (o.discount_rate || 0)) * (1 + o.tax_rate);
+      b.packs += packs;
+      b.spend += spend;
+      totalPacks += packs;
+      totalSpent += spend;
     }
+    if (touchesSet) orderCount += 1;
   }
   for (const b of Object.values(breakdown)) b.spend = round2(b.spend);
-  return { totalSpent: round2(totalSpent), totalPacks, orderCount: orders.length, breakdown };
+  return { totalSpent: round2(totalSpent), totalPacks, orderCount, breakdown };
+}
+
+// True if any order line references this set — blocks untracking a set with data.
+export async function setHasOrders(db, setId) {
+  const row = await db.prepare("SELECT 1 FROM order_items WHERE set_id = ? LIMIT 1").bind(setId).first();
+  return !!row;
+}
+
+// Untrack a set: remove the cached set + its rarities/estimate (cascade). Refuses
+// when orders reference it — callers must guard with setHasOrders first.
+export async function deleteSet(db, setId) {
+  const res = await db.prepare("DELETE FROM sets WHERE id = ?").bind(setId).run();
+  return res.meta.changes > 0;
 }

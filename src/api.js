@@ -4,6 +4,7 @@ import {
   listOrders, getOrder, createOrder, updateOrder, deleteOrder, orderExists,
   setTotals, getProgress, setProgress, setSetPricing,
   getEstimateCache, saveEstimateCache,
+  setHasOrders, deleteSet,
 } from "./store.js";
 import { searchSets, importSet, listSetCards } from "./pokemontcg.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
@@ -20,12 +21,46 @@ const json = (data, status = 200) =>
 function validateItems(items) {
   if (!Array.isArray(items) || items.length === 0) return "At least one line item is required";
   for (const it of items) {
+    if (!it.set_id) return "Each line item needs a set_id (which expansion it's from)";
     if (!it.product_type) return "Each item needs a product_type";
     if (!(Number(it.quantity) > 0)) return "Quantity must be > 0";
     if (!(Number(it.unit_price) >= 0)) return "Unit price must be >= 0";
     if (!(Number(it.packs_per_unit) >= 0)) return "packs_per_unit must be >= 0";
   }
   return null;
+}
+
+// One-time auto-migration: move the set link onto order_items so orders can span
+// multiple expansions. Idempotent + cheap; guarded so it runs once per isolate.
+let migrationPromise = null;
+function ensureMigrated(db) {
+  if (!migrationPromise) {
+    migrationPromise = (async () => {
+      const info = await db.prepare("PRAGMA table_info(order_items)").all();
+      const hasSetId = (info.results || []).some((c) => c.name === "set_id");
+      if (!hasSetId) {
+        await db.prepare("ALTER TABLE order_items ADD COLUMN set_id TEXT REFERENCES sets(id)").run();
+        await db.prepare(
+          "UPDATE order_items SET set_id = (SELECT o.set_id FROM orders o WHERE o.id = order_items.order_id) WHERE set_id IS NULL"
+        ).run();
+        await db.prepare("CREATE INDEX IF NOT EXISTS idx_order_items_set ON order_items(set_id)").run();
+      }
+    })().catch((e) => { migrationPromise = null; throw e; });
+  }
+  return migrationPromise;
+}
+
+// Build the dashboard summary for one set (shared by /summary and /hub).
+async function summaryFor(db, set, collection) {
+  const totals = await setTotals(db, set.id, collection);
+  const progress = await getProgress(db, set.id, collection);
+  const packsOpened = progress.packs_opened != null
+    ? Math.min(progress.packs_opened, totals.totalPacks)
+    : totals.totalPacks;
+  const completion = await computeEstimate(db, set, packsOpened, progress.cards_collected);
+  const chase = await computeChase(db, set);
+  const packEv = await computeEV(db, set);
+  return { set, ...totals, packsBought: totals.totalPacks, packsOpened, progress, completion, chase, packEv };
 }
 
 // Cached completion curve for a set (re-simulate only when rarities/model/runs change).
@@ -99,6 +134,7 @@ export async function handleApi(request, env, url) {
   const { pathname } = url;
   if (!pathname.startsWith("/api/")) return null;
   const db = env.DB;
+  await ensureMigrated(db);
   const method = request.method;
   const seg = pathname.split("/").filter(Boolean); // ["api", ...]
   const body = async () => {
@@ -115,6 +151,17 @@ export async function handleApi(request, env, url) {
     // /api/sets ...
     if (pathname === "/api/sets" && method === "GET") {
       return json(await listSets(db));
+    }
+    // /api/hub — every tracked set with its live stats (one round trip for the hub).
+    if (pathname === "/api/hub" && method === "GET") {
+      const collection = url.searchParams.get("collection") || "mine";
+      const sets = await listSets(db);
+      const out = await Promise.all(sets.map(async (row) => {
+        const set = await getCachedSet(db, row.id);
+        if (!set) return null;
+        return summaryFor(db, set, collection);
+      }));
+      return json(out.filter(Boolean));
     }
     if (pathname === "/api/sets/search" && method === "GET") {
       return json(await searchSets(db, url.searchParams.get("q"), url.searchParams.get("all") === "1"));
@@ -257,16 +304,16 @@ export async function handleApi(request, env, url) {
         const set = await getCachedSet(db, setId);
         if (!set) return json({ error: "Set not imported" }, 404);
         const collection = url.searchParams.get("collection") || "mine";
-        const totals = await setTotals(db, setId, collection);
-        const progress = await getProgress(db, setId, collection);
-        // Actuals override assumptions: opened defaults to packs bought; collected is optional.
-        const packsOpened = progress.packs_opened != null
-          ? Math.min(progress.packs_opened, totals.totalPacks)
-          : totals.totalPacks;
-        const completion = await computeEstimate(db, set, packsOpened, progress.cards_collected);
-        const chase = await computeChase(db, set);
-        const packEv = await computeEV(db, set);
-        return json({ set, ...totals, packsBought: totals.totalPacks, packsOpened, progress, completion, chase, packEv });
+        return json(await summaryFor(db, set, collection));
+      }
+      // DELETE /api/sets/:id — untrack a set (blocked when it has orders/packs).
+      if (seg.length === 3 && method === "DELETE") {
+        if (!(await getCachedSet(db, setId))) return json({ error: "Set not imported" }, 404);
+        if (await setHasOrders(db, setId)) {
+          return json({ error: "This set has orders or packs — can't remove it. Delete its orders first." }, 409);
+        }
+        await deleteSet(db, setId);
+        return json({ deleted: true });
       }
       // PUT /api/sets/:id/pricing — loose-pack deal pricing
       if (seg.length === 4 && seg[3] === "pricing" && method === "PUT") {
@@ -361,11 +408,13 @@ export async function handleApi(request, env, url) {
       }
       if (method === "POST") {
         const b = await body();
-        if (!b.set_id) return json({ error: "set_id is required" }, 400);
         if (!b.purchase_date) return json({ error: "purchase_date is required" }, 400);
-        if (!(await setExists(db, b.set_id))) return json({ error: "Unknown set_id (import it first)" }, 400);
         const err = validateItems(b.items);
         if (err) return json({ error: err }, 400);
+        // Every line's set must be imported (multi-set orders).
+        for (const sid of new Set(b.items.map((i) => i.set_id))) {
+          if (!(await setExists(db, sid))) return json({ error: `Unknown set_id "${sid}" (import it first)` }, 400);
+        }
         return json(await createOrder(db, b), 201);
       }
     }
@@ -381,6 +430,9 @@ export async function handleApi(request, env, url) {
         if (b.items !== undefined) {
           const err = validateItems(b.items);
           if (err) return json({ error: err }, 400);
+          for (const sid of new Set(b.items.map((i) => i.set_id))) {
+            if (!(await setExists(db, sid))) return json({ error: `Unknown set_id "${sid}" (import it first)` }, 400);
+          }
         }
         return json(await updateOrder(db, id, b));
       }

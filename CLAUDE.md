@@ -1,111 +1,171 @@
-# Pokémon Pack Tracker — project & design guide
+# Pokémon Pack Tracker — project &amp; design guide
 
-This file is read automatically by Claude Code. It documents the **visual language**
-introduced in the dashboard redesign so future features stay consistent. Read this
-before adding UI.
+This file is read automatically by Claude Code. It documents the **redesign** that
+replaced the original dashboard. Read this before adding UI so future work stays in
+the new visual + interaction language.
+
+> **Reference prototype:** `Pack Tracker.html` (+ `Pack Tracker — iPhone.html`) is the
+> source of truth for the redesign — a single self-contained, no-build, vanilla-JS file
+> (matching this repo's no-bundler philosophy). Everything below is implemented there;
+> port patterns from it rather than reinventing. The prototype uses mock data; wire the
+> same UI to the real Worker/D1 API.
+
+---
 
 ## Architecture (unchanged)
-- Cloudflare Worker (`_worker.js`) + D1 database. Routes handled in `src/api.js`.
-- Data access in `src/store.js`; pokemontcg.io client in `src/pokemontcg.js`;
-  Monte-Carlo math in `src/estimator.js`. Schema in `schema.sql`.
+- Cloudflare Worker (`_worker.js`) + D1. Routes in `src/api.js`; data access in
+  `src/store.js`; pokemontcg.io client in `src/pokemontcg.js`; Monte-Carlo math in
+  `src/estimator.js`. Schema in `schema.sql`.
 - Frontend is **vanilla JS, no build step**: `public/index.html`, `public/app.js`,
-  `public/styles.css`. Helpers: `$`/`$$` (querySelector), `api(path, opts)`, `toast()`.
-- Do not introduce a framework or bundler. Keep the no-build, single-stylesheet setup.
+  `public/styles.css`. Helpers `$`/`$$`, `api(path,opts)`, `toast()`.
+- Do not introduce a framework or bundler.
 
-## Design language
+### Data-model changes the redesign assumes
+- **Orders are multi-set.** One order (one receipt) can contain line items from
+  **different expansions**. Move `set_id` off `orders` and onto `order_items`
+  (`order_items.set_id`). An order's "sets" = the distinct set_ids across its lines.
+  `computeOrder` derives subtotal/packs/sets/total from the lines.
+- **Live set stats.** Spent / packs / order-count per set are **derived from orders**
+  (filtered by binder), never stored as static columns. Discounts + tax are applied
+  per order when summing spend. Adding/editing/deleting an order updates every stat,
+  the diminishing-returns figure, and the completion estimate immediately.
+- **Diminishing returns counts from packs _bought_**, not opened (you can buy packs and
+  open a subset). "N more packs on top of the X you own."
+- **Cheapest-rip floor:** the cheapest-rip / "price to beat" value is never shown below
+  **$5.00** (`marketOf(set) = max(5, market)`); it drives verdict thresholds too.
+- **Secret-card pulls live on the order, edited separately** from the order itself
+  (see Pulls modal). `order_finds` (rarity→count) + `order_pull_cards` unchanged.
+- **Collection actuals** override the model: `progress(set_id, collection, cards_collected)`.
+  Blank = model estimate; entered = real count.
 
-### Color — use the CSS variables in `:root`, never raw hex
+---
+
+## Design language (redesign)
+
+### Color — CSS variables in `:root` (dark, slightly warmer than the old theme)
 | Token | Value | Use |
 |---|---|---|
-| `--bg` | `#0f1420` | app background |
-| `--panel` | `#1a2233` | card surfaces |
-| `--panel-2` | `#232d42` | nested surfaces, chips, inputs-on-card |
-| `--border` | `#2e3a52` | all 1px borders / dividers |
-| `--text` | `#e8edf6` | primary text |
-| `--muted` | `#94a3b8` | labels, secondary text |
-| `--accent` | `#ffcb05` | **Pokémon yellow — the hero accent.** Reserve for the single most important number/action per view. |
-| `--accent-2` | `#3b6fe0` | blue — secondary/interactive (links, focus, bar starts) |
-| `--good` | `#34d399` | green — positive/progress (gauge + bar ends, the `+` in returns) |
-| `--danger` | `#f87171` | destructive (delete) |
+| `--bg` | `#0b0e16` | app background (under a `radial-gradient` toward `#141b2b` at top) |
+| `--panel` | `#151b29` | card surfaces |
+| `--panel2` | `#0f1422` | nested/inset surfaces, inputs |
+| `--panel3` | `#161d2c` | chips, secondary buttons |
+| `--border` / `--border2` / `--line` | `#2b3346` / `#2e3650` / `#232b3e` | borders / hero border / dividers |
+| `--text` `--soft` `--muted2` `--muted` | `#eef1f8` `#aeb7ca` `#9aa4ba` `#7d889e` | text ramp (primary→faint) |
+| `--accent` | `#ffcb05` | Pokémon yellow — the single hero accent / primary buttons (`--accent-ink #1a1300` for text on it) |
+| `--blue` | `#4a82f0` | progress-bar start, links |
+| `--good` `--fair` `--bad` | `#2fd58a` `#ffb020` `#f76b6b` | **BUY / FAIR / PASS** verdicts, deal flags, deltas |
 
-If you genuinely need a new hue, derive it in `oklch()` from these — don't invent fresh hex.
+Derive any new hue in `oklch()` from these — don't invent fresh hex.
 
-### Type — two families, loaded in `index.html`
-- **Hanken Grotesk** — body text, labels, descriptions. Default on `body`.
-- **Space Grotesk** — *display*: big numbers, headings, stat values, order dates,
-  anything that should read as "data". Apply via `font-family: "Space Grotesk", sans-serif`.
-- Headings `h2`/`h3` are already Space Grotesk globally. No other font families.
-- Slide/print minimums don't apply (this is an app), but keep stat numbers large and labels small+uppercase.
+### Type — two families
+- **Hanken Grotesk** — body, labels, descriptions (default on `body`).
+- **Space Grotesk** — *display* (`.disp`): every number, heading, stat value, price,
+  verdict word, set code. Big numbers read as "data."
+- Micro-labels are uppercase, letter-spaced, `--muted` (`.uplabel`, `.eyebrow`).
 
-### Core components / patterns (reuse these — don't reinvent)
-- **Cards:** `background: var(--panel); border: 1px solid var(--border); border-radius: 14–18px;`
-  padding ~18–30px. Group every content block into a card.
-- **Section headers:** `.dash-h` on the dashboard; `.page-h` (with a yellow accent tick) for
-  Orders/Settings page titles. Optional `.dash-hint` for a muted inline subtitle.
-- **Stat chips:** uppercase muted micro-label + Space Grotesk value (see `.dh-chip`,
-  `.order-totals span`). Use for compact KPI groups.
-- **Completion gauge:** SVG ring with `#gaugeGrad` (yellow→green). Driven by `setGauge()`.
-- **Progress bars:** `.bar > i`, gradient `--accent-2`→`--good`.
-- **Chase slots:** `.slot` cards with per-rarity tints (`.ir/.ur/.sir/.mhr`) and `.off`
-  for rarities not in the set. Built in `renderChase()`.
-- **Set switcher:** header chip `.set-trigger` + dropdown `.set-menu` (`setupSetSwitcher()`).
-  This is the canonical way to pick/add a set — don't add a second set picker.
-- **Collection (binder) toggle:** segmented `.collection-toggle` / `.ct-btn` (active = `--accent-2`).
-  Global one in the header (`Mine | Shared`, `setupCollectionToggle()` / `selectCollection()`,
-  persisted in `localStorage` as `currentCollection`); a `.sm` variant on the order form picks the
-  order's binder. Use this component for any binder switching — don't reinvent it.
+### Core components (reuse — don't reinvent)
+- **Cards:** `var(--panel)` + `1px var(--border)` + radius 14–20px, pad 16–22px.
+- **Sheets (modals):** bottom-sheet pattern — `.scrim` (blur backdrop) > `.sheet`
+  (max-width 740, slides up). Sticky `.sheet-head` and a sticky `.totbar` footer with
+  primary `.save` + `.cancel`. Used by the order composer, manage-sets, and pulls.
+  A centered `.confirm-card` variant (`.scrim.center`) is the destructive-confirm dialog.
+- **Segmented control** `.seg` (+ `.seg.sq`); active button = yellow.
+- **Set-number tile:** every set is shown by its **number** (`SV08`, `SV8.5`, `SV09`…),
+  never an ad-hoc abbreviation, on a tinted striped gradient chip (`s.tint → #10182a`).
+  Special sets get a holographic gradient ring (`.sp::before`, mask trick) + a `✦ Special`
+  chip. Sets &gt;~24 months past release get a muted **"likely out of print"** badge.
+- **Deal verdict:** `verdict(perPack,set)` → `{word:BUY|FAIR|PASS, color, bg, border, tone}`.
+  good = `≤ ceiling`; bad = `≥ cheapestRip·1.25`; else fair.
+- **Toast:** transient bottom-center; `toast(msg)`.
 
-### Rarity symbols — ALWAYS go through the helper
-Rarity is shown as **stars/diamonds/circles whose COLOR encodes the tier**, matching the
-printed Scarlet & Violet cards. Never hand-pick a rarity color.
-- `raritySymbol(rarityString)` → returns the styled glyph(s). Backed by `RARITY_SYMBOL`
-  (glyph + count + tier class) and `secretAbbr()` / `RARITY_ABBR` for short tags.
-- Tiers: `r-black` (neutral grey on dark), `r-silver`, `r-gold`, `r-mhr` (etched gold gradient), `r-ace` (red).
-  e.g. Illustration Rare = 1 gold ★, Ultra Rare = 2 silver ★★, Double Rare = 2 neutral ★★.
-- New rarity? Add one entry to `RARITY_SYMBOL` (+ `RARITY_ABBR` if it needs a short tag).
+### Animation
+- Quick and subtle. Hub rows fade-up (`@keyframes rowIn`, .34s, ~55ms stagger) **once per
+  hub entry** (guarded by `state.hubAnimated`, reset only in `goHub`) — never re-fire on
+  in-place updates like stepper clicks. Sheets use `sheetUp`; verdict uses `popIn`.
 
-### Count entry — reuse the stepper
-For logging integer counts (e.g. secret cards pulled), use `secretStepMarkup(rarity, count, attrs)`
-which renders an `.os-step` pill with −/+ buttons. Saved-order edits persist via a debounced
-`PUT /api/orders/:id { finds }` (see `queueFindsSave`); form entry collects via `readFinds()`.
-Don't drop in bare number inputs for counts. Each pill's `.os-odds` shows the expected quantity
-of that rarity (≈ p·packs) plus a live "chance of at least one more" — `setStepOdds()` recomputes
-the cumulative Binomial tail `P(X ≥ found+1)`, X ~ Binomial(packs, p), on every +/− (see
-`binomAtLeast`). Don't use the naive `1−(1−p)^(packs−found)` — it wildly overstates multiples.
+---
 
-### Layout & interaction conventions
-- Lay out groups with **flex/grid + `gap`**, not margins or inline-block.
-- Mobile: everything stacks at `max-width: 640px`; keep touch targets ≥ 38px.
-- Buttons: default = yellow primary (reserve for the main action); `.ghost` = secondary.
-- Persist any view/playback state to `localStorage` (already done for `currentSetId`).
+## Information architecture
 
-## Data contract notes
-- `GET /api/sets` returns rows incl. `logo_url` / `symbol_url` (added in the redesign).
-  `saveSet` only writes these on **import**, so re-import a set to backfill art.
-- `GET /api/sets/:id/summary` → `{ set, totalSpent, totalPacks, orderCount, breakdown,
-  completion, chase }`. The redesign changed *where* these render, not the field names.
-- **Collections:** every order carries `collection` = `'mine' | 'shared'` (separate physical
-  binders). `GET /api/orders`, `/sets/:id/summary`, and `/estimate/:id` all accept `?collection=`,
-  and the frontend always sends the active one — so all order-derived stats (spend, packs,
-  completion, chase calibration, secret finds) are scoped per binder. Migration:
-  `ALTER TABLE orders ADD COLUMN collection TEXT NOT NULL DEFAULT 'mine';`
-- **Store + discount:** orders carry `store` (preset: "Offcourt TCG" / "Target" / "Other") and
-  `discount_rate` (snapshot). `computeOrder` applies the discount to the subtotal and taxes the
-  **discounted** amount: `total = (subtotal − subtotal·discount_rate)·(1 + tax_rate)`. Target with
-  the Circle Card = `discount_rate 0.05`. Migration: `ALTER TABLE orders ADD COLUMN store TEXT;`
-  and `ALTER TABLE orders ADD COLUMN discount_rate REAL NOT NULL DEFAULT 0;`
-- **Progress actuals:** `progress(set_id, collection, packs_opened, cards_collected)` lets the user
-  override model assumptions. Summary returns `packsBought`, `packsOpened` (= `packs_opened` ??
-  bought), and `progress`. The estimator takes `collected`: it maps that card count to an
-  equivalent pack position on the simulated curve and reports `actualPct`, `cardsRemaining`,
-  `equivalentPacks`, `packsRemainingFromCards`. The dashboard "Your collection" card edits these
-  (`PUT /api/sets/:id/progress?collection=`, debounced, then reload). New table — created by
-  `schema.sql` (`CREATE TABLE IF NOT EXISTS progress ...`).
-- Migration: existing databases need
-  `ALTER TABLE sets ADD COLUMN logo_url TEXT;` and `... symbol_url TEXT;`.
+The app is **hub-first**. `state.view` ∈ `hub | set`.
+
+1. **Hub ("Your sets")** — landing page on every load. Art-forward list rows
+   (1-across), **newest release first**. Each row: set art tile, name + series/release,
+   live **completion % · packs-to-DR · spent · orders**, a **quick deal-check**
+   (BUY/FAIR/PASS verdict + ± price stepper, no need to open the set), loose rip +
+   last-refreshed (with stale "refresh" hint), and actions **Open dashboard / + Order /
+   ↻ Refresh**. A prominent **+ Import a set** card opens the manage-sets sheet.
+2. **Set view** — the dashboard for one set. Header has a `← All sets` backchip (and the
+   logo) to return to the hub. Sections top→bottom:
+   - **Set switcher** pills (tracked sets; switching resets the deal price).
+   - **"Should I grab it?"** hero — the star. Loose-pack / booster-bundle tabs; big ±$1
+     /±$5 price stepper; live verdict + "buy ~N" recommendation; and the **deal scale**
+     (see below). Resets to the set's market price on switch — never carries the last
+     set's price over.
+   - **Diminishing returns** + a 4-up live stat strip.
+   - **Desk detail** (see density rules): completion gauge + editable actuals,
+     completion **estimate**, chase odds, product breakdown, rarity counts, expansion art.
+   - **Recent orders** list.
+
+### The three layout directions (A / B / C)
+A small floating **Layout A/B/C** switcher (bottom-left; hidden in kiosk/`?layout=` mode)
+toggles `state.direction`. **C ("Gallery") is the chosen direction** — art banner + full
+detail on desktop. A = "Deal Desk" (scan-fast, no desk detail). B = "Field / Desk"
+density toggle. The switcher is a prototype comparison aid; production can ship C.
+
+### Density (responsive)
+- **Desktop / Direction C:** full **Desk** detail (estimate, chase, breakdown, rarity, art).
+- **Mobile (`≤640px`):** Direction C drops to **Field** density automatically — banner +
+  deal check + diminishing returns + stats + orders; the heavy detail collapses.
+  `showDesk = isC ? !mobile : (isB && mode==='desk')`.
+- `Pack Tracker — iPhone.html` frames the app at iPhone 17 Pro size to preview this;
+  it passes `?layout=C` (token-inherited) and the app adds top safe-area padding in
+  kiosk mode.
+
+---
+
+## Key feature mechanics
+
+- **Deal scale** (replaces the old four-number reference row). A green→amber→red price
+  bar with a labeled pointer at the current per-pack price, three plain-language zone
+  labels (**Good deal ≤ $X · Fair · Overpriced ≥ $W**), and one caption explaining
+  cheapest-rip ("the price to beat") and pack value ("cards inside, on average"). Meaning
+  comes from where the pointer lands — prefer this over cryptic stat chips.
+- **Quick deal-check on hub** mirrors the hero verdict per set without navigating in.
+- **Completion estimate** — headline is the **"to 95%"** packs number ("the realistic
+  finish line"), with to-50% / to-100% (typical) / unlucky in the detail row.
+- **Editable actuals** — "Your real card count" field overrides the estimate; blank keeps
+  the default (shown as placeholder). When set, surface the **delta vs the estimate**
+  (`+N` green if above, `−N` amber if below).
+- **Order composer** (sheet) — one receipt, **each line picks its own set**; quick-add
+  product chips; **store presets** (Offcourt TCG / Target / Too Many Games / Other) with
+  **Target Circle −5%** toggle (discount applied before tax); live running total. Used for
+  create **and** edit. Editing is a *before-opening* action — it does **not** include pull
+  tagging.
+- **Pulls modal** (🃏 button on each order row, beside edit/delete) — an *after-opening*
+  action. Per-rarity steppers (IR/UR/SIR/MHR) with live Binomial odds ("≈E expected ·
+  P% for one more") based on the order's pack count, plus a "tag the exact cards" grid.
+  Saves `finds` + `tagged` to that order; rows with pulls show a `🃏 N pulls` chip.
+- **Manage sets** sheet (from "+ Add set") — all expansions, **newest first**, each with
+  loose rip · packs bought X/Y · packs-to-DR, special/out-of-print badges, and
+  **Import / Reimport (refresh art &amp; prices) / Remove**. **Removal is blocked** when a
+  set has any orders or owned packs, and only ever untracks (never deletes data).
+- **Binder (Mine/Shared)** — **hidden by default**; the header switch only appears when
+  **Settings → General → "Show Shared binder"** is on. Default binder is always `mine`.
+- **Settings** (header gear → sheet) — General (default tax, overpay-for-fun budget,
+  Show Shared toggle) up top; **Advanced** collapse holds API keys (pokemontcg.io,
+  PriceCharting, eBay), Monte-Carlo runs, packs-per-product, chase pull rates, and the
+  pull-rate model JSON.
+- **Refresh marker** — each set stores `lastRefresh`; the deal card shows "Updated {date}"
+  and, after &gt;7 days, an amber "refresh recommended" nudge + highlighted Refresh button.
+
+---
 
 ## When adding a feature
-1. Build it from the variables, two fonts, and the components above.
-2. Match the card + section-header rhythm; keep one hero accent per view.
-3. Route rarity through `raritySymbol()`, counts through `secretStepMarkup()`.
-4. No new fonts, no new top-level colors, no build step.
+1. Build from the variables, two fonts, and components above. One hero accent per view.
+2. Hub-first; respect the density rules (don't dump desk-detail onto mobile/Field).
+3. Route verdicts through `verdict()`, money through `money()`, set identity through the
+   set **number** + tint tile; rarity through the colored glyph set.
+4. Keep derived stats **live from orders**; never persist static spend/packs/order counts.
+5. New modal? Reuse the `.scrim`/`.sheet` (or `.confirm-card`) pattern.
+6. No new fonts, no new top-level colors, no build step.
