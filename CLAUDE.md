@@ -152,8 +152,8 @@ density toggle. The switcher is a prototype comparison aid; production can ship 
   set has any orders or owned packs, and only ever untracks (never deletes data).
 - **Binder (Mine/Shared)** — **hidden by default**; the header switch only appears when
   **Settings → General → "Show Shared binder"** is on. Default binder is always `mine`.
-- **Settings** (header gear → sheet) — General (default tax, overpay-for-fun budget,
-  Show Shared toggle) up top; **Advanced** collapse holds API keys (pokemontcg.io,
+- **Settings** (header gear → sheet) — General (default tax, Show Shared toggle) up
+  top; **Advanced** collapse holds API keys (pokemontcg.io,
   PriceCharting, eBay), Monte-Carlo runs, packs-per-product, chase pull rates, and the
   pull-rate model JSON.
 - **Refresh marker** — each set stores `lastRefresh`; the deal card shows "Updated {date}"

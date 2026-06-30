@@ -161,10 +161,17 @@ function verdict(perPack, set) {
   return { word: "FAIR", icon: "~", color: "var(--fair)", bg: "rgba(255,176,32,.10)", border: "rgba(255,176,32,.35)", tone: "fair" };
 }
 function looseRec(perPack, set, v) {
-  const M = marketOf(set);
+  const M = marketOf(set), ceil = set.ceiling, bad = M * 1.25;
+  // Single source of truth: the diminishing-returns remaining count, tapered down
+  // by how far the price sits into the overpay zone (good-deal line → overpriced).
   const rem = set.drPacks != null ? Math.max(0, set.drPacks - set.packsBought) : null;
-  if (v.tone === "good") return { big: rem != null ? "Buy ~" + rem : "Buy", text: "value holds until diminishing returns kick in." };
-  if (v.tone === "fair") { const over = Math.max(0, perPack - M); const n = over > 0 ? Math.max(1, Math.floor((Number(state.settings.fun_overpay_pool) || 6) / over)) : (rem != null ? rem : 5); return { big: "Buy ~" + n, text: "a few for fun — the premium adds up after that." }; }
+  const base = rem != null ? rem : 5; // fallback when there's no DR data yet
+  if (v.tone === "good") return { big: rem != null ? "Buy ~" + rem : "Buy", text: "great price — value holds until diminishing returns kick in." };
+  if (v.tone === "fair") {
+    const frac = bad > ceil ? Math.max(0, Math.min(1, (bad - perPack) / (bad - ceil))) : 0;
+    const n = Math.max(1, Math.round(base * frac));
+    return { big: "Buy ~" + n, text: money(perPack) + "/pack is over the " + money(M) + " rip — fewer make sense as the premium grows." };
+  }
   return { big: "Pass", text: "rip nearer " + money(M) + "/pack instead." };
 }
 function bundleRec(perPack, set, v) {
@@ -765,7 +772,6 @@ function renderSettings() {
             <h4>General</h4>
             <div class="metagrid" style="margin-bottom:0;">
               <label class="field">Default sales tax %<input type="number" step="0.001" min="0" data-sf="sales_tax_rate" value="${s.sales_tax_rate}"></label>
-              <label class="field">Overpay-for-fun budget $<input type="number" step="1" min="0" data-sf="fun_overpay_pool" value="${s.fun_overpay_pool}"></label>
             </div>
             <button class="set-toggle${state.showShared ? ' on' : ''}" data-gact="toggleshared" style="margin-top:12px;">${state.showShared ? "✓" : "○"} Show Shared binder<small>adds the Mine / Shared switch to the header</small></button>
           </div>
@@ -785,7 +791,6 @@ function saveSettingsFromSheet() {
   const chase = {}; host.querySelectorAll("[data-scr]").forEach((el) => { const n = Number(el.value); if (el.dataset.scr && n > 0) chase[el.dataset.scr] = n; });
   const body = {
     sales_tax_rate: Number(val("sales_tax_rate")) || 0,
-    fun_overpay_pool: Number(val("fun_overpay_pool")) || 0,
     packs_per_product: ppp,
     chase_pull_rates: chase,
   };

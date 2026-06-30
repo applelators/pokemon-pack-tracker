@@ -255,22 +255,6 @@ export async function handleApi(request, env, url) {
         };
         const breakEven = breakEvenFor(extra);
 
-        // "Realistic buy" — replicates the manual research call: rip freely at/under the
-        // cheapest rip; when overpaying, only grab what a fixed "willing to overpay for
-        // the fun of it" pool covers (pool ÷ overpay/pack), never beyond the value
-        // tripwire. Only meaningful when we have a real market (rip) baseline.
-        const pool = Number(raw.fun_overpay_pool) || 6;
-        let realisticBuy = null;
-        if (baselineType === "rip") {
-          if (unlimited) {
-            realisticBuy = { freely: true, pool };
-          } else {
-            let n = Math.floor(pool / premium);                 // premium = overpay vs cheapest rip
-            if (!breakEven.unbounded) n = Math.min(n, breakEven.recommendedMore);
-            realisticBuy = { freely: false, pool, packs: Math.max(0, n) }; // 0 = skip / rip cheaper
-          }
-        }
-
         const dr = {
           baseline: Math.round(baseline * 100) / 100,
           baselineType,                       // "rip" (cheapest market rip) | "msrp" (fallback)
@@ -281,7 +265,6 @@ export async function handleApi(request, env, url) {
           market: market != null ? Math.round(market * 100) / 100 : null,
           premiumVsMarket: market != null ? Math.round((price - market) * 100) / 100 : null,
           breakEven,
-          realisticBuy,
         };
 
         return json({
