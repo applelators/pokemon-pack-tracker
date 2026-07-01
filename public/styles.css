@@ -252,7 +252,7 @@ input,select{font-family:inherit;}
 .hub-list{display:flex;flex-direction:column;gap:14px;}
 .hubrow{display:flex;background:var(--panel);border:1px solid var(--border);border-radius:18px;overflow:hidden;min-height:152px;transition:border-color .15s,transform .15s,box-shadow .15s;}
 .hubrow:hover{border-color:#3a445f;transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.28);}
-.hub-art{width:132px;flex:0 0 auto;display:grid;place-items:center;background-size:cover;background-position:center;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 2px,transparent 2px 11px);}
+.hub-art{width:132px;flex:0 0 auto;display:grid;place-items:center;background-size:cover;background-position:center;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 2px,transparent 2px 11px);border-radius:17px 0 0 17px;}
 .hub-code{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:#fff;padding:3px 11px;border-radius:9px;background:rgba(6,9,16,.58);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);text-shadow:0 1px 3px rgba(0,0,0,.7);}
 .hub-sp{position:absolute;top:10px;left:11px;font-size:13px;color:#fff;}
 .hub-mid{flex:1;min-width:0;padding:16px 18px;display:flex;flex-direction:column;gap:6px;justify-content:center;}
@@ -280,7 +280,7 @@ input,select{font-family:inherit;}
 .loading{color:var(--muted);font-size:14px;padding:40px 4px;}
 @media (max-width:640px){
   .hubrow{flex-wrap:wrap;}
-  .hub-art{width:100%;height:62px;}
+  .hub-art{width:100%;height:62px;border-radius:17px 17px 0 0;}
   .hub-deal{width:100%;flex-direction:row;justify-content:space-between;border-left:none;border-top:1px solid var(--border);}
 }
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:90;background:#1d2536;border:1px solid #39435a;color:var(--text);border-radius:12px;padding:12px 20px;font-size:14px;font-weight:600;box-shadow:0 12px 32px rgba(0,0,0,.4);animation:popIn .2s ease;max-width:90vw;}

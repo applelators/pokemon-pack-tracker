@@ -532,8 +532,9 @@ function stepPrice(d) { if (state.dealTab === "loose") state.loosePrice = Math.m
 function renderSetView() {
   const set = setById(state.setId);
   // Preserve the sidebar scroll position across re-renders (set switch, stepper, etc.).
+  // Both axes: vertical on the desktop sidebar, horizontal on the mobile pill row.
   const _sb = document.querySelector(".set-sidebar .pills");
-  const _sbScroll = _sb ? _sb.scrollTop : null;
+  const _sbScroll = _sb ? { top: _sb.scrollTop, left: _sb.scrollLeft } : null;
   const mobile = window.innerWidth <= 640;
   const showDesk = !mobile;
   const isLoose = state.dealTab === "loose";
@@ -648,7 +649,7 @@ function renderSetView() {
       </div>
     </div>
   `;
-  if (_sbScroll != null) { const el = document.querySelector(".set-sidebar .pills"); if (el) el.scrollTop = _sbScroll; }
+  if (_sbScroll) { const el = document.querySelector(".set-sidebar .pills"); if (el) { el.scrollTop = _sbScroll.top; el.scrollLeft = _sbScroll.left; } }
 }
 
 function deskDetailHTML(set, collected, completion, gaugeDash) {
