@@ -505,8 +505,12 @@ function renderSetView() {
 
   document.getElementById("app").innerHTML = headerHTML() + `
     <button class="backchip" data-act="gohub">← All sets</button>
-    <div class="eyebrow">Checking deals for</div>
-    <div class="pills">${pills}<button class="pill add" data-act="addset">+ Add set</button></div>
+    <div class="set-layout">
+      <aside class="set-sidebar">
+        <div class="eyebrow" style="margin-bottom:9px;">Your sets</div>
+        <div class="pills">${pills}<button class="pill add" data-act="addset">+ Add set</button></div>
+      </aside>
+      <div class="set-main">
     ${banner}
     <div class="hero">
       <div class="hero-top">
@@ -560,6 +564,8 @@ function renderSetView() {
     ${deskDetail}
     <div class="sec-head"><div class="sec-title">${state.showShared && state.binder === "shared" ? "Shared binder orders" : "Recent orders"}</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
     ${orders}
+      </div>
+    </div>
   `;
 }
 

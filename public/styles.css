@@ -376,3 +376,17 @@ input,select{font-family:inherit;}
 .tip-go{color:var(--good);background:rgba(47,213,138,.10);border:1px solid rgba(47,213,138,.28);}
 .tip-slow{color:var(--fair);background:rgba(255,176,32,.10);border:1px solid rgba(255,176,32,.28);}
 .tip-stop{color:var(--accent);background:rgba(255,203,5,.10);border:1px solid rgba(255,203,5,.30);}
+
+/* ---- Set view: left sidebar set-picker on desktop (horizontal scroll on mobile) ---- */
+.set-layout{display:flex;gap:20px;align-items:flex-start;}
+.set-sidebar{flex:0 0 210px;position:sticky;top:14px;}
+.set-sidebar .pills{flex-direction:column;overflow-x:visible;overflow-y:auto;max-height:calc(100vh - 96px);margin:0;gap:8px;padding:0 4px 4px 0;}
+.set-sidebar .pill{width:100%;}
+.set-main{flex:1 1 auto;min-width:0;}
+@media(max-width:900px){
+  .set-layout{display:block;}
+  .set-sidebar{position:static;flex:none;}
+  .set-sidebar .eyebrow{display:none;}
+  .set-sidebar .pills{flex-direction:row;overflow-x:auto;overflow-y:visible;max-height:none;margin:9px 0 16px;padding-bottom:6px;}
+  .set-sidebar .pill{width:auto;}
+}
