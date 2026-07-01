@@ -614,6 +614,7 @@ function deskDetailHTML(set, collected, completion, gaugeDash) {
             ${delta != null ? `<div style="font-size:11.5px;margin-top:6px;font-weight:600;color:${delta >= 0 ? 'var(--good)' : 'var(--fair)'}">${delta >= 0 ? '+' : '−'}${Math.abs(delta)} vs the ${set.modelCollected}-card estimate</div>` : ""}
           </div>
         </div>
+        ${openVsSinglesTip(set)}
       </div>
       ${estCard}
       <div class="card">
@@ -681,6 +682,24 @@ function sellSinglesRec(set) {
     ? `You own <b>${bought}</b> — <b>${bought - steep}</b> past this. Consider selling your ~<b>${toSell}</b> leftover sealed pack${toSell === 1 ? "" : "s"} (≈ <b>${money(sellVal)}</b>) and buying ${missing}.`
     : `You're past diminishing returns — a good point to stop ripping, sell the rest, and buy ${missing}.`;
   return `<div class="deep-dr"><span class="deep-tag">◆ Deep stop ~${steep} packs</span> <span>Beyond here each pack adds under 1 new base card per 5 opened. ${body}</span></div>`;
+}
+
+// Strategy tip for the completion card: keep ripping vs stop & buy singles, based on
+// where your card count sits relative to the diminishing-returns breakpoints.
+function openVsSinglesTip(set) {
+  const comp = set.completion; if (!comp || !set.base) return "";
+  const collected = set.collected != null ? set.collected : 0;
+  const cardsLeft = Math.max(0, set.base - collected);
+  if (cardsLeft <= 0) return `<div class="tip tip-go">✓ Complete — you've got all ${set.base} base cards. 🎉</div>`;
+  const dr = set.drPacks, steep = set.drPacksSteep;
+  if (dr == null || steep == null) return "";
+  // Where the current collection sits, in pack-equivalents (actual count → curve).
+  const eq = (set.collectedActual != null && comp.equivalentPacks != null) ? comp.equivalentPacks : (set.packsBought || 0);
+  const singlesCost = set.avgSingle != null ? cardsLeft * set.avgSingle : null;
+  const s = `~<b>${cardsLeft}</b> card${cardsLeft === 1 ? "" : "s"} left${singlesCost != null ? ` (≈ <b>${money(singlesCost)}</b> as singles)` : ""}`;
+  if (eq >= steep) return `<div class="tip tip-stop">◆ Stop opening — packs now add under 1 new card per 5 opened. Grab the last ${s} instead.</div>`;
+  if (eq >= dr) return `<div class="tip tip-slow">Slowing down — you're near the point where singles get smarter. A few more packs is fine, then pick up the last ${s}.</div>`;
+  return `<div class="tip tip-go">Keep opening — packs still add new base cards efficiently. ${s} to go.</div>`;
 }
 
 function orderRowHTML(o) {

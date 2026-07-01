@@ -370,3 +370,9 @@ input,select{font-family:inherit;}
 /* ---- Deep DR breakpoint (sell rest + buy singles) ---- */
 .deep-dr{margin-top:12px;padding:11px 13px;border-radius:11px;font-size:12.5px;line-height:1.5;color:var(--soft);background:color-mix(in oklch,var(--accent) 8%,var(--panel2));border:1px solid color-mix(in oklch,var(--accent) 28%,var(--border));}
 .deep-tag{font-family:'Space Grotesk',sans-serif;font-weight:700;color:var(--accent);margin-right:4px;white-space:nowrap;}
+
+/* ---- Completion card: keep-opening vs buy-singles tip ---- */
+.tip{margin-top:12px;padding:9px 12px;border-radius:10px;font-size:12.5px;line-height:1.45;}
+.tip-go{color:var(--good);background:rgba(47,213,138,.10);border:1px solid rgba(47,213,138,.28);}
+.tip-slow{color:var(--fair);background:rgba(255,176,32,.10);border:1px solid rgba(255,176,32,.28);}
+.tip-stop{color:var(--accent);background:rgba(255,203,5,.10);border:1px solid rgba(255,203,5,.30);}
