@@ -2,7 +2,7 @@ import {
   getSettings, updateSettings, getRawSettings,
   listSets, getCachedSet, setExists,
   listOrders, getOrder, createOrder, updateOrder, deleteOrder, orderExists,
-  setTotals, getProgress, setProgress, setSetPricing,
+  setTotals, getProgress, setProgress, setSetPricing, setSetHero,
   getEstimateCache, saveEstimateCache,
   setHasOrders, deleteSet,
 } from "./store.js";
@@ -66,6 +66,11 @@ function ensureMigrated(db) {
         "CREATE TABLE IF NOT EXISTS order_promos (order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE, name TEXT NOT NULL, image_small TEXT, card_id TEXT)"
       ).run();
       await db.prepare("CREATE INDEX IF NOT EXISTS idx_promos_order ON order_promos(order_id)").run();
+      // Manual banner-art override (the tcg.pokemon.com auto-scrape is now bot-blocked).
+      const sinfo = await db.prepare("PRAGMA table_info(sets)").all();
+      if (!(sinfo.results || []).some((c) => c.name === "hero_url")) {
+        await db.prepare("ALTER TABLE sets ADD COLUMN hero_url TEXT").run();
+      }
     })().catch((e) => { migrationPromise = null; throw e; });
   }
   return migrationPromise;
@@ -196,6 +201,11 @@ export async function handleApi(request, env, url) {
       }
       if (seg.length === 4 && seg[3] === "import" && method === "POST") {
         return json(await importSet(db, setId));
+      }
+      // PUT /api/sets/:id/art { hero_url } — manual banner-art override (blank clears).
+      if (seg.length === 4 && seg[3] === "art" && method === "PUT") {
+        if (!(await getCachedSet(db, setId))) return json({ error: "Set not imported" }, 404);
+        return json(await setSetHero(db, setId, (await body()).hero_url));
       }
       // GET /api/sets/:id/cards — live card list for the "tag pulls" picker
       if (seg.length === 4 && seg[3] === "cards" && method === "GET") {

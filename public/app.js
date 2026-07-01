@@ -123,6 +123,15 @@ function bumpBanner(d) {
   localStorage.setItem("ppt_bannerpos", JSON.stringify(state.bannerPos));
   render();
 }
+function setBannerArt() {
+  const s = setById(state.setId); if (!s) return;
+  const cur = (s.raw && s.raw.hero_url) || "";
+  const url = window.prompt("Banner image URL for " + s.name + " — paste a direct image link (blank to clear):", cur);
+  if (url === null) return;
+  api(`/sets/${s.id}/art`, { method: "PUT", body: { hero_url: url.trim() } })
+    .then(() => { toast(url.trim() ? "Banner art updated" : "Banner art cleared"); reload(); })
+    .catch((e) => toast(e.message, true));
+}
 const ppuOf = (product) => { const m = state.settings && state.settings.packs_per_product; return (m && m[product] != null ? m[product] : (PPU_FALLBACK[product] != null ? PPU_FALLBACK[product] : 1)); };
 const bundlePacks = () => ppuOf("Booster Bundle") || 6;
 
@@ -187,7 +196,7 @@ function enrich(s) {
     spent: s.totalSpent || 0, ordersCount: s.orderCount || 0,
     completion: comp, chase: s.chase, breakdown: s.breakdown || {}, packEv: s.packEv,
     rarities: set.rarities || [], allRarities: set.allRarities || [], art: set.art || null,
-    heroArt: set.art && set.art.hero ? set.art.hero : null,
+    heroArt: set.hero_url || (set.art && set.art.hero ? set.art.hero : null),
   };
 }
 const setById = (id) => state.setsById[id];
@@ -526,8 +535,8 @@ function renderSetView() {
 
   const banner = `
     <div class="banner" style="background:linear-gradient(115deg, ${set.tint} 0%, #101626 70%)">
-      ${set.heroArt ? `<div class="bart" style="background-image:url('${esc(set.heroArt)}');background-position:center ${bannerPosOf(set.id)}%"></div>
-      <div class="bnudge"><button data-act="banup" title="Focus higher">▲</button><button data-act="bandown" title="Focus lower">▼</button></div>` : '<div class="stripe"></div>'}
+      ${set.heroArt ? `<div class="bart" style="background-image:url('${esc(set.heroArt)}');background-position:center ${bannerPosOf(set.id)}%"></div>` : '<div class="stripe"></div>'}
+      <div class="bnudge">${set.heroArt ? `<button data-act="banup" title="Focus higher">▲</button><button data-act="bandown" title="Focus lower">▼</button>` : ""}<button data-act="banart" title="Set banner image URL">🖼</button></div>
       <div class="tag">key art · pokemontcg.io</div>
       <div class="bc"><div class="bs">${esc(set.series)}</div><div class="bn">${esc(set.name)}</div>
         <div class="bsub">${set.base}-card base set · ${set.total} total${set.release ? ' · released ' + set.release : ''}</div></div>
@@ -1282,6 +1291,7 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "refresh") refreshMarket(state.setId);
   else if (act === "banup") bumpBanner(-6);
   else if (act === "bandown") bumpBanner(6);
+  else if (act === "banart") setBannerArt();
   else if (act === "addorder") openComposer();
   else if (act === "addset") openSetsModal();
   else if (act === "settings") openSettings();

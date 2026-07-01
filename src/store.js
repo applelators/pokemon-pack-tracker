@@ -126,6 +126,13 @@ export async function setSetPricing(db, setId, { market_price, ceiling, msrp, no
   return getCachedSet(db, setId);
 }
 
+// Manual banner-art override (auto-scrape from tcg.pokemon.com is bot-blocked).
+export async function setSetHero(db, setId, url) {
+  const v = (url || "").trim() || null;
+  await db.prepare("UPDATE sets SET hero_url = ? WHERE id = ?").bind(v, setId).run();
+  return getCachedSet(db, setId);
+}
+
 // ---- cached completion curve (heavy Monte-Carlo result) ------------------
 export async function getEstimateCache(db, setId, signature) {
   const row = await db.prepare("SELECT data FROM estimate_cache WHERE set_id = ? AND signature = ?").bind(setId, signature).first();

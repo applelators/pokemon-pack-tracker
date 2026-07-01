@@ -23,8 +23,10 @@ CREATE TABLE IF NOT EXISTS sets (
   pack_msrp          REAL,   -- original retail per pack
   pack_price_note    TEXT,   -- sources + methodology
   pack_price_updated TEXT,   -- ISO date the price was last researched/edited
-  art_json           TEXT    -- official art (hero + product renders) scraped on import
+  art_json           TEXT,   -- official art (hero + product renders) scraped on import
+  hero_url           TEXT    -- manual banner-art override (auto-scrape is bot-blocked)
 );
+-- Upgrading? Auto-applied by ensureMigrated, or by hand: ALTER TABLE sets ADD COLUMN hero_url TEXT;
 
 -- Upgrading an existing database? Columns added later — run once each:
 --   ALTER TABLE sets ADD COLUMN logo_url TEXT;
