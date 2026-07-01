@@ -99,7 +99,7 @@ const SET_SPRITE = {
   rsv10pt5: { slug: "reshiram" }, sv10: { slug: "mewtwo" },  sv9: { slug: "garchomp" },
   sv8pt5: { slug: "umbreon" }, sv8: { slug: "pikachu" },     sv7: { slug: "terapagos" },
   sv6: { slug: "ogerpon" },    sv4pt5: { slug: "charizard", shiny: true }, sv3pt5: { slug: "mew" },
-  sv2: { slug: "chienpao" },
+  sv2: { slug: "meowscarada" },
 };
 const SPRITE_BASE = "https://play.pokemonshowdown.com/sprites";
 function setSpriteImg(id) {
