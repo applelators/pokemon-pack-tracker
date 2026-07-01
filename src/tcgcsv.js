@@ -28,28 +28,35 @@ function afterColon(name) {
 }
 
 // Find the Pokemon group (set) best matching a pokemontcg set name + release date.
+// Scores each group on name overlap AND release-date match, so short/odd set names
+// (e.g. "151" → "SV: Scarlet & Violet 151") still resolve. Exact name still wins.
 export async function findGroupId(name, releaseDate) {
   const groups = await getJson(`${BASE}/${POKEMON_CATEGORY}/groups`);
   const target = norm(name);
   if (!target) return null;
   const day = isoDay(releaseDate);
 
-  // 1) exact match on the post-colon name (distinguishes a base set from its
-  //    "... Promo" / "... Energies" siblings that share a release date).
-  const exact = groups.filter((g) => norm(afterColon(g.name)) === target);
-  // 2) else fall back to a contains-match (needs a reasonably specific name).
-  let pool = exact.length
-    ? exact
-    : groups.filter((g) => target.length >= 4 && norm(afterColon(g.name)).includes(target));
-  if (!pool.length) return null;
-
-  // Disambiguate remaining ties by release date, then by shortest name (base set).
-  if (pool.length > 1 && day) {
-    const byDate = pool.filter((g) => isoDay(g.publishedOn) === day);
-    if (byDate.length) pool = byDate;
+  const scored = [];
+  for (const g of groups) {
+    const ac = afterColon(g.name);
+    const acN = norm(ac), fullN = norm(g.name);
+    const exact = acN === target || fullN === target;
+    const contains = target.length >= 3 && (acN.includes(target) || fullN.includes(target) || target.includes(acN));
+    const dateMatch = !!(day && isoDay(g.publishedOn) === day);
+    if (!exact && !contains && !dateMatch) continue;
+    const score = (exact ? 4 : 0) + (dateMatch ? 2 : 0) + (contains ? 1 : 0);
+    scored.push({ g, score, nameSignal: exact || contains, dateMatch, aclen: ac.length });
   }
-  pool.sort((a, b) => afterColon(a.name).length - afterColon(b.name).length);
-  return pool[0].groupId;
+  if (!scored.length) return null;
+  // Highest score wins; tie-break toward the shorter post-colon name (the base set).
+  scored.sort((a, b) => b.score - a.score || a.aclen - b.aclen);
+  const top = scored[0];
+  // A date-only match (no name overlap) is risky — only trust it if the date is unique.
+  if (!top.nameSignal) {
+    const dateHits = scored.filter((s) => s.dateMatch);
+    return dateHits.length === 1 ? dateHits[0].g.groupId : null;
+  }
+  return top.g.groupId;
 }
 
 // Representative market price for a product = highest market across its print
