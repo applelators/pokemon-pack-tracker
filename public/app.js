@@ -301,7 +301,7 @@ function renderSpend() {
   if (!ords.length) {
     app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
       <div class="sec-head"><div class="sec-title">Spending</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
-      <div class="card" style="text-align:center;color:var(--muted);padding:40px 18px;">No orders in ${state.binder === "shared" ? "the Shared binder" : "your collection"} yet.<br>Log an order and your spending insights show up here.</div>`;
+      <div class="card" style="text-align:center;color:var(--muted);padding:40px 18px;">No orders in ${state.showShared && state.binder === "shared" ? "the Shared binder" : "your collection"} yet.<br>Log an order and your spending insights show up here.</div>`;
     return;
   }
 
@@ -368,7 +368,7 @@ function renderSpend() {
     ${ordersListHTML(list)}`;
 
   app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
-    <div class="sec-head" style="margin-top:2px;"><div class="sec-title">Spending${state.binder === "shared" ? " · Shared" : ""}</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
+    <div class="sec-head" style="margin-top:2px;"><div class="sec-title">Spending${state.showShared && state.binder === "shared" ? " · Shared" : ""}</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
     ${band}
     <div class="spend-grid" style="margin-top:14px;">${byExpansion}${trend}</div>
     <div style="margin-top:14px;">${byStoreProduct}</div>
@@ -517,7 +517,7 @@ function renderSetView() {
       <div class="stats">${stats}</div>
     </div>
     ${deskDetail}
-    <div class="sec-head"><div class="sec-title">${state.binder === "shared" ? "Shared binder orders" : "Recent orders"}</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
+    <div class="sec-head"><div class="sec-title">${state.showShared && state.binder === "shared" ? "Shared binder orders" : "Recent orders"}</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
     ${orders}
   `;
 }
@@ -538,7 +538,7 @@ function deskDetailHTML(set, collected, completion, gaugeDash) {
     const perPack = b.packs > 0 ? b.spend / b.packs : 0;
     let fl; if (perPack <= set.ceiling) fl = { l: "Good", c: "var(--good)" }; else if (perPack >= marketOf(set) * 1.25) fl = { l: "Over", c: "var(--bad)" }; else fl = { l: "Fair", c: "var(--fair)" };
     return `<div class="bd-row"><span class="bd-name">${esc(prod)}</span><span>${b.quantity}×</span><span>${b.packs} pk</span><span>${money(b.spend)}</span><span class="bd-pp">${money(perPack)}/pk</span><span style="color:${fl.c};font-weight:700;font-size:11.5px">${fl.l}</span></div>`;
-  }).join("") : `<div style="font-size:13px;color:var(--muted);padding:6px 0;">No orders for this set in this binder yet.</div>`;
+  }).join("") : `<div style="font-size:13px;color:var(--muted);padding:6px 0;">No orders for this set ${state.showShared ? "in this binder " : ""}yet.</div>`;
 
   const rarChips = (set.rarities || []).map((r) => {
     const pl = rarityProbLabel(r.rarity);
@@ -593,7 +593,7 @@ function deskDetailHTML(set, collected, completion, gaugeDash) {
 function ordersListHTML(list) {
   const src = list || state.orders;
   const rows = src.map(orderRowHTML).join("");
-  return rows || `<div style="color:var(--muted);font-size:13px;padding:8px 2px;">No orders in this binder yet.</div>`;
+  return rows || `<div style="color:var(--muted);font-size:13px;padding:8px 2px;">No orders ${state.showShared ? "in this binder " : ""}yet.</div>`;
 }
 function orderRowHTML(o) {
     const packs = o.packs, perPack = packs > 0 ? o.total / packs : 0;
@@ -610,7 +610,7 @@ function orderRowHTML(o) {
     const vendor = o.note || o.store || "Order";
     return `<div class="order">
       <div class="o-meta">
-        <div class="o-row1"><span class="o-date">${fmtDate(o.purchase_date)}</span><span class="o-vendor">${esc(vendor)}</span><span class="o-binder">${o.collection === "shared" ? "Shared" : "Mine"}</span>${o.store ? `<span class="o-binder">${esc(o.store)}</span>` : ""}</div>
+        <div class="o-row1"><span class="o-date">${fmtDate(o.purchase_date)}</span><span class="o-vendor">${esc(vendor)}</span>${state.showShared ? `<span class="o-binder">${o.collection === "shared" ? "Shared" : "Mine"}</span>` : ""}${o.store ? `<span class="o-binder">${esc(o.store)}</span>` : ""}</div>
         <div class="o-row2">${chips}<span class="o-items">${orderItemsText(o)}</span>${np > 0 ? `<span class="setchip" style="color:#e6b54a">🃏 ${np} pull${np > 1 ? 's' : ''}</span>` : ""}</div>
       </div>
       <div class="o-right">
@@ -692,12 +692,12 @@ function renderComposer() {
               </select>
             </label>
             <label class="field">Sales tax %<input type="number" data-df="tax" step="0.001" min="0" value="${d.tax}"></label>
-            <div class="field">Goes to binder
+            ${state.showShared ? `<div class="field">Goes to binder
               <div class="seg sq fill" style="background:var(--panel2);">
                 <button data-cact="dbinder" data-v="mine" class="${on(d.binder === 'mine')}">Mine</button>
                 <button data-cact="dbinder" data-v="shared" class="${on(d.binder === 'shared')}">Shared</button>
               </div>
-            </div>
+            </div>` : ""}
           </div>
           ${d.store === "Target" ? `<button class="circle-toggle${d.circle ? ' on' : ''}" data-cact="circle">${d.circle ? "✓" : "○"} Target Circle Card — 5% off subtotal (before tax)</button>` : ""}
           <div class="uplabel" style="margin-bottom:9px;">Quick add</div>
