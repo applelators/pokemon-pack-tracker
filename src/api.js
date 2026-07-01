@@ -362,10 +362,11 @@ export async function handleApi(request, env, url) {
         if (market == null) {
           return json({ error: "No market price found from any source (TCGCSV/PriceCharting/eBay/EV).", sources: { tcg, pc, ebay, ev } }, 404);
         }
-        // Good-deal line = the cheaper efficient rip (box-per-pack), never above market.
-        const boxRate = px(tcg && tcg.boxPerPack) || px(pc && pc.boxPerPack);
+        // Good-deal line = TCGplayer's box-per-pack bulk rate, but only when it's a sane
+        // discount (70–100% of market) — ignores glitchy per-pack values (incl. PC's). Else = market.
+        const tcgBox = px(tcg && tcg.boxPerPack);
         market = Math.round(market * 100) / 100;
-        const ceiling = Math.round((boxRate != null ? Math.min(boxRate, market) : market) * 100) / 100;
+        const ceiling = Math.round(((tcgBox != null && tcgBox < market && tcgBox >= 0.7 * market) ? tcgBox : market) * 100) / 100;
         const saved = await setSetPricing(db, setId, {
           market_price: market,
           ceiling,
