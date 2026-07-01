@@ -86,6 +86,7 @@ const state = {
   loosePrice: 5, bundlePrice: 30,
   hubPrice: {},
   hubAnimated: false,
+  spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
   cardsCache: {},      // setId -> card list (for the pulls picker)
   // sheets
@@ -148,6 +149,8 @@ async function reload() {
       if (!setById(state.setId) && state.sets.length) state.setId = state.sets[0].id;
       if (!setById(state.setId)) state.view = "hub";
       else await loadOrders();
+    } else if (state.view === "spend") {
+      await loadOrders();
     }
     render();
   } catch (err) { toast(err.message, true); }
@@ -242,6 +245,7 @@ function headerHTML() {
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       ${state.showShared ? `<div class="seg"><button data-act="binder" data-v="mine" class="${on(state.binder === 'mine')}">Mine</button><button data-act="binder" data-v="shared" class="${on(state.binder === 'shared')}">Shared</button></div>` : ""}
+      <button class="icon-btn${state.view === 'spend' ? ' on' : ''}" data-act="spend" title="Spending" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">▤ Spending</button>
       <button class="icon-btn" data-act="settings" title="Settings" style="width:38px;height:38px;border-radius:999px;font-size:16px;">⚙</button>
     </div>
   </div>`;
@@ -250,7 +254,8 @@ function headerHTML() {
 // ---- render entry --------------------------------------------------------
 function render() {
   if (state.loading) { document.getElementById("app").innerHTML = headerHTML() + `<div class="loading">Loading your sets…</div>`; return; }
-  if (state.view === "set" && setById(state.setId)) renderSetView();
+  if (state.view === "spend") renderSpend();
+  else if (state.view === "set" && setById(state.setId)) renderSetView();
   else { state.view = "hub"; renderHub(); }
 }
 
@@ -259,6 +264,117 @@ function hubPriceOf(id) { if (state.hubPrice[id] == null) state.hubPrice[id] = r
 function hubStep(id, d) { state.hubPrice[id] = Math.max(0, hubPriceOf(id) + d); render(); }
 function goHub() { state.view = "hub"; state.hubAnimated = false; persistPrefs(); render(); }
 function openSetView(id) { const s = setById(id); if (!s) return; state.view = "set"; state.setId = id; state.dealTab = "loose"; state.loosePrice = round(marketOf(s)); state.bundlePrice = round(s.bundleMarket); persistPrefs(); loadOrders().then(render).catch((e) => { render(); toast(e.message, true); }); }
+function openSpend() { state.view = "spend"; render(); loadOrders().then(render).catch((e) => { render(); toast(e.message, true); }); }
+
+// ---- SPENDING ------------------------------------------------------------
+function fmtMonth(ym) { const [y, m] = ym.split("-"); const d = new Date(Number(y), Number(m) - 1, 1); return isNaN(d) ? ym : d.toLocaleString("en-US", { month: "short" }) + " '" + String(y).slice(2); }
+function setTile(s, id) { const tint = s ? s.tint : "#26314a"; const code = s ? s.code : setCode(id); return `<span class="symtile" style="background:linear-gradient(160deg, ${tint} 0%, #10182a 82%)">${code}</span>`; }
+
+function renderSpend() {
+  const ords = state.orders || [];
+  state.hubAnimated = true;
+
+  // ---- aggregate (all live from orders) ----
+  let spent = 0, sub = 0, packs = 0, tax = 0, disc = 0;
+  const bySet = {}, byStore = {}, byMonth = {}, byProduct = {};
+  for (const o of ords) {
+    spent += o.total; sub += o.subtotal; packs += o.packs; tax += o.tax; disc += o.discount;
+    const f = (1 - (o.discount_rate || 0)) * (1 + (o.tax_rate || 0)); // subtotal → all-in
+    const st = o.store || "Other / unlisted";
+    (byStore[st] = byStore[st] || { spent: 0, packs: 0, orders: 0 });
+    byStore[st].spent += o.total; byStore[st].packs += o.packs; byStore[st].orders++;
+    const mk = String(o.purchase_date || "").slice(0, 7); if (mk) byMonth[mk] = (byMonth[mk] || 0) + o.total;
+    for (const it of (o.items || [])) {
+      const isub = it.quantity * it.unit_price, ipk = it.quantity * (it.packs_per_unit || 0);
+      if (it.set_id) { const E = bySet[it.set_id] = bySet[it.set_id] || { total: 0, packs: 0, orders: new Set() }; E.total += isub * f; E.packs += ipk; E.orders.add(o.id); }
+      const pt = it.product_type || "Other"; const P = byProduct[pt] = byProduct[pt] || { qty: 0, total: 0, packs: 0 }; P.qty += it.quantity; P.total += isub * f; P.packs += ipk;
+    }
+  }
+  const avgPack = packs > 0 ? spent / packs : 0;      // all-in
+  const paidPack = packs > 0 ? sub / packs : 0;       // pre-tax vendor price
+  let ripW = 0, ripPk = 0;
+  for (const sid in bySet) { const s = setById(sid); if (s) { ripW += bySet[sid].packs * marketOf(s); ripPk += bySet[sid].packs; } }
+  const wRip = ripPk > 0 ? ripW / ripPk : null;
+  const pctVsRip = wRip ? Math.round((paidPack - wRip) / wRip * 100) : null;
+
+  const app = document.getElementById("app");
+  if (!ords.length) {
+    app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
+      <div class="sec-head"><div class="sec-title">Spending</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
+      <div class="card" style="text-align:center;color:var(--muted);padding:40px 18px;">No orders in ${state.binder === "shared" ? "the Shared binder" : "your collection"} yet.<br>Log an order and your spending insights show up here.</div>`;
+    return;
+  }
+
+  // ---- stat band ----
+  const stat = (k, v, st) => `<div class="stat"><div class="k">${k}</div><div class="v" style="${st || ""}">${v}</div></div>`;
+  const band = `<div class="statband">
+    ${stat("Total spent", money(spent), "color:var(--accent)")}
+    ${stat("Packs", packs, "")}
+    ${stat("Avg $/pack", money(avgPack), "")}
+    ${stat("Orders", ords.length, "")}
+    ${stat("Tax paid", money(tax), "")}
+    ${stat("Saved", money(disc), disc > 0 ? "color:var(--good)" : "")}
+  </div>`;
+
+  // ---- spend by expansion ----
+  const setRows = Object.keys(bySet).map((id) => ({ id, ...bySet[id], s: setById(id) })).sort((a, b) => b.total - a.total);
+  const maxSet = setRows.length ? setRows[0].total : 1;
+  const byExpansion = `<div class="card"><div class="card-h">Spend by expansion</div>
+    ${setRows.map((r) => {
+      const pct = spent > 0 ? Math.round(r.total / spent * 100) : 0;
+      const pk = r.packs > 0 ? money(r.total / r.packs) : "—";
+      return `<div class="brow">${setTile(r.s, r.id)}
+        <div class="bmeta"><div class="bn">${r.s ? esc(r.s.name) : r.id}</div><div class="bs">${r.packs} packs · ${r.orders.size} order${r.orders.size > 1 ? "s" : ""} · ${pk}/pk</div></div>
+        <div class="bbar"><i style="width:${Math.max(3, Math.round(r.total / maxSet * 100))}%"></i></div>
+        <div class="bfig"><div class="bt">${money(r.total)}</div><div class="bp">${pct}%</div></div></div>`;
+    }).join("")}</div>`;
+
+  // ---- spend over time ----
+  const months = Object.keys(byMonth).sort().slice(-10);
+  const maxMonth = months.reduce((m, k) => Math.max(m, byMonth[k]), 1);
+  const trend = `<div class="card trend"><div class="card-h">Spend over time</div>
+    ${months.map((k) => `<div class="trow"><span class="tlab">${fmtMonth(k)}</span><span class="tbar"><i style="width:${Math.max(3, Math.round(byMonth[k] / maxMonth * 100))}%"></i></span><span class="tval">${money(byMonth[k])}</span></div>`).join("")}</div>`;
+
+  // ---- by store + product ----
+  const storeRows = Object.keys(byStore).map((k) => ({ k, ...byStore[k] })).sort((a, b) => b.spent - a.spent);
+  const prodRows = Object.keys(byProduct).map((k) => ({ k, ...byProduct[k] })).sort((a, b) => b.total - a.total);
+  const byStoreProduct = `<div class="spend-grid">
+    <div class="card"><div class="card-h">By store</div><div class="chips-row">${storeRows.map((r) => `<div class="mchip">${esc(r.k)} · <b>${money(r.spent)}</b> <span style="color:var(--muted)">(${r.packs} pk)</span></div>`).join("")}</div></div>
+    <div class="card"><div class="card-h">By product</div><div class="chips-row">${prodRows.map((r) => `<div class="mchip">${esc(r.k)} · <b>${money(r.total)}</b> <span style="color:var(--muted)">(×${r.qty})</span></div>`).join("")}</div></div>
+  </div>`;
+
+  // ---- auto-written insights ----
+  const ins = [];
+  if (setRows.length) { const t = setRows[0]; ins.push(`<b>${t.s ? esc(t.s.name) : t.id}</b> is your biggest set — ${money(t.total)} (${Math.round(t.total / spent * 100)}% of all spend).`); }
+  if (pctVsRip != null) { const a = Math.abs(pctVsRip); ins.push(a <= 3 ? `You pay about <b>${money(paidPack)}</b>/pack — right around the cheapest rip. 👍` : `You pay about <b>${money(paidPack)}</b>/pack — ${a}% ${pctVsRip < 0 ? "<b>under</b> the cheapest rip 👍" : "over the cheapest rip"}.`); }
+  if (disc > 0 || tax > 0) ins.push(`${disc > 0 ? `Store discounts saved you <b>${money(disc)}</b>` : ""}${disc > 0 && tax > 0 ? "; " : ""}${tax > 0 ? `tax added <b>${money(tax)}</b>` : ""}.`);
+  if (months.length) { const big = months.reduce((a, b) => byMonth[b] > byMonth[a] ? b : a, months[0]); ins.push(`${fmtMonth(big)} was your priciest month at <b>${money(byMonth[big])}</b>.`); }
+  ins.push(`${ords.length} order${ords.length > 1 ? "s" : ""} across ${setRows.length} set${setRows.length > 1 ? "s" : ""}, ${packs} packs total.`);
+  const insights = `<div class="card"><div class="card-h">Insights</div><ul class="ins">${ins.map((s) => `<li>${s}</li>`).join("")}</ul></div>`;
+
+  // ---- full order list (filterable) ----
+  let list = ords;
+  if (state.spendSet) list = list.filter((o) => orderSets(o).includes(state.spendSet));
+  if (state.spendStore) list = list.filter((o) => (o.store || "Other / unlisted") === state.spendStore);
+  const setOpts = setRows.map((r) => `<option value="${r.id}"${state.spendSet === r.id ? " selected" : ""}>${r.s ? esc(r.s.name) : r.id}</option>`).join("");
+  const storeOpts = storeRows.map((r) => `<option value="${esc(r.k)}"${state.spendStore === r.k ? " selected" : ""}>${esc(r.k)}</option>`).join("");
+  const listSpent = list.reduce((a, o) => a + o.total, 0);
+  const orderList = `<div class="sec-head"><div class="sec-title">All orders</div>
+      <div class="spendfilters">
+        <select data-spendf="set"><option value="">All sets</option>${setOpts}</select>
+        <select data-spendf="store"><option value="">All stores</option>${storeOpts}</select>
+      </div></div>
+    ${(state.spendSet || state.spendStore) ? `<div style="font-size:12.5px;color:var(--muted);margin:-4px 0 10px;">${list.length} order${list.length !== 1 ? "s" : ""} · ${money(listSpent)}</div>` : ""}
+    ${ordersListHTML(list)}`;
+
+  app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
+    <div class="sec-head" style="margin-top:2px;"><div class="sec-title">Spending${state.binder === "shared" ? " · Shared" : ""}</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
+    ${band}
+    <div class="spend-grid" style="margin-top:14px;">${byExpansion}${trend}</div>
+    <div style="margin-top:14px;">${byStoreProduct}</div>
+    <div style="margin-top:14px;">${insights}</div>
+    ${orderList}`;
+}
 
 function renderHub() {
   const anim = !state.hubAnimated;
@@ -474,8 +590,12 @@ function deskDetailHTML(set, collected, completion, gaugeDash) {
     </div>`;
 }
 
-function ordersListHTML() {
-  const rows = state.orders.map((o) => {
+function ordersListHTML(list) {
+  const src = list || state.orders;
+  const rows = src.map(orderRowHTML).join("");
+  return rows || `<div style="color:var(--muted);font-size:13px;padding:8px 2px;">No orders in this binder yet.</div>`;
+}
+function orderRowHTML(o) {
     const packs = o.packs, perPack = packs > 0 ? o.total / packs : 0;
     const sets = orderSets(o);
     const known = sets.map((id) => setById(id)).filter(Boolean);
@@ -505,8 +625,6 @@ function ordersListHTML() {
           <button class="icon-btn del" data-act="delorder" data-v="${o.id}" title="Delete order">🗑</button>
         </div>
       </div></div>`;
-  }).join("");
-  return rows || `<div style="color:var(--muted);font-size:13px;padding:8px 2px;">No orders in this binder yet.</div>`;
 }
 
 // ---- composer ------------------------------------------------------------
@@ -924,6 +1042,7 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "addset") openSetsModal();
   else if (act === "settings") openSettings();
   else if (act === "pulls") openPulls(Number(v));
+  else if (act === "spend") openSpend();
   else if (act === "gohub") goHub();
   else if (act === "opensetview") openSetView(v);
   else if (act === "hubinc") hubStep(v, 1);
@@ -934,7 +1053,14 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "delorder") requestDeleteOrder(Number(v));
 });
 document.getElementById("app").addEventListener("change", (e) => {
-  const t = e.target; if (t.dataset.actual === undefined) return;
+  const t = e.target;
+  if (t.dataset.spendf !== undefined) {
+    if (t.dataset.spendf === "set") state.spendSet = t.value || null;
+    else if (t.dataset.spendf === "store") state.spendStore = t.value || null;
+    render();
+    return;
+  }
+  if (t.dataset.actual === undefined) return;
   saveActual(t.dataset.actual, t.value);
 });
 
