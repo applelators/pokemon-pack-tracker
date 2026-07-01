@@ -35,6 +35,17 @@ the new visual + interaction language.
   **$5.00** (`marketOf(set) = max(5, market)`); it drives verdict thresholds too.
 - **Secret-card pulls live on the order, edited separately** from the order itself
   (see Pulls modal). `order_finds` (rarity→count) + `order_pull_cards` unchanged.
+- **Mixed-set products** (tins, premium collections, blisters that hold packs from
+  several sets). A line can carry `order_items.set_packs` = JSON `[{set_id, packs}]`
+  (`set_id:null` = untracked/other). When present it overrides the single `set_id`:
+  per-set packs come from the allocation and the line's spend is split **proportionally
+  by pack count** (see `setTotals` + the Spending aggregation). `packs_per_unit` = the
+  allocation sum. Composer: the "Special / sealed product" picker (`SPECIAL_PRODUCTS`)
+  adds a mixed line with a pre-filled allocation editor. "Booster Display Box" (36) is a
+  normal single-set product.
+- **Promo cards** from special products: `order_promos(order_id, name, image_small,
+  card_id)`, edited on the order (composer Promos section; image auto-filled via
+  `GET /api/cards/search`). Shown as a `🎴 N promos` chip. Separate from pack pulls.
 - **Collection actuals** override the model: `progress(set_id, collection, cards_collected)`.
   Blank = model estimate; entered = real count.
 
