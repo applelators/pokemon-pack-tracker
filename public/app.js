@@ -12,8 +12,29 @@ function fmtDate(iso) { try { return new Date(String(iso).slice(0, 10) + "T00:00
 function daysSince(iso) { if (!iso) return Infinity; const t = Date.parse(String(iso).slice(0, 10)); return isNaN(t) ? Infinity : Math.floor((Date.now() - t) / 86400000); }
 
 // Fallback packs-per-product (overridden by settings.packs_per_product).
-const PPU_FALLBACK = { "Booster Pack": 1, "Sleeved Booster": 1, "Booster Bundle": 6, "Elite Trainer Box": 9, "Mini Tin": 2, "Regular Tin": 3 };
-const QUICK_PRODUCTS = [["Booster Pack", "🎴"], ["Booster Bundle", "📦"], ["Elite Trainer Box", "🗃️"], ["Mini Tin", "🥫"]];
+const PPU_FALLBACK = { "Booster Pack": 1, "Sleeved Booster": 1, "Booster Bundle": 6, "Booster Display Box": 36, "Elite Trainer Box": 9, "Mini Tin": 2, "Regular Tin": 3 };
+const QUICK_PRODUCTS = [["Booster Pack", "🎴"], ["Booster Bundle", "📦"], ["Booster Display Box", "🗄️"], ["Elite Trainer Box", "🗃️"], ["Mini Tin", "🥫"]];
+
+// Special / sealed products — each contains packs from one or more sets. Default
+// allocations use the tracked set ids; "" = untracked/other packs (spending only,
+// no completion credit). `total` (assorted products) seeds one "other" row you edit.
+const SPECIAL_PRODUCTS = [
+  { name: "Lumiose Mini Tin — Meganium", alloc: [["me4", 1], ["me3", 1]] },
+  { name: "Mega Moonlit Tin — Mega Clefable", alloc: [["me4", 2], ["me3", 2]] },
+  { name: "Mega Moonlit Tin — Mega Gengar", alloc: [["me4", 2], ["me3", 2]] },
+  { name: "Mega Zygarde ex Premium Collection", total: 8 },
+  { name: "Mega Greninja ex Premium Collection", total: 8 },
+  { name: "Mega Latias ex Box", alloc: [["me1", 2], ["", 2]] },
+  { name: "Raikou 2-Booster Blister", alloc: [["me1", 1], ["", 1]] },
+  { name: "Chaos Rising 3-Booster Blister", alloc: [["me4", 3]] },
+  { name: "First Partner Illustration Collection — Series 2", alloc: [["", 2]] },
+];
+// Resolve a special product's default allocation into [{setId, packs}], converting
+// untracked default sets to "other" so nothing dangles.
+function defaultAlloc(sp) {
+  if (sp.alloc) return sp.alloc.map(([id, packs]) => ({ setId: (id && setById(id)) ? id : "", packs }));
+  return [{ setId: "", packs: sp.total || 1 }]; // assorted — one "other" row to edit
+}
 
 // Chase-rarity glyph + colour (keyed by abbr the estimator returns).
 const CHASE_STYLE = {
@@ -285,8 +306,21 @@ function renderSpend() {
     byStore[st].spent += o.total; byStore[st].packs += o.packs; byStore[st].orders++;
     const mk = String(o.purchase_date || "").slice(0, 7); if (mk) byMonth[mk] = (byMonth[mk] || 0) + o.total;
     for (const it of (o.items || [])) {
-      const isub = it.quantity * it.unit_price, ipk = it.quantity * (it.packs_per_unit || 0);
-      if (it.set_id) { const E = bySet[it.set_id] = bySet[it.set_id] || { total: 0, packs: 0, orders: new Set() }; E.total += isub * f; E.packs += ipk; E.orders.add(o.id); }
+      const isub = it.quantity * it.unit_price;
+      const alloc = it.set_packs && it.set_packs.length ? it.set_packs : null;
+      const unitTotal = alloc ? alloc.reduce((a, x) => a + (Number(x.packs) || 0), 0) : (it.packs_per_unit || 0);
+      const ipk = it.quantity * unitTotal;
+      if (alloc) {
+        for (const a of alloc) {
+          if (!a.set_id) continue;                       // untracked/other → not attributed per set
+          const share = unitTotal > 0 ? (Number(a.packs) || 0) / unitTotal : 0;
+          const E = bySet[a.set_id] = bySet[a.set_id] || { total: 0, packs: 0, orders: new Set() };
+          E.total += isub * share * f; E.packs += it.quantity * (Number(a.packs) || 0); E.orders.add(o.id);
+        }
+      } else if (it.set_id) {
+        const E = bySet[it.set_id] = bySet[it.set_id] || { total: 0, packs: 0, orders: new Set() };
+        E.total += isub * f; E.packs += ipk; E.orders.add(o.id);
+      }
       const pt = it.product_type || "Other"; const P = byProduct[pt] = byProduct[pt] || { qty: 0, total: 0, packs: 0 }; P.qty += it.quantity; P.total += isub * f; P.packs += ipk;
     }
   }
@@ -607,11 +641,12 @@ function orderRowHTML(o) {
     else f = { l: "Fair", c: "var(--fair)", bg: "rgba(255,176,32,.12)" };
     const chips = sets.map((id) => { const s = setById(id); return `<span class="setchip" style="color:${s ? s.tint : 'var(--soft)'}">${s ? s.code : setCode(id)}</span>`; }).join("");
     const np = pullsTotal(o);
+    const npr = (o.promos || []).length;
     const vendor = o.note || o.store || "Order";
     return `<div class="order">
       <div class="o-meta">
         <div class="o-row1"><span class="o-date">${fmtDate(o.purchase_date)}</span><span class="o-vendor">${esc(vendor)}</span>${state.showShared ? `<span class="o-binder">${o.collection === "shared" ? "Shared" : "Mine"}</span>` : ""}${o.store ? `<span class="o-binder">${esc(o.store)}</span>` : ""}</div>
-        <div class="o-row2">${chips}<span class="o-items">${orderItemsText(o)}</span>${np > 0 ? `<span class="setchip" style="color:#e6b54a">🃏 ${np} pull${np > 1 ? 's' : ''}</span>` : ""}</div>
+        <div class="o-row2">${chips}<span class="o-items">${orderItemsText(o)}</span>${np > 0 ? `<span class="setchip" style="color:#e6b54a">🃏 ${np} pull${np > 1 ? 's' : ''}</span>` : ""}${npr > 0 ? `<span class="setchip" style="color:#7ad8ff">🎴 ${npr} promo${npr > 1 ? 's' : ''}</span>` : ""}</div>
       </div>
       <div class="o-right">
         <div class="o-fig">
@@ -628,7 +663,7 @@ function orderRowHTML(o) {
 }
 
 // ---- composer ------------------------------------------------------------
-function freshDraft() { const sid = setById(state.setId) ? state.setId : (state.sets[0] && state.sets[0].id); return { date: todayISO(), vendor: "", store: "", circle: true, tax: state.settings.sales_tax_rate != null ? state.settings.sales_tax_rate : 0, binder: state.binder, lines: [{ id: 1, product: "Booster Pack", setId: sid, qty: 1, price: "" }] }; }
+function freshDraft() { const sid = setById(state.setId) ? state.setId : (state.sets[0] && state.sets[0].id); return { date: todayISO(), vendor: "", store: "", circle: true, tax: state.settings.sales_tax_rate != null ? state.settings.sales_tax_rate : 0, binder: state.binder, lines: [{ id: 1, product: "Booster Pack", setId: sid, qty: 1, price: "" }], promos: [] }; }
 function openComposer() { if (!state.sets.length) { toast("Import a set first", true); openSetsModal(); return; } state.editingId = null; state.composerOpen = true; state.draft = freshDraft(); renderComposer(); }
 function editOrder(id) {
   const o = state.orders.find((x) => x.id === id); if (!o) return;
@@ -636,17 +671,24 @@ function editOrder(id) {
   state.draft = {
     date: o.purchase_date, vendor: o.note || "", store: o.store || "", circle: (o.discount_rate || 0) > 0,
     tax: round((o.tax_rate || 0) * 1000) / 10, binder: o.collection || "mine",
-    lines: o.items.map((l, i) => ({ id: i + 1, product: l.product_type, setId: l.set_id, qty: l.quantity, price: l.unit_price })),
+    lines: o.items.map((l, i) => (l.set_packs && l.set_packs.length)
+      ? { id: i + 1, product: l.product_type, qty: l.quantity, price: l.unit_price, mixed: true, alloc: l.set_packs.map((a) => ({ setId: a.set_id || "", packs: a.packs })) }
+      : { id: i + 1, product: l.product_type, setId: l.set_id, qty: l.quantity, price: l.unit_price }),
+    promos: (o.promos || []).map((p) => ({ name: p.name, image_small: p.image_small || null, card_id: p.card_id || null })),
   };
   renderComposer();
 }
 function closeComposer() { state.composerOpen = false; state.editingId = null; state.draft = null; renderComposer(); }
-function addLine(product) { const d = state.draft; const nid = d.lines.reduce((m, l) => Math.max(m, l.id), 0) + 1; d.lines.push({ id: nid, product, setId: setById(state.setId) ? state.setId : d.lines[0].setId, qty: 1, price: "" }); renderLines(); recalc(); }
+function nextLineId(d) { return d.lines.reduce((m, l) => Math.max(m, l.id), 0) + 1; }
+function addLine(product) { const d = state.draft; const firstSet = (d.lines.find((l) => l.setId) || {}).setId || (state.sets[0] && state.sets[0].id); d.lines.push({ id: nextLineId(d), product, setId: setById(state.setId) ? state.setId : firstSet, qty: 1, price: "" }); renderLines(); recalc(); }
+function addSpecial(name) { const sp = SPECIAL_PRODUCTS.find((p) => p.name === name); if (!sp) return; const d = state.draft; d.lines.push({ id: nextLineId(d), product: sp.name, qty: 1, price: "", mixed: true, alloc: defaultAlloc(sp) }); renderLines(); recalc(); }
 function removeLine(id) { const d = state.draft; if (d.lines.length > 1) d.lines = d.lines.filter((l) => l.id !== id); renderLines(); recalc(); }
+function lineAllocPacks(l) { return (l.alloc || []).reduce((s, a) => s + (Number(a.packs) || 0), 0); }
+function linePacksPerUnit(l) { return l.mixed ? lineAllocPacks(l) : ppuOf(l.product); }
 
 function computeDraft(d) {
   let subtotal = 0, packs = 0;
-  d.lines.forEach((l) => { const q = Number(l.qty) || 0, p = Number(l.price) || 0; subtotal += q * p; packs += q * ppuOf(l.product); });
+  d.lines.forEach((l) => { const q = Number(l.qty) || 0, p = Number(l.price) || 0; subtotal += q * p; packs += q * linePacksPerUnit(l); });
   const discount = (d.store === "Target" && d.circle) ? subtotal * 0.05 : 0;
   const taxable = subtotal - discount;
   const tax = taxable * (Number(d.tax) || 0) / 100;
@@ -656,10 +698,18 @@ function computeDraft(d) {
 async function saveOrder() {
   const d = state.draft, t = computeDraft(d);
   if (t.packs <= 0 && t.subtotal <= 0) { toast("Add a product line first", true); return; }
-  const items = d.lines.map((l) => ({ set_id: l.setId, product_type: l.product, quantity: Number(l.qty) || 0, unit_price: Number(l.price) || 0, packs_per_unit: ppuOf(l.product) }));
+  const items = d.lines.map((l) => {
+    if (l.mixed) {
+      const alloc = (l.alloc || []).filter((a) => Number(a.packs) > 0).map((a) => ({ set_id: a.setId || null, packs: Number(a.packs) }));
+      const primary = (alloc.find((a) => a.set_id) || {}).set_id || null;
+      return { set_id: primary, product_type: l.product, quantity: Number(l.qty) || 0, unit_price: Number(l.price) || 0, packs_per_unit: alloc.reduce((s, a) => s + a.packs, 0), set_packs: alloc };
+    }
+    return { set_id: l.setId, product_type: l.product, quantity: Number(l.qty) || 0, unit_price: Number(l.price) || 0, packs_per_unit: ppuOf(l.product) };
+  });
+  const promos = (d.promos || []).filter((p) => (p.name || "").trim());
   const payload = {
     purchase_date: d.date, tax_rate: (Number(d.tax) || 0) / 100, note: d.vendor || "",
-    collection: d.binder, store: d.store || "", discount_rate: (d.store === "Target" && d.circle) ? 0.05 : 0, items,
+    collection: d.binder, store: d.store || "", discount_rate: (d.store === "Target" && d.circle) ? 0.05 : 0, items, promos,
   };
   try {
     if (state.editingId) { await api(`/orders/${state.editingId}`, { method: "PUT", body: payload }); toast("Order updated"); }
@@ -701,8 +751,13 @@ function renderComposer() {
           </div>
           ${d.store === "Target" ? `<button class="circle-toggle${d.circle ? ' on' : ''}" data-cact="circle">${d.circle ? "✓" : "○"} Target Circle Card — 5% off subtotal (before tax)</button>` : ""}
           <div class="uplabel" style="margin-bottom:9px;">Quick add</div>
-          <div class="quick">${quick}</div>
+          <div class="quick">${quick}
+            <select class="spsel" data-spadd><option value="">+ Special / sealed product…</option>${SPECIAL_PRODUCTS.map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join("")}</select>
+          </div>
           <div class="lines" id="lines"></div>
+          <div class="uplabel" style="margin:16px 0 8px;">Promo cards <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;">— from special products, optional</span></div>
+          <div class="promos" id="promos"></div>
+          <button class="qchip sm" data-cact="promoadd" style="margin-top:8px;">+ promo card</button>
           <div class="totbar">
             <div class="totline">
               <div class="tot">Subtotal <b id="t-sub">$0.00</b></div>
@@ -717,14 +772,44 @@ function renderComposer() {
       </div>
     </div>`;
   renderLines();
+  renderPromos();
   recalc();
+}
+
+function renderPromos() {
+  const box = document.getElementById("promos");
+  if (!box) return;
+  const list = state.draft.promos || [];
+  box.innerHTML = list.length ? list.map((p, i) => `<div class="prow" data-pi="${i}">
+    <div class="pthumb">${p.image_small ? `<img src="${esc(p.image_small)}" alt="">` : "🎴"}</div>
+    <input type="text" data-pf="name" value="${esc(p.name)}" placeholder="e.g. Mega Zygarde ex (foil promo)">
+    <button class="lrm sm" data-cact="promorm" data-v="${i}">✕</button>
+  </div>`).join("") : `<div style="font-size:12.5px;color:var(--muted);">None logged — add the promos these products came with.</div>`;
 }
 
 function renderLines() {
   const box = document.getElementById("lines");
   if (!box) return;
   const setOpts = (sel) => state.sets.map((s) => `<option value="${s.id}"${s.id === sel ? " selected" : ""}>${esc(s.name)}</option>`).join("");
+  const allocOpts = (sel) => `<option value=""${sel === "" ? " selected" : ""}>Other / untracked</option>` + setOpts(sel);
   box.innerHTML = state.draft.lines.map((l) => {
+    if (l.mixed) {
+      const total = lineAllocPacks(l);
+      const rows = (l.alloc || []).map((a, ai) => `<div class="arow"><select data-af="setId" data-arow="${ai}">${allocOpts(a.setId)}</select><input type="number" min="0" data-af="packs" data-arow="${ai}" value="${a.packs}"><span class="apk">packs</span><button class="lrm sm" data-cact="allocrm" data-v="${l.id}:${ai}">✕</button></div>`).join("");
+      return `<div class="lrow mixed" data-line="${l.id}">
+        <div class="mline-head">
+          <span class="lk mtitle">${esc(l.product)} <span class="mixbadge">mixed · ${total} pk</span></span>
+          <div class="lcol" style="width:56px;"><span class="lk">Qty</span><input type="number" min="1" data-lf="qty" value="${l.qty}"></div>
+          <div class="lcol" style="width:90px;"><span class="lk">Price $</span><input type="number" min="0" step="0.01" data-lf="price" value="${l.price}" placeholder="0.00"></div>
+          <div class="lcol" style="width:66px;text-align:right;"><span class="lk">Line</span><span class="lt" data-lt="${l.id}">$0.00</span></div>
+          <button class="lrm" data-cact="rm" data-v="${l.id}">✕</button>
+        </div>
+        <div class="alloc"><div class="alloc-h">Packs inside — assign to the sets you track (Other = not credited to any set):</div>
+          ${rows}
+          <button class="qchip sm" data-cact="allocadd" data-v="${l.id}">+ add set</button>
+        </div>
+      </div>`;
+    }
     const ppu = ppuOf(l.product); const s = setById(l.setId) || state.sets[0];
     return `<div class="lrow" data-line="${l.id}">
       <div class="lart${s && s.special ? ' sp' : ''}" style="background:linear-gradient(160deg, ${s ? s.tint : '#333'} 0%, #10182a 80%)"><span>${s ? s.code : '—'}</span></div>
@@ -1073,11 +1158,43 @@ document.getElementById("composer").addEventListener("click", (e) => {
   else if (act === "rm") removeLine(Number(v));
   else if (act === "dbinder") { state.draft.binder = v; renderComposer(); }
   else if (act === "circle") { state.draft.circle = !state.draft.circle; renderComposer(); }
+  else if (act === "allocadd") { const line = state.draft.lines.find((l) => l.id === Number(v)); if (line) { (line.alloc || (line.alloc = [])).push({ setId: "", packs: 1 }); renderLines(); recalc(); } }
+  else if (act === "allocrm") { const [lid, ai] = v.split(":").map(Number); const line = state.draft.lines.find((l) => l.id === lid); if (line && line.alloc && line.alloc.length > 1) { line.alloc.splice(ai, 1); renderLines(); recalc(); } }
+  else if (act === "promoadd") { (state.draft.promos || (state.draft.promos = [])).push({ name: "", image_small: null, card_id: null }); renderPromos(); }
+  else if (act === "promorm") { state.draft.promos.splice(Number(v), 1); renderPromos(); }
   else if (act === "save") saveOrder();
 });
+const _promoTimer = {};
+function schedulePromoImage(i) {
+  clearTimeout(_promoTimer[i]);
+  _promoTimer[i] = setTimeout(async () => {
+    const p = state.draft && state.draft.promos && state.draft.promos[i];
+    if (!p || !(p.name || "").trim()) return;
+    try {
+      const res = await api(`/cards/search?q=${encodeURIComponent(p.name.trim())}`);
+      if (res && res[0]) { p.image_small = res[0].image; p.card_id = res[0].id; }
+      const th = document.querySelector(`.prow[data-pi="${i}"] .pthumb`);
+      if (th) th.innerHTML = p.image_small ? `<img src="${esc(p.image_small)}" alt="">` : "🎴";
+    } catch { /* image is best-effort */ }
+  }, 600);
+}
 document.getElementById("composer").addEventListener("input", (e) => {
   const t = e.target;
-  if (t.dataset.df) { state.draft[t.dataset.df] = t.value; if (t.dataset.df === "store") renderComposer(); else recalc(); }
+  if (t.dataset.spadd !== undefined) { if (t.value) { addSpecial(t.value); t.value = ""; } }
+  else if (t.dataset.df) { state.draft[t.dataset.df] = t.value; if (t.dataset.df === "store") renderComposer(); else recalc(); }
+  else if (t.dataset.af) {
+    const row = t.closest("[data-line]"); const line = state.draft.lines.find((l) => l.id === Number(row.dataset.line)); const ai = Number(t.dataset.arow);
+    if (line && line.alloc && line.alloc[ai]) {
+      line.alloc[ai][t.dataset.af] = t.dataset.af === "packs" ? t.value : t.value;
+      if (t.dataset.af === "setId") renderLines();
+      else { const badge = row.querySelector(".mixbadge"); if (badge) badge.textContent = `mixed · ${lineAllocPacks(line)} pk`; }
+      recalc();
+    }
+  }
+  else if (t.dataset.pf) {
+    const row = t.closest("[data-pi]"); const p = state.draft.promos[Number(row.dataset.pi)];
+    if (p) { p[t.dataset.pf] = t.value; if (t.dataset.pf === "name") schedulePromoImage(Number(row.dataset.pi)); }
+  }
   else if (t.dataset.lf) {
     const row = t.closest("[data-line]"); const id = Number(row.dataset.line);
     const line = state.draft.lines.find((l) => l.id === id);

@@ -335,3 +335,23 @@ input,select{font-family:inherit;}
 .spendfilters select{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 10px;font-size:13px;cursor:pointer;}
 @media(max-width:860px){.spend-grid{grid-template-columns:1fr;}}
 @media(max-width:640px){.statband{grid-template-columns:repeat(2,1fr);}}
+
+/* ---- Composer: special products, mixed-set allocation, promos ---- */
+.spsel{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:11px;padding:9px 11px;font-size:13px;font-weight:600;cursor:pointer;}
+.qchip.sm,.lrm.sm{font-size:12px;padding:5px 9px;}
+.lrm.sm{width:auto;height:auto;border-radius:8px;}
+.lrow.mixed{flex-direction:column;align-items:stretch;gap:10px;background:var(--panel2);}
+.mline-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.mline-head .mtitle{flex:1;min-width:140px;font-size:13.5px;font-weight:700;}
+.mixbadge{font-size:10.5px;font-weight:700;color:var(--accent);background:#2a2410;border:1px solid #4a3f18;border-radius:6px;padding:2px 7px;margin-left:6px;white-space:nowrap;}
+.alloc{border-top:1px dashed var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px;}
+.alloc-h{font-size:12px;color:var(--muted);}
+.arow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.arow select{flex:1 1 150px;min-width:130px;background:var(--panel3);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 9px;font-size:13px;}
+.arow input{width:64px;background:var(--panel3);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:8px 9px;font-size:13px;}
+.arow .apk{font-size:12px;color:var(--muted);}
+.promos{display:flex;flex-direction:column;gap:8px;}
+.prow{display:flex;align-items:center;gap:9px;}
+.prow input{flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:9px 11px;font-size:13px;}
+.pthumb{width:34px;height:47px;border-radius:6px;background:var(--panel3);border:1px solid var(--border);display:grid;place-items:center;font-size:16px;overflow:hidden;flex:0 0 auto;}
+.pthumb img{width:100%;height:100%;object-fit:cover;}
