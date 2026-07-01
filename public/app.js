@@ -457,6 +457,9 @@ function stepPrice(d) { if (state.dealTab === "loose") state.loosePrice = Math.m
 
 function renderSetView() {
   const set = setById(state.setId);
+  // Preserve the sidebar scroll position across re-renders (set switch, stepper, etc.).
+  const _sb = document.querySelector(".set-sidebar .pills");
+  const _sbScroll = _sb ? _sb.scrollTop : null;
   const mobile = window.innerWidth <= 640;
   const showDesk = !mobile;
   const isLoose = state.dealTab === "loose";
@@ -502,7 +505,9 @@ function renderSetView() {
 
   const deskDetail = showDesk ? deskDetailHTML(set, collected, completion, gaugeDash) : "";
 
-  const orders = ordersListHTML();
+  // Only orders that contain an item from THIS set (via a line's set or its allocation).
+  const setOrders = state.orders.filter((o) => orderSets(o).includes(set.id));
+  const orders = ordersListHTML(setOrders);
 
   document.getElementById("app").innerHTML = headerHTML() + `
     <button class="backchip" data-act="gohub">← All sets</button>
@@ -563,11 +568,12 @@ function renderSetView() {
       <div class="stats">${stats}</div>
     </div>
     ${deskDetail}
-    <div class="sec-head"><div class="sec-title">${state.showShared && state.binder === "shared" ? "Shared binder orders" : "Recent orders"}</div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
+    <div class="sec-head"><div><div class="sec-title">${state.showShared && state.binder === "shared" ? "Shared binder orders" : "Recent orders"}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;"><b style="color:var(--good)">${money(set.spent)}</b> spent on ${esc(set.name)} · ${setOrders.length} order${setOrders.length !== 1 ? "s" : ""}</div></div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
     ${orders}
       </div>
     </div>
   `;
+  if (_sbScroll != null) { const el = document.querySelector(".set-sidebar .pills"); if (el) el.scrollTop = _sbScroll; }
 }
 
 function deskDetailHTML(set, collected, completion, gaugeDash) {
