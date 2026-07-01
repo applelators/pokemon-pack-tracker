@@ -336,48 +336,42 @@ export async function handleApi(request, env, url) {
         try { ebay = await fetchEbayPackPrice(db, set.name); } catch (e) { ebay = { _err: e.message }; }
         const ev = await computeEV(db, set);
 
-        // "Market" = the cheapest way to rip an equivalent REGULAR pack: the lowest of
-        // loose single, box-per-pack, and bundle-per-pack across TCGplayer (via TCGCSV),
-        // PriceCharting, and eBay loose singles. Sleeved is a premium SKU (same cards,
-        // ~2× price) — shown for context but excluded so it can't inflate the deal check.
+        // Market = the TYPICAL going rate: TCGplayer's loose single-pack price (its daily
+        // feed is the most current/accurate source we have — it matched manual research).
+        // PriceCharting/eBay are shown for context and used only as fallbacks when
+        // TCGplayer has no figure. Sleeved is a premium SKU (same cards ~2× price) — excluded.
         const parts = [];
-        const rip = []; // regular single-pack-equivalent rip prices
-        const add = (label, v) => { if (v != null && v > 0) { rip.push(v); parts.push(`${label} $${v.toFixed(2)}`); } };
-        add("TCG loose", tcg && tcg.loose);
-        add("TCG box/pack", tcg && tcg.boxPerPack);
-        add("TCG bundle/pack", tcg && tcg.bundlePerPack);
-        add("PC loose", pc && pc.loose);
-        add("PC box/pack", pc && pc.boxPerPack);
-        add("PC bundle/pack", pc && pc.bundlePerPack);
-        if (ebay && ebay.median != null) { rip.push(ebay.median); parts.push(`eBay ~$${ebay.median.toFixed(2)} (n=${ebay.n})`); }
+        const px = (v) => (v != null && v > 0 ? v : null);
+        const note = (label, v) => { if (px(v) != null) parts.push(`${label} $${v.toFixed(2)}`); };
+        note("TCG loose", tcg && tcg.loose);
+        note("TCG box/pack", tcg && tcg.boxPerPack);
+        note("TCG bundle/pack", tcg && tcg.bundlePerPack);
+        note("PC loose", pc && pc.loose);
+        note("PC box/pack", pc && pc.boxPerPack);
+        if (ebay && ebay.median != null) parts.push(`eBay ~$${ebay.median.toFixed(2)} (n=${ebay.n})`);
         if (pc && pc.sleeved != null) parts.push(`sleeved $${pc.sleeved.toFixed(2)} (excluded)`);
         if (ev != null) parts.push(`EV $${ev.toFixed(2)}`);
 
-        // Cheapest rip, but guard against a single flaky source (PriceCharting's
-        // product matching occasionally returns an implausible low). Drop any point
-        // below 60% of the median before taking the min.
         let market, basis;
-        if (rip.length) {
-          const sorted = [...rip].sort((a, b) => a - b);
-          const mid = Math.floor(sorted.length / 2);
-          const med = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-          const floor = 0.6 * med;
-          const kept = rip.filter((v) => v >= floor);
-          const dropped = rip.length - kept.length;
-          market = Math.min(...(kept.length ? kept : rip));
-          basis = dropped ? `cheapest rip (dropped ${dropped} low outlier${dropped === 1 ? "" : "s"})` : "cheapest rip";
-        } else if (pc && pc.sleeved != null) { market = pc.sleeved; basis = "sleeved only — no regular price"; }
+        if (px(tcg && tcg.loose) != null) { market = tcg.loose; basis = "TCGplayer loose"; }
+        else if (px(pc && pc.loose) != null) { market = pc.loose; basis = "PriceCharting loose (no TCGplayer)"; }
+        else if (px(tcg && tcg.boxPerPack) != null) { market = tcg.boxPerPack; basis = "TCGplayer box/pack (no loose)"; }
+        else if (px(pc && pc.boxPerPack) != null) { market = pc.boxPerPack; basis = "PriceCharting box/pack"; }
+        else if (px(pc && pc.sleeved) != null) { market = pc.sleeved; basis = "sleeved only — no regular price"; }
         else if (ev != null) { market = ev; basis = "EV fallback — no sealed price"; }
         if (market == null) {
           return json({ error: "No market price found from any source (TCGCSV/PriceCharting/eBay/EV).", sources: { tcg, pc, ebay, ev } }, 404);
         }
+        // Good-deal line = the cheaper efficient rip (box-per-pack), never above market.
+        const boxRate = px(tcg && tcg.boxPerPack) || px(pc && pc.boxPerPack);
         market = Math.round(market * 100) / 100;
+        const ceiling = Math.round((boxRate != null ? Math.min(boxRate, market) : market) * 100) / 100;
         const saved = await setSetPricing(db, setId, {
           market_price: market,
-          ceiling: market,
-          note: `Cheapest rip $${market.toFixed(2)} (${basis}) · ${parts.join(" · ")}`,
+          ceiling,
+          note: `Market $${market.toFixed(2)} (${basis}) · good-deal ≤ $${ceiling.toFixed(2)} · ${parts.join(" · ")}`,
         });
-        return json({ ...saved, sources: { tcg, pc, ebay, ev, market, basis } });
+        return json({ ...saved, sources: { tcg, pc, ebay, ev, market, ceiling, basis } });
       }
       // PUT /api/sets/:id/progress
       if (seg.length === 4 && seg[3] === "progress" && method === "PUT") {

@@ -89,7 +89,7 @@ function releaseSort(date) { if (!date) return 0; const m = String(date).match(/
 function fmtRelease(date) { if (!date) return ""; const d = new Date(String(date).replace(/\//g, "-")); return isNaN(d) ? date : d.toLocaleString("en-US", { month: "short", year: "numeric" }); }
 function monthsOld(date) { const rs = releaseSort(date); if (!rs) return 0; const now = new Date(); return (now.getFullYear() - Math.floor(rs / 100)) * 12 + (now.getMonth() + 1 - (rs % 100)); }
 function isOOP(date) { return monthsOld(date) > 24; }
-const marketOf = (s) => s.marketEff;                                          // cheapest rip, floored at $5
+const marketOf = (s) => s.marketEff;                                          // typical market rate (TCGplayer loose), floored at $5
 const ppuOf = (product) => { const m = state.settings && state.settings.packs_per_product; return (m && m[product] != null ? m[product] : (PPU_FALLBACK[product] != null ? PPU_FALLBACK[product] : 1)); };
 const bundlePacks = () => ppuOf("Booster Bundle") || 6;
 
@@ -386,7 +386,7 @@ function renderSpend() {
   // ---- auto-written insights ----
   const ins = [];
   if (setRows.length) { const t = setRows[0]; ins.push(`<b>${t.s ? esc(t.s.name) : t.id}</b> is your biggest set — ${money(t.total)} (${Math.round(t.total / spent * 100)}% of all spend).`); }
-  if (pctVsRip != null) { const a = Math.abs(pctVsRip); ins.push(a <= 3 ? `You pay about <b>${money(paidPack)}</b>/pack — right around the cheapest rip. 👍` : `You pay about <b>${money(paidPack)}</b>/pack — ${a}% ${pctVsRip < 0 ? "<b>under</b> the cheapest rip 👍" : "over the cheapest rip"}.`); }
+  if (pctVsRip != null) { const a = Math.abs(pctVsRip); ins.push(a <= 3 ? `You pay about <b>${money(paidPack)}</b>/pack — right around the market rate. 👍` : `You pay about <b>${money(paidPack)}</b>/pack — ${a}% ${pctVsRip < 0 ? "<b>under</b> market 👍" : "over market"}.`); }
   if (disc > 0 || tax > 0) ins.push(`${disc > 0 ? `Store discounts saved you <b>${money(disc)}</b>` : ""}${disc > 0 && tax > 0 ? "; " : ""}${tax > 0 ? `tax added <b>${money(tax)}</b>` : ""}.`);
   if (months.length) { const big = months.reduce((a, b) => byMonth[b] > byMonth[a] ? b : a, months[0]); ins.push(`${fmtMonth(big)} was your priciest month at <b>${money(byMonth[big])}</b>.`); }
   ins.push(`${ords.length} order${ords.length > 1 ? "s" : ""} across ${setRows.length} set${setRows.length > 1 ? "s" : ""}, ${packs} packs total.`);
@@ -497,7 +497,7 @@ function renderSetView() {
   const bad = M * 1.25;
   const hiS = Math.max(bad * 1.25, perPack * 1.1, set.ev * 1.1, set.ceiling * 1.3);
   const posS = (x) => Math.min(100, Math.max(0, x / hiS * 100));
-  const dealScaleHTML = `<div class="scale"><div class="scale-bar"><div class="z" style="background:rgba(47,213,138,.45);flex:${set.ceiling}"></div><div class="z" style="background:rgba(255,176,32,.4);flex:${Math.max(0.01, bad - set.ceiling)}"></div><div class="z" style="background:rgba(247,107,107,.4);flex:${Math.max(0.01, hiS - bad)}"></div><div class="scale-ptr" style="left:${posS(perPack)}%"><span class="scale-bub" style="color:${v.color};border-color:${v.border}">${money(perPack)}/pk</span></div></div><div class="scale-labels"><span style="color:var(--good)">Good deal ≤ ${money(set.ceiling)}</span><span style="color:var(--fair)">Fair</span><span style="color:var(--bad)">Overpriced ≥ ${money(bad)}</span></div><div class="scale-cap">Cheapest a single pack sells for elsewhere is about <b>${money(M)}</b> — the price to beat. The cards inside are worth about <b>${money(set.ev)}</b> on average.</div></div>`;
+  const dealScaleHTML = `<div class="scale"><div class="scale-bar"><div class="z" style="background:rgba(47,213,138,.45);flex:${set.ceiling}"></div><div class="z" style="background:rgba(255,176,32,.4);flex:${Math.max(0.01, bad - set.ceiling)}"></div><div class="z" style="background:rgba(247,107,107,.4);flex:${Math.max(0.01, hiS - bad)}"></div><div class="scale-ptr" style="left:${posS(perPack)}%"><span class="scale-bub" style="color:${v.color};border-color:${v.border}">${money(perPack)}/pk</span></div></div><div class="scale-labels"><span style="color:var(--good)">Good deal ≤ ${money(set.ceiling)}</span><span style="color:var(--fair)">Fair</span><span style="color:var(--bad)">Overpriced ≥ ${money(bad)}</span></div><div class="scale-cap">A single loose pack typically goes for about <b>${money(M)}</b> (the market rate); good deals sit at or under <b>${money(set.ceiling)}</b>. The cards inside are worth about <b>${money(set.ev)}</b> on average.</div></div>`;
 
   const deskDetail = showDesk ? deskDetailHTML(set, collected, completion, gaugeDash) : "";
 
@@ -532,7 +532,7 @@ function renderSetView() {
           <div style="display:flex;align-items:center;gap:11px;"><span class="vword" style="color:${v.color}">${v.word}</span><span style="font-size:26px">${v.icon}</span></div>
           <div style="font-size:13.5px;color:#d6dcea;margin-top:9px;line-height:1.4;">${
             isLoose
-              ? (v.tone === "good" ? ("At or under the " + money(set.ceiling) + " good-deal line for this set.") : v.tone === "bad" ? ("More than 25% over the " + money(M) + " cheapest rip.") : "Between the good-deal line and overpaying.")
+              ? (v.tone === "good" ? ("At or under the " + money(set.ceiling) + " good-deal line for this set.") : v.tone === "bad" ? ("More than 25% over the " + money(M) + " market rate.") : "Between the good-deal line and overpaying.")
               : (v.tone === "good" ? ("Per-pack price beats the " + money(set.ceiling) + " good-deal line.") : v.tone === "bad" ? "Per-pack price is well over a fair rip." : "Per-pack price sits in the fair range.")
           }</div>
           <div class="vrec"><span class="disp" style="font-weight:700;font-size:22px;">${rec.big}</span><span style="font-size:13px;color:#d6dcea;line-height:1.35;">${rec.text}</span></div>
@@ -1205,7 +1205,7 @@ async function refreshMarket(id) {
   const set = setById(id); if (!set) return;
   const btn = document.querySelector('[data-act="refresh"]');
   if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing…"; }
-  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); toast(`Cheapest rip: ${money(r.pack_market_price)}/pack`); await reload(); }
+  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); toast(`Market: ${money(r.pack_market_price)}/pack`); await reload(); }
   catch (err) { toast(err.message, true); if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh market"; } }
 }
 async function hubRefresh(id) {
