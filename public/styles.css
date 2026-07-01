@@ -398,3 +398,10 @@ input,select{font-family:inherit;}
   .set-sidebar .pill{width:auto;}
   .set-sidebar .pill .pn{white-space:nowrap;}
 }
+
+/* ---- Sidebar set tile: headliner sprite + code strip ---- */
+.pill .sym{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.pill .sym .sym-code{position:relative;z-index:1;font-family:'Space Grotesk',sans-serif;font-weight:700;}
+.pill .sym.has-mon{align-items:stretch;}
+.pill .sym.has-mon .sym-mon{position:absolute;top:0;left:50%;transform:translateX(-50%);height:23px;width:auto;image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45));}
+.pill .sym.has-mon .sym-code{position:absolute;bottom:0;left:0;right:0;height:11px;line-height:11px;text-align:center;font-size:7.5px;letter-spacing:.02em;color:#fff;background:rgba(6,9,16,.72);}

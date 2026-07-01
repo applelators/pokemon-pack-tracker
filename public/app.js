@@ -90,6 +90,29 @@ function fmtRelease(date) { if (!date) return ""; const d = new Date(String(date
 function monthsOld(date) { const rs = releaseSort(date); if (!rs) return 0; const now = new Date(); return (now.getFullYear() - Math.floor(rs / 100)) * 12 + (now.getMonth() + 1 - (rs % 100)); }
 function isOOP(date) { return monthsOld(date) > 24; }
 const marketOf = (s) => s.marketEff;                                          // typical market rate (TCGplayer loose), floored at $5
+
+// Sidebar flair: each set's headlining Pokemon → animated sprite (Pokemon Showdown).
+// slug = Showdown species name; shiny for the shiny-vault set (Paldean Fates).
+const SET_SPRITE = {
+  me4: { slug: "greninja" },   me3: { slug: "zygarde" },     me2pt5: { slug: "dragonite" },
+  me2: { slug: "charizard" },  me1: { slug: "lucario" },     zsv10pt5: { slug: "zekrom" },
+  rsv10pt5: { slug: "reshiram" }, sv10: { slug: "mewtwo" },  sv9: { slug: "garchomp" },
+  sv8pt5: { slug: "umbreon" }, sv8: { slug: "pikachu" },     sv7: { slug: "terapagos" },
+  sv6: { slug: "ogerpon" },    sv4pt5: { slug: "charizard", shiny: true }, sv3pt5: { slug: "mew" },
+  sv2: { slug: "chienpao" },
+};
+const SPRITE_BASE = "https://play.pokemonshowdown.com/sprites";
+function setSpriteImg(id) {
+  const m = SET_SPRITE[id]; if (!m) return "";
+  const ani = `${SPRITE_BASE}/${m.shiny ? "ani-shiny" : "ani"}/${m.slug}.gif`;
+  const fb = `${SPRITE_BASE}/${m.shiny ? "gen5-shiny" : "gen5"}/${m.slug}.png`;
+  return `<img class="sym-mon" src="${ani}" data-fb="${fb}" onerror="spriteFallback(this)" alt="" loading="lazy">`;
+}
+// animated GIF missing → try the static gen5 png; if that fails too, hide the img.
+window.spriteFallback = function (img) {
+  if (img.dataset.s === "1") { img.onerror = null; img.style.display = "none"; }
+  else { img.dataset.s = "1"; img.src = img.dataset.fb; }
+};
 const ppuOf = (product) => { const m = state.settings && state.settings.packs_per_product; return (m && m[product] != null ? m[product] : (PPU_FALLBACK[product] != null ? PPU_FALLBACK[product] : 1)); };
 const bundlePacks = () => ppuOf("Booster Bundle") || 6;
 
@@ -479,7 +502,7 @@ function renderSetView() {
 
   const pills = state.sets.map((s) => `
     <button class="pill${on(s.id === state.setId)}" data-act="set" data-v="${s.id}">
-      <span class="sym${s.special ? ' sp' : ''}" style="background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)">${s.code}</span>
+      <span class="sym${s.special ? ' sp' : ''}${SET_SPRITE[s.id] ? ' has-mon' : ''}" style="background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)">${setSpriteImg(s.id)}<span class="sym-code">${s.code}</span></span>
       <span class="col"><span class="pn">${esc(s.name)}</span><span class="pm">${s.base} base · ${s.total} total</span></span>
     </button>`).join("");
 
