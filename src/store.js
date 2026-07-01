@@ -236,9 +236,18 @@ export async function listOrders(db, setId, collection) {
 }
 
 export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine", store = null, discount_rate = 0, pull_cards, promos }) {
-  // orders.set_id is legacy/NOT NULL — stash the first line's set to satisfy it, but
-  // every read derives sets from order_items.set_id instead.
-  const legacySet = set_id || (items && items[0] && items[0].set_id) || null;
+  // orders.set_id is legacy/NOT NULL (never read — reads derive sets from the lines).
+  // Satisfy it from any real set on the order: explicit, a line's set, a line's
+  // allocation, else any imported set (setless "all-Other" orders would otherwise
+  // violate the NOT NULL constraint).
+  let legacySet = set_id || null;
+  if (!legacySet && items) {
+    for (const it of items) {
+      if (it.set_id) { legacySet = it.set_id; break; }
+      if (Array.isArray(it.set_packs)) { const a = it.set_packs.find((x) => x.set_id); if (a) { legacySet = a.set_id; break; } }
+    }
+  }
+  if (!legacySet) { const any = await db.prepare("SELECT id FROM sets LIMIT 1").first(); legacySet = any ? any.id : null; }
   const res = await db
     .prepare("INSERT INTO orders (set_id, purchase_date, tax_rate, note, collection, store, discount_rate) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .bind(legacySet, purchase_date, Number(tax_rate), note, collection === "shared" ? "shared" : "mine", store || null, Number(discount_rate) || 0)

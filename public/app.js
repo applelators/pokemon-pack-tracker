@@ -27,7 +27,7 @@ const SPECIAL_PRODUCTS = [
   { name: "Mega Latias ex Box", alloc: [["me1", 2], ["sv10", 2]] },       // + Destined Rivals
   { name: "Raikou 2-Booster Blister", alloc: [["me1", 1], ["me2", 1]] },  // + Phantasmal Flames
   { name: "Chaos Rising 3-Booster Blister", alloc: [["me4", 3]] },
-  { name: "First Partner Illustration Collection — Series 2", total: 2 }, // assorted, you assign
+  { name: "First Partner Illustration Collection — Series 2", alloc: [["me3", 1], ["me4", 1]] }, // 1 Perfect Order + 1 Chaos Rising
 ];
 // Display names for known contained sets that may not be tracked yet (for the prompt).
 const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising" };
