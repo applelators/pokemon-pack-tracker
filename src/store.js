@@ -374,7 +374,9 @@ export async function setProgress(db, setId, collection, { packs_opened, cards_c
 // matches count toward this set, but each line still carries its parent order's
 // discount + tax. orderCount = orders that include at least one line from this set.
 export async function setTotals(db, setId, collection) {
-  const orders = await listOrders(db, setId, collection);
+  // Scan all binder orders (not the SQL set filter) so mixed-set lines that touch
+  // this set only via their JSON allocation are included too.
+  const orders = await listOrders(db, undefined, collection);
   const breakdown = {};
   let totalSpent = 0;
   let totalPacks = 0;
