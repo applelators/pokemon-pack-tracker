@@ -113,6 +113,16 @@ window.spriteFallback = function (img) {
   if (img.dataset.s === "1") { img.onerror = null; img.style.display = "none"; }
   else { img.dataset.s = "1"; img.src = img.dataset.fb; }
 };
+
+// Banner key-art vertical focus (% from top; 0 = top, 50 = center). Per-set default,
+// overridable by the user via the ▲/▼ nudge (saved per device).
+const BANNER_POS_DEFAULT = { sv8pt5: 6 };   // Prismatic: Eevees are up top
+function bannerPosOf(id) { const v = state.bannerPos[id]; return v != null ? v : (BANNER_POS_DEFAULT[id] != null ? BANNER_POS_DEFAULT[id] : 32); }
+function bumpBanner(d) {
+  const id = state.setId; state.bannerPos[id] = Math.max(0, Math.min(100, bannerPosOf(id) + d));
+  localStorage.setItem("ppt_bannerpos", JSON.stringify(state.bannerPos));
+  render();
+}
 const ppuOf = (product) => { const m = state.settings && state.settings.packs_per_product; return (m && m[product] != null ? m[product] : (PPU_FALLBACK[product] != null ? PPU_FALLBACK[product] : 1)); };
 const bundlePacks = () => ppuOf("Booster Bundle") || 6;
 
@@ -133,6 +143,7 @@ const state = {
   loosePrice: 5, bundlePrice: 30,
   hubPrice: {},
   hubAnimated: false,
+  bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
   cardsCache: {},      // setId -> card list (for the pulls picker)
@@ -515,7 +526,8 @@ function renderSetView() {
 
   const banner = `
     <div class="banner" style="background:linear-gradient(115deg, ${set.tint} 0%, #101626 70%)">
-      ${set.heroArt ? `<div class="bart" style="background-image:url('${esc(set.heroArt)}')"></div>` : '<div class="stripe"></div>'}
+      ${set.heroArt ? `<div class="bart" style="background-image:url('${esc(set.heroArt)}');background-position:center ${bannerPosOf(set.id)}%"></div>
+      <div class="bnudge"><button data-act="banup" title="Focus higher">▲</button><button data-act="bandown" title="Focus lower">▼</button></div>` : '<div class="stripe"></div>'}
       <div class="tag">key art · pokemontcg.io</div>
       <div class="bc"><div class="bs">${esc(set.series)}</div><div class="bn">${esc(set.name)}</div>
         <div class="bsub">${set.base}-card base set · ${set.total} total${set.release ? ' · released ' + set.release : ''}</div></div>
@@ -1268,6 +1280,8 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "tab") setTab(v);
   else if (act === "step") stepPrice(Number(v));
   else if (act === "refresh") refreshMarket(state.setId);
+  else if (act === "banup") bumpBanner(-6);
+  else if (act === "bandown") bumpBanner(6);
   else if (act === "addorder") openComposer();
   else if (act === "addset") openSetsModal();
   else if (act === "settings") openSettings();

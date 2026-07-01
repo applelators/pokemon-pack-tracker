@@ -405,3 +405,9 @@ input,select{font-family:inherit;}
 .pill .sym.has-mon{align-items:stretch;}
 .pill .sym.has-mon .sym-mon{position:absolute;top:0;left:50%;transform:translateX(-50%);height:23px;width:auto;image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45));}
 .pill .sym.has-mon .sym-code{position:absolute;bottom:0;left:0;right:0;height:11px;line-height:11px;text-align:center;font-size:7.5px;letter-spacing:.02em;color:#fff;background:rgba(6,9,16,.72);}
+
+/* ---- Banner key-art focus nudge ---- */
+.bnudge{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:2;opacity:.4;transition:opacity .15s;}
+.banner:hover .bnudge{opacity:1;}
+.bnudge button{width:26px;height:22px;border:1px solid rgba(255,255,255,.25);background:rgba(6,9,16,.55);color:#fff;border-radius:6px;cursor:pointer;font-size:10px;line-height:1;display:grid;place-items:center;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
+.bnudge button:hover{background:rgba(6,9,16,.85);border-color:var(--accent);}
