@@ -83,6 +83,7 @@ function toast(msg, isError = false) {
 // ---- progress indicator (spinner + rotating status for multi-step tasks) ----
 const IMPORT_STEPS = ["Fetching set details…", "Loading the card list…", "Reading card prices…", "Filling price gaps from TCGplayer…", "Fetching set art…", "Running the completion estimate…", "Finishing up…"];
 const REFRESH_STEPS = ["Checking TCGplayer prices…", "Cross-checking PriceCharting…", "Comparing eBay listings…", "Computing the market rate…", "Saving…"];
+const ART_STEPS = ["Saving the image URL…", "Loading it into the banner…"];
 let _prog = null;
 function startProgress(title, steps) {
   stopProgress();
@@ -149,14 +150,18 @@ function bumpBanner(d) {
   localStorage.setItem("ppt_bannerpos", JSON.stringify(state.bannerPos));
   render();
 }
-function setBannerArt() {
+async function setBannerArt() {
   const s = setById(state.setId); if (!s) return;
   const cur = (s.raw && s.raw.hero_url) || "";
   const url = window.prompt("Banner image URL for " + s.name + " — paste a direct image link (blank to clear):", cur);
   if (url === null) return;
-  api(`/sets/${s.id}/art`, { method: "PUT", body: { hero_url: url.trim() } })
-    .then(() => { toast(url.trim() ? "Banner art updated" : "Banner art cleared"); reload(); })
-    .catch((e) => toast(e.message, true));
+  startProgress("Saving banner art…", ART_STEPS);
+  try {
+    await api(`/sets/${s.id}/art`, { method: "PUT", body: { hero_url: url.trim() } });
+    await reload();
+    stopProgress();
+    toast(url.trim() ? "Banner art updated" : "Banner art cleared");
+  } catch (e) { stopProgress(); toast(e.message, true); }
 }
 const ppuOf = (product) => { const m = state.settings && state.settings.packs_per_product; return (m && m[product] != null ? m[product] : (PPU_FALLBACK[product] != null ? PPU_FALLBACK[product] : 1)); };
 const bundlePacks = () => ppuOf("Booster Bundle") || 6;
