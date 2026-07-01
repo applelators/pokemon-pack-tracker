@@ -83,14 +83,28 @@ CREATE TABLE IF NOT EXISTS order_items (
   product_type   TEXT NOT NULL,
   quantity       INTEGER NOT NULL,
   unit_price     REAL NOT NULL,
-  packs_per_unit INTEGER NOT NULL
+  packs_per_unit INTEGER NOT NULL,
+  -- Mixed-set products: JSON pack allocation across sets for a single line, e.g.
+  -- [{"set_id":"me4","packs":2},{"set_id":null,"packs":2}] (null = untracked/other).
+  -- NULL for ordinary single-set lines (use set_id + packs_per_unit).
+  set_packs      TEXT
 );
 
--- Upgrading an existing database? order_items.set_id was added later. The Worker
--- auto-applies this on first boot (see ensureMigrated in src/api.js), but to run it
--- by hand:
+-- Upgrading an existing database? order_items.set_id and set_packs were added later.
+-- The Worker auto-applies these on first boot (see ensureMigrated in src/api.js), but
+-- to run by hand:
 --   ALTER TABLE order_items ADD COLUMN set_id TEXT REFERENCES sets(id);
 --   UPDATE order_items SET set_id = (SELECT o.set_id FROM orders o WHERE o.id = order_items.order_id) WHERE set_id IS NULL;
+--   ALTER TABLE order_items ADD COLUMN set_packs TEXT;
+
+-- Promo cards recorded on an order (from special products), separate from pack pulls.
+CREATE TABLE IF NOT EXISTS order_promos (
+  order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL,
+  image_small TEXT,
+  card_id     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_promos_order ON order_promos(order_id);
 
 -- Secret (non-base-set) cards the user pulled from an order's packs, by rarity.
 CREATE TABLE IF NOT EXISTS order_finds (

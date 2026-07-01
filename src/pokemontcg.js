@@ -59,6 +59,20 @@ export async function listSetCards(db, setId) {
   return out;
 }
 
+// Search cards across all sets by name (for tagging promo cards). Returns light rows.
+export async function searchCardsByName(db, q) {
+  const query = (q || "").trim().replace(/["\\]/g, "");
+  if (!query) return [];
+  const json = await apiGet(
+    db,
+    `/cards?q=${encodeURIComponent(`name:"*${query}*"`)}&select=id,name,number,rarity,set,images&orderBy=-set.releaseDate&pageSize=12`
+  );
+  return (json.data || []).map((c) => ({
+    id: c.id, name: c.name, number: c.number, rarity: c.rarity || "",
+    setName: c.set && c.set.name ? c.set.name : "", image: c.images && c.images.small ? c.images.small : null,
+  }));
+}
+
 export async function searchSets(db, query, all = false) {
   const q = (query || "").trim();
   const param = q ? `q=${encodeURIComponent(`name:"*${q}*"`)}&` : "";

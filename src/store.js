@@ -142,14 +142,16 @@ export async function saveEstimateCache(db, setId, signature, data) {
 }
 
 // ---- orders --------------------------------------------------------------
-function computeOrder(order, items) {
+function computeOrder(order, rawItems) {
+  // Parse each item's mixed-set allocation (JSON string → array) once.
+  const items = rawItems.map((i) => ({ ...i, set_packs: itemAlloc(i) }));
   const subtotal = items.reduce((a, i) => a + i.quantity * i.unit_price, 0);
   const discountRate = order.discount_rate || 0;
   const discount = subtotal * discountRate;       // e.g. Target Circle Card 5%
   const taxable = subtotal - discount;            // tax is applied AFTER the discount
   const tax = taxable * order.tax_rate;
-  // An order's "sets" = the distinct expansions across its line items.
-  const sets = [...new Set(items.map((i) => i.set_id).filter(Boolean))];
+  // An order's "sets" = the distinct expansions across its lines (incl. allocations).
+  const sets = [...new Set(items.flatMap((i) => i.set_packs ? i.set_packs.map((a) => a.set_id) : [i.set_id]).filter(Boolean))];
   return {
     ...order,
     items,
@@ -177,9 +179,14 @@ export async function getOrder(db, id) {
     .prepare("SELECT card_id, name, image_small FROM order_pull_cards WHERE order_id = ?")
     .bind(id)
     .all();
+  const { results: promos } = await db
+    .prepare("SELECT name, image_small, card_id FROM order_promos WHERE order_id = ?")
+    .bind(id)
+    .all();
   const co = computeOrder(order, results);
   co.finds = Object.fromEntries(finds.map((f) => [f.rarity, f.count]));
   co.pullCards = pulls;
+  co.promos = promos;
   return co;
 }
 
@@ -207,21 +214,28 @@ export async function listOrders(db, setId, collection) {
     .prepare(`SELECT * FROM order_pull_cards WHERE order_id IN (${placeholders})`)
     .bind(...ids)
     .all();
+  const { results: promos } = await db
+    .prepare(`SELECT * FROM order_promos WHERE order_id IN (${placeholders})`)
+    .bind(...ids)
+    .all();
   const byOrder = {};
   for (const it of items) (byOrder[it.order_id] ||= []).push(it);
   const findsByOrder = {};
   for (const f of finds) (findsByOrder[f.order_id] ||= {})[f.rarity] = f.count;
   const pullsByOrder = {};
   for (const p of pulls) (pullsByOrder[p.order_id] ||= []).push({ card_id: p.card_id, name: p.name, image_small: p.image_small });
+  const promosByOrder = {};
+  for (const p of promos) (promosByOrder[p.order_id] ||= []).push({ name: p.name, image_small: p.image_small, card_id: p.card_id });
   return orders.map((o) => {
     const co = computeOrder(o, byOrder[o.id] || []);
     co.finds = findsByOrder[o.id] || {};
     co.pullCards = pullsByOrder[o.id] || [];
+    co.promos = promosByOrder[o.id] || [];
     return co;
   });
 }
 
-export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine", store = null, discount_rate = 0, pull_cards }) {
+export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, note = "", items, finds, collection = "mine", store = null, discount_rate = 0, pull_cards, promos }) {
   // orders.set_id is legacy/NOT NULL — stash the first line's set to satisfy it, but
   // every read derives sets from order_items.set_id instead.
   const legacySet = set_id || (items && items[0] && items[0].set_id) || null;
@@ -233,10 +247,11 @@ export async function createOrder(db, { set_id, purchase_date, tax_rate = 0, not
   await insertItems(db, orderId, items);
   await insertFinds(db, orderId, finds);
   await insertPullCards(db, orderId, pull_cards);
+  await insertPromos(db, orderId, promos);
   return getOrder(db, orderId);
 }
 
-export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds, collection, store, discount_rate, pull_cards }) {
+export async function updateOrder(db, id, { purchase_date, tax_rate, note, items, finds, collection, store, discount_rate, pull_cards, promos }) {
   await db
     .prepare("UPDATE orders SET purchase_date = COALESCE(?, purchase_date), tax_rate = COALESCE(?, tax_rate), note = COALESCE(?, note), collection = COALESCE(?, collection), store = COALESCE(?, store), discount_rate = COALESCE(?, discount_rate) WHERE id = ?")
     .bind(
@@ -261,17 +276,30 @@ export async function updateOrder(db, id, { purchase_date, tax_rate, note, items
     await db.prepare("DELETE FROM order_pull_cards WHERE order_id = ?").bind(id).run();
     await insertPullCards(db, id, pull_cards);
   }
+  if (promos !== undefined) {
+    await db.prepare("DELETE FROM order_promos WHERE order_id = ?").bind(id).run();
+    await insertPromos(db, id, promos);
+  }
   return getOrder(db, id);
 }
 
 async function insertItems(db, orderId, items) {
   if (!items || !items.length) return;
-  const stmts = items.map((it) =>
-    db.prepare(
-      "INSERT INTO order_items (order_id, set_id, product_type, quantity, unit_price, packs_per_unit) VALUES (?, ?, ?, ?, ?, ?)"
-    ).bind(orderId, it.set_id || null, it.product_type, Number(it.quantity), Number(it.unit_price), Number(it.packs_per_unit))
-  );
+  const stmts = items.map((it) => {
+    const alloc = Array.isArray(it.set_packs) && it.set_packs.length
+      ? it.set_packs.filter((a) => Number(a.packs) > 0).map((a) => ({ set_id: a.set_id || null, packs: Number(a.packs) }))
+      : null;
+    return db.prepare(
+      "INSERT INTO order_items (order_id, set_id, product_type, quantity, unit_price, packs_per_unit, set_packs) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).bind(orderId, it.set_id || null, it.product_type, Number(it.quantity), Number(it.unit_price), Number(it.packs_per_unit), alloc ? JSON.stringify(alloc) : null);
+  });
   await db.batch(stmts);
+}
+
+// Parse an item's mixed-set allocation (JSON) into [{set_id, packs}] or null.
+function itemAlloc(it) {
+  if (!it.set_packs) return null;
+  try { const a = JSON.parse(it.set_packs); return Array.isArray(a) && a.length ? a : null; } catch { return null; }
 }
 
 async function insertFinds(db, orderId, finds) {
@@ -289,6 +317,16 @@ async function insertPullCards(db, orderId, cards) {
   const stmts = list.map((c) =>
     db.prepare("INSERT OR IGNORE INTO order_pull_cards (order_id, card_id, name, image_small) VALUES (?, ?, ?, ?)")
       .bind(orderId, String(c.card_id), c.name || null, c.image_small || c.image || null)
+  );
+  await db.batch(stmts);
+}
+
+async function insertPromos(db, orderId, promos) {
+  const list = (promos || []).filter((p) => p && (p.name || "").trim());
+  if (!list.length) return;
+  const stmts = list.map((p) =>
+    db.prepare("INSERT INTO order_promos (order_id, name, image_small, card_id) VALUES (?, ?, ?, ?)")
+      .bind(orderId, String(p.name).trim(), p.image_small || p.image || null, p.card_id || null)
   );
   await db.batch(stmts);
 }
@@ -342,13 +380,20 @@ export async function setTotals(db, setId, collection) {
   let totalPacks = 0;
   let orderCount = 0;
   for (const o of orders) {
+    const factor = (1 - (o.discount_rate || 0)) * (1 + o.tax_rate);
     let touchesSet = false;
     for (const it of o.items) {
-      if (it.set_id !== setId) continue;            // ignore other expansions on this receipt
+      // packs of THIS set per unit, and the total packs per unit (for spend split).
+      const unitTotal = it.set_packs ? it.set_packs.reduce((s, a) => s + (Number(a.packs) || 0), 0) : it.packs_per_unit;
+      let setPerUnit = 0;
+      if (it.set_packs) { for (const a of it.set_packs) if (a.set_id === setId) setPerUnit += Number(a.packs) || 0; }
+      else if (it.set_id === setId) setPerUnit = it.packs_per_unit;
+      if (setPerUnit <= 0) continue;                 // this line doesn't touch this set
       touchesSet = true;
+      const share = unitTotal > 0 ? setPerUnit / unitTotal : 1;   // proportional spend by packs
+      const packs = it.quantity * setPerUnit;
+      const spend = it.quantity * it.unit_price * share * factor;
       const b = (breakdown[it.product_type] ||= { quantity: 0, packs: 0, spend: 0 });
-      const packs = it.quantity * it.packs_per_unit;
-      const spend = it.quantity * it.unit_price * (1 - (o.discount_rate || 0)) * (1 + o.tax_rate);
       b.quantity += it.quantity;
       b.packs += packs;
       b.spend += spend;

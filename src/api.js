@@ -6,7 +6,7 @@ import {
   getEstimateCache, saveEstimateCache,
   setHasOrders, deleteSet,
 } from "./store.js";
-import { searchSets, importSet, listSetCards } from "./pokemontcg.js";
+import { searchSets, importSet, listSetCards, searchCardsByName } from "./pokemontcg.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
 import { fetchSealedRipPrices } from "./tcgcsv.js";
 import { fetchEbayPackPrice } from "./ebay.js";
@@ -21,13 +21,24 @@ const json = (data, status = 200) =>
 function validateItems(items) {
   if (!Array.isArray(items) || items.length === 0) return "At least one line item is required";
   for (const it of items) {
-    if (!it.set_id) return "Each line item needs a set_id (which expansion it's from)";
+    const hasAlloc = Array.isArray(it.set_packs) && it.set_packs.some((a) => Number(a.packs) > 0);
+    if (!it.set_id && !hasAlloc) return "Each line needs a set (or a mixed-set pack allocation)";
     if (!it.product_type) return "Each item needs a product_type";
     if (!(Number(it.quantity) > 0)) return "Quantity must be > 0";
     if (!(Number(it.unit_price) >= 0)) return "Unit price must be >= 0";
     if (!(Number(it.packs_per_unit) >= 0)) return "packs_per_unit must be >= 0";
   }
   return null;
+}
+
+// All tracked set ids referenced by a set of items (primary set_id + allocations).
+function collectSetIds(items) {
+  const ids = new Set();
+  for (const it of items || []) {
+    if (it.set_id) ids.add(it.set_id);
+    if (Array.isArray(it.set_packs)) for (const a of it.set_packs) if (a.set_id) ids.add(a.set_id);
+  }
+  return ids;
 }
 
 // One-time auto-migration: move the set link onto order_items so orders can span
@@ -37,14 +48,24 @@ function ensureMigrated(db) {
   if (!migrationPromise) {
     migrationPromise = (async () => {
       const info = await db.prepare("PRAGMA table_info(order_items)").all();
-      const hasSetId = (info.results || []).some((c) => c.name === "set_id");
-      if (!hasSetId) {
+      const cols = (info.results || []).map((c) => c.name);
+      if (!cols.includes("set_id")) {
         await db.prepare("ALTER TABLE order_items ADD COLUMN set_id TEXT REFERENCES sets(id)").run();
         await db.prepare(
           "UPDATE order_items SET set_id = (SELECT o.set_id FROM orders o WHERE o.id = order_items.order_id) WHERE set_id IS NULL"
         ).run();
         await db.prepare("CREATE INDEX IF NOT EXISTS idx_order_items_set ON order_items(set_id)").run();
       }
+      // Mixed-set products: per-item JSON pack allocation across sets, e.g.
+      // [{"set_id":"me4","packs":2},{"set_id":null,"packs":2}] (null = untracked/other).
+      if (!cols.includes("set_packs")) {
+        await db.prepare("ALTER TABLE order_items ADD COLUMN set_packs TEXT").run();
+      }
+      // Promo cards recorded on an order (from special products), separate from pack pulls.
+      await db.prepare(
+        "CREATE TABLE IF NOT EXISTS order_promos (order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE, name TEXT NOT NULL, image_small TEXT, card_id TEXT)"
+      ).run();
+      await db.prepare("CREATE INDEX IF NOT EXISTS idx_promos_order ON order_promos(order_id)").run();
     })().catch((e) => { migrationPromise = null; throw e; });
   }
   return migrationPromise;
@@ -384,6 +405,12 @@ export async function handleApi(request, env, url) {
       return json(completion);
     }
 
+    // /api/cards/search?q= — card lookup for tagging promo cards (any set)
+    if (pathname === "/api/cards/search" && method === "GET") {
+      try { return json(await searchCardsByName(db, url.searchParams.get("q"))); }
+      catch (e) { return json({ error: e.message }, 502); }
+    }
+
     // /api/orders ...
     if (pathname === "/api/orders") {
       if (method === "GET") {
@@ -394,8 +421,8 @@ export async function handleApi(request, env, url) {
         if (!b.purchase_date) return json({ error: "purchase_date is required" }, 400);
         const err = validateItems(b.items);
         if (err) return json({ error: err }, 400);
-        // Every line's set must be imported (multi-set orders).
-        for (const sid of new Set(b.items.map((i) => i.set_id))) {
+        // Every referenced set (primary + allocations) must be imported.
+        for (const sid of collectSetIds(b.items)) {
           if (!(await setExists(db, sid))) return json({ error: `Unknown set_id "${sid}" (import it first)` }, 400);
         }
         return json(await createOrder(db, b), 201);
@@ -413,7 +440,7 @@ export async function handleApi(request, env, url) {
         if (b.items !== undefined) {
           const err = validateItems(b.items);
           if (err) return json({ error: err }, 400);
-          for (const sid of new Set(b.items.map((i) => i.set_id))) {
+          for (const sid of collectSetIds(b.items)) {
             if (!(await setExists(db, sid))) return json({ error: `Unknown set_id "${sid}" (import it first)` }, 400);
           }
         }
