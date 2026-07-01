@@ -80,6 +80,32 @@ function toast(msg, isError = false) {
   toastTimer = setTimeout(() => { host.innerHTML = ""; }, isError ? 4200 : 2600);
 }
 
+// ---- progress indicator (spinner + rotating status for multi-step tasks) ----
+const IMPORT_STEPS = ["Fetching set details…", "Loading the card list…", "Reading card prices…", "Filling price gaps from TCGplayer…", "Fetching set art…", "Running the completion estimate…", "Finishing up…"];
+const REFRESH_STEPS = ["Checking TCGplayer prices…", "Cross-checking PriceCharting…", "Comparing eBay listings…", "Computing the market rate…", "Saving…"];
+let _prog = null;
+function startProgress(title, steps) {
+  stopProgress();
+  const el = document.createElement("div");
+  el.className = "progress-toast";
+  el.innerHTML = `<div class="pt-spin"></div><div><div class="pt-title"></div><div class="pt-step"></div></div>`;
+  document.body.appendChild(el);
+  el.querySelector(".pt-title").textContent = title;
+  const stepEl = el.querySelector(".pt-step");
+  const t0 = Date.now();
+  const paint = () => {
+    const secs = (Date.now() - t0) / 1000;
+    const idx = Math.min(steps.length - 1, Math.floor(secs / 1.4));
+    stepEl.textContent = steps[idx] + (secs >= 3 ? `   ·   ${Math.floor(secs)}s` : "");
+  };
+  paint();
+  _prog = { el, int: setInterval(paint, 400) };
+}
+function stopProgress() {
+  if (!_prog) return;
+  clearInterval(_prog.int); _prog.el.remove(); _prog = null;
+}
+
 // ---- set-shape helpers ---------------------------------------------------
 // Every set is shown by its number (SV08, SV8.5, …) derived from the API id.
 function setCode(id) { return String(id || "?").toUpperCase().replace(/PT(\d)/, ".$1"); }
@@ -1003,15 +1029,17 @@ async function openSetsModal() { state.setsOpen = true; renderSetsModal(); if (!
 function closeSetsModal() { state.setsOpen = false; renderSetsModal(); }
 async function importSet(id) {
   state.importing = id; renderSetsModal();
-  try { const set = await api(`/sets/${id}/import`, { method: "POST" }); await reload(); if (state.allSets) await loadAllSets(); toast("Imported " + set.name); }
-  catch (err) { toast(err.message, true); }
-  finally { state.importing = null; renderSetsModal(); }
+  startProgress("Importing set…", IMPORT_STEPS);
+  try { const set = await api(`/sets/${id}/import`, { method: "POST" }); await reload(); if (state.allSets) await loadAllSets(); stopProgress(); toast("Imported " + set.name); }
+  catch (err) { stopProgress(); toast(err.message, true); }
+  finally { stopProgress(); state.importing = null; renderSetsModal(); }
 }
 async function reimportSet(id) {
   state.importing = id; renderSetsModal();
-  try { const set = await api(`/sets/${id}/import`, { method: "POST" }); await reload(); toast("Reimported " + set.name + " — art & prices refreshed"); }
-  catch (err) { toast(err.message, true); }
-  finally { state.importing = null; renderSetsModal(); }
+  startProgress("Reimporting set…", IMPORT_STEPS);
+  try { const set = await api(`/sets/${id}/import`, { method: "POST" }); await reload(); stopProgress(); toast("Reimported " + set.name + " — art & prices refreshed"); }
+  catch (err) { stopProgress(); toast(err.message, true); }
+  finally { stopProgress(); state.importing = null; renderSetsModal(); }
 }
 async function removeSet(id) {
   const s = setById(id);
@@ -1262,12 +1290,15 @@ async function refreshMarket(id) {
   const set = setById(id); if (!set) return;
   const btn = document.querySelector('[data-act="refresh"]');
   if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing…"; }
-  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); toast(`Market: ${money(r.pack_market_price)}/pack`); await reload(); }
-  catch (err) { toast(err.message, true); if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh market"; } }
+  startProgress("Refreshing " + set.name + " market…", REFRESH_STEPS);
+  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); stopProgress(); toast(`Market: ${money(r.pack_market_price)}/pack`); await reload(); }
+  catch (err) { stopProgress(); toast(err.message, true); if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh market"; } }
 }
 async function hubRefresh(id) {
-  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); const s = setById(id); state.hubPrice[id] = round(Math.max(5, r.pack_market_price || 5)); toast(`Refreshed ${s ? s.name : "set"} — rip ${money(r.pack_market_price)}`); await reload(); }
-  catch (err) { toast(err.message, true); }
+  const s0 = setById(id);
+  startProgress("Refreshing " + (s0 ? s0.name : "set") + " market…", REFRESH_STEPS);
+  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); const s = setById(id); state.hubPrice[id] = round(Math.max(5, r.pack_market_price || 5)); stopProgress(); toast(`Refreshed ${s ? s.name : "set"} — rip ${money(r.pack_market_price)}`); await reload(); }
+  catch (err) { stopProgress(); toast(err.message, true); }
 }
 const _actualTimer = {};
 function saveActual(id, raw) {
