@@ -81,7 +81,7 @@ async function summaryFor(db, set, collection) {
   const completion = await computeEstimate(db, set, packsOpened, progress.cards_collected);
   const chase = await computeChase(db, set);
   const packEv = await computeEV(db, set);
-  return { set, ...totals, packsBought: totals.totalPacks, packsOpened, progress, completion, chase, packEv };
+  return { set, ...totals, packsBought: totals.totalPacks, packsOpened, progress, completion, chase, packEv, avgSingle: avgBaseSingle(set) };
 }
 
 // Cached completion curve for a set (re-simulate only when rarities/model/runs change).

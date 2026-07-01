@@ -144,6 +144,9 @@ function enrich(s) {
     market, marketEff, ceiling, ev: evEff, msrp: set.pack_msrp,
     bundlePacks: bp, bundleMarket: round(marketEff * bp),
     drPacks: comp ? comp.diminishingReturnsPacks : null,
+    drPacksSteep: comp ? comp.diminishingReturnsPacksSteep : null,
+    cardsLeftAtSteep: comp ? comp.cardsLeftAtSteep : null,
+    avgSingle: s.avgSingle != null ? s.avgSingle : null,
     lastRefresh: set.pack_price_updated ? set.pack_price_updated.slice(0, 10) : null,
     packsBought: s.totalPacks || 0, packsOpened: s.packsOpened || 0,
     collected, collectedActual, modelCollected,
@@ -550,6 +553,7 @@ function renderSetView() {
         <div style="font-size:13px;color:var(--soft);margin-top:4px;">to buy <b style="color:var(--text)">on top of the ${bought} you own</b> before each new pack adds &lt; 1 base card</div>
         <div class="bar"><i style="width:${drFill}%"></i></div>
         <div style="font-size:12px;color:var(--muted);margin-top:7px;">${bought}${set.drPacks != null ? ' of ~' + set.drPacks : ''} packs bought${set.drPacks != null ? ' (' + drFill + '%)' : ''}</div>
+        ${sellSinglesRec(set)}
       </div>
       <div class="stats">${stats}</div>
     </div>
@@ -658,6 +662,25 @@ function itemDeal(o, it) {
   if (ceil != null && perPack <= ceil) return { l: "Good deal", c: "var(--good)", bg: "rgba(47,213,138,.12)" };
   if (mkt != null && perPack >= mkt * 1.25) return { l: "Overpaid", c: "var(--bad)", bg: "rgba(247,107,107,.12)" };
   return { l: "Fair", c: "var(--fair)", bg: "rgba(255,176,32,.12)" };
+}
+
+// Deep breakpoint: once you own more packs than the primary DR point, recommend a
+// stopping point (the "steep" DR — under 1 new base card per 5 packs) and switching
+// to selling leftover sealed packs + buying the missing singles.
+function sellSinglesRec(set) {
+  const bought = set.packsBought || 0, dr = set.drPacks, steep = set.drPacksSteep;
+  if (dr == null || steep == null || steep >= 3900 || steep <= dr || bought <= dr) return "";
+  const cardsLeft = set.cardsLeftAtSteep;
+  const avg = set.avgSingle;
+  const singlesCost = (cardsLeft != null && avg != null) ? cardsLeft * avg : null;
+  const missing = cardsLeft != null
+    ? `the ~<b>${cardsLeft}</b> base card${cardsLeft === 1 ? "" : "s"} you'd still be missing as singles${singlesCost != null ? ` (≈ <b>${money(singlesCost)}</b>)` : ""}`
+    : `the base cards you'd still be missing as singles`;
+  const toSell = Math.max(0, bought - steep), sellVal = toSell * marketOf(set);
+  const body = bought > steep
+    ? `You own <b>${bought}</b> — <b>${bought - steep}</b> past this. Consider selling your ~<b>${toSell}</b> leftover sealed pack${toSell === 1 ? "" : "s"} (≈ <b>${money(sellVal)}</b>) and buying ${missing}.`
+    : `You're past diminishing returns — a good point to stop ripping, sell the rest, and buy ${missing}.`;
+  return `<div class="deep-dr"><span class="deep-tag">◆ Deep stop ~${steep} packs</span> <span>Beyond here each pack adds under 1 new base card per 5 opened. ${body}</span></div>`;
 }
 
 function orderRowHTML(o) {

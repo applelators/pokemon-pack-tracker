@@ -167,6 +167,11 @@ export function applyProgress(cc, opened = 0, collected = null) {
   };
   if (!N) return base;
   const fwd = cc.fwd || [0];
+  // Expected base cards still missing if you stopped ripping at the steep-DR point
+  // (drives the "sell the rest, buy singles" recommendation).
+  const steep = cc.diminishingReturnsPacksSteep;
+  const colAtSteep = steep != null ? (steep < fwd.length ? fwd[steep] : N) : N;
+  base.cardsLeftAtSteep = Math.max(0, Math.round(N - colAtSteep));
   const colAtOpened = opened <= 0 ? 0 : (opened < fwd.length ? fwd[opened] : N);
   base.expectedCollectedAtOpened = Math.round(colAtOpened);
   base.expectedPctAtOpened = Math.round((colAtOpened / N) * 1000) / 10;
