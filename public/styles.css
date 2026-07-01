@@ -229,9 +229,9 @@ input,select{font-family:inherit;}
 .confirm-card{width:100%;max-width:390px;margin:0 16px;background:#101624;border:1px solid var(--border2);border-radius:18px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.55);animation:popIn .18s ease;}
 .confirm-card h3{font-family:'Space Grotesk',sans-serif;font-size:18px;margin:0 0 7px;}
 .confirm-card p{font-size:13.5px;color:var(--muted2);margin:0 0 18px;line-height:1.5;}
-.confirm-acts{display:flex;gap:10px;}
+.confirm-acts{display:flex;gap:10px;flex-wrap:wrap;}
 .btn-danger{flex:1;border:none;cursor:pointer;font-size:14px;font-weight:700;padding:12px;border-radius:11px;background:var(--bad);color:#240a0a;}
-.scrim.center{align-items:center;}
+.scrim.center{align-items:center;z-index:80;}
 .circle-toggle{display:flex;align-items:center;gap:8px;width:100%;border:1px solid var(--border);background:var(--panel2);color:var(--soft);border-radius:10px;padding:11px 13px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:16px;text-align:left;}
 .circle-toggle.on{border-color:var(--accent);color:var(--text);background:rgba(255,203,5,.08);}
 .icon-btn.off{opacity:.32;cursor:not-allowed;}

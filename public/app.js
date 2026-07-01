@@ -22,18 +22,21 @@ const SPECIAL_PRODUCTS = [
   { name: "Lumiose Mini Tin — Meganium", alloc: [["me4", 1], ["me3", 1]] },
   { name: "Mega Moonlit Tin — Mega Clefable", alloc: [["me4", 2], ["me3", 2]] },
   { name: "Mega Moonlit Tin — Mega Gengar", alloc: [["me4", 2], ["me3", 2]] },
-  { name: "Mega Zygarde ex Premium Collection", total: 8 },
-  { name: "Mega Greninja ex Premium Collection", total: 8 },
-  { name: "Mega Latias ex Box", alloc: [["me1", 2], ["", 2]] },
-  { name: "Raikou 2-Booster Blister", alloc: [["me1", 1], ["", 1]] },
+  { name: "Mega Zygarde ex Premium Collection", alloc: [["me3", 8]] },   // all Perfect Order
+  { name: "Mega Greninja ex Premium Collection", alloc: [["me4", 8]] },  // all Chaos Rising
+  { name: "Mega Latias ex Box", alloc: [["me1", 2], ["sv10", 2]] },       // + Destined Rivals
+  { name: "Raikou 2-Booster Blister", alloc: [["me1", 1], ["me2", 1]] },  // + Phantasmal Flames
   { name: "Chaos Rising 3-Booster Blister", alloc: [["me4", 3]] },
-  { name: "First Partner Illustration Collection — Series 2", alloc: [["", 2]] },
+  { name: "First Partner Illustration Collection — Series 2", total: 2 }, // assorted, you assign
 ];
-// Resolve a special product's default allocation into [{setId, packs}], converting
-// untracked default sets to "other" so nothing dangles.
+// Display names for known contained sets that may not be tracked yet (for the prompt).
+const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising" };
+function setName(id) { const s = setById(id); return s ? s.name : (KNOWN_SET_NAMES[id] || id); }
+// A special product's default allocation as [{setId, packs}] — keeps real ids even for
+// untracked sets (so we can offer to track them); "" = assorted/other.
 function defaultAlloc(sp) {
-  if (sp.alloc) return sp.alloc.map(([id, packs]) => ({ setId: (id && setById(id)) ? id : "", packs }));
-  return [{ setId: "", packs: sp.total || 1 }]; // assorted — one "other" row to edit
+  if (sp.alloc) return sp.alloc.map(([id, packs]) => ({ setId: id || "", packs }));
+  return [{ setId: "", packs: sp.total || 1 }];
 }
 
 // Chase-rarity glyph + colour (keyed by abbr the estimator returns).
@@ -681,7 +684,41 @@ function editOrder(id) {
 function closeComposer() { state.composerOpen = false; state.editingId = null; state.draft = null; renderComposer(); }
 function nextLineId(d) { return d.lines.reduce((m, l) => Math.max(m, l.id), 0) + 1; }
 function addLine(product) { const d = state.draft; const firstSet = (d.lines.find((l) => l.setId) || {}).setId || (state.sets[0] && state.sets[0].id); d.lines.push({ id: nextLineId(d), product, setId: setById(state.setId) ? state.setId : firstSet, qty: 1, price: "" }); renderLines(); recalc(); }
-function addSpecial(name) { const sp = SPECIAL_PRODUCTS.find((p) => p.name === name); if (!sp) return; const d = state.draft; d.lines.push({ id: nextLineId(d), product: sp.name, qty: 1, price: "", mixed: true, alloc: defaultAlloc(sp) }); renderLines(); recalc(); }
+function addSpecial(name) {
+  const sp = SPECIAL_PRODUCTS.find((p) => p.name === name); if (!sp) return;
+  const alloc = defaultAlloc(sp);
+  // Known contained sets you don't track yet → recommend importing before adding.
+  const untracked = [...new Set(alloc.map((a) => a.setId).filter((id) => id && !setById(id)))];
+  if (untracked.length) promptTrackSets(sp, alloc, untracked);
+  else pushSpecialLine(sp, alloc);
+}
+function pushSpecialLine(sp, alloc) {
+  // Any set still untracked at this point → log its packs as "Other" (spending-only).
+  const resolved = alloc.map((a) => ({ setId: (a.setId && setById(a.setId)) ? a.setId : "", packs: a.packs }));
+  const d = state.draft;
+  d.lines.push({ id: nextLineId(d), product: sp.name, qty: 1, price: "", mixed: true, alloc: resolved });
+  renderLines(); recalc();
+}
+function promptTrackSets(sp, alloc, untracked) {
+  const packsFor = (id) => alloc.filter((a) => a.setId === id).reduce((s, a) => s + a.packs, 0);
+  const names = untracked.map(setName);
+  const detail = `${sp.name} includes ${untracked.map((id) => `${packsFor(id)} ${setName(id)}`).join(" + ")} pack${untracked.length > 1 || packsFor(untracked[0]) > 1 ? "s" : ""} from ${untracked.length > 1 ? "sets" : "a set"} you don't track yet. Track ${untracked.length > 1 ? "them" : "it"} now so those packs count toward completion?`;
+  askChoice("Track " + names.join(" & ") + " first?", detail, [
+    { label: "Track " + (untracked.length > 1 ? "them" : names[0]), cls: "save", fn: () => trackThenAdd(sp, alloc, untracked) },
+    { label: "Add without tracking", cls: "cancel", fn: () => pushSpecialLine(sp, alloc) },
+  ]);
+}
+async function trackThenAdd(sp, alloc, untracked) {
+  toast("Tracking " + untracked.map(setName).join(" & ") + "…");
+  for (const id of untracked) {
+    try { await api(`/sets/${id}/import`, { method: "POST" }); }
+    catch (e) { toast("Couldn't import " + setName(id) + ": " + e.message, true); }
+  }
+  try { await loadHub(); } catch { /* keep going */ }
+  if (state.allSets) { try { await loadAllSets(); } catch { /* ignore */ } }
+  pushSpecialLine(sp, alloc);
+  toast("Now tracking " + untracked.filter((id) => setById(id)).map(setName).join(" & "));
+}
 function removeLine(id) { const d = state.draft; if (d.lines.length > 1) d.lines = d.lines.filter((l) => l.id !== id); renderLines(); recalc(); }
 function lineAllocPacks(l) { return (l.alloc || []).reduce((s, a) => s + (Number(a.packs) || 0), 0); }
 function linePacksPerUnit(l) { return l.mixed ? lineAllocPacks(l) : ppuOf(l.product); }
@@ -700,7 +737,7 @@ async function saveOrder() {
   if (t.packs <= 0 && t.subtotal <= 0) { toast("Add a product line first", true); return; }
   const items = d.lines.map((l) => {
     if (l.mixed) {
-      const alloc = (l.alloc || []).filter((a) => Number(a.packs) > 0).map((a) => ({ set_id: a.setId || null, packs: Number(a.packs) }));
+      const alloc = (l.alloc || []).filter((a) => Number(a.packs) > 0).map((a) => ({ set_id: (a.setId && setById(a.setId)) ? a.setId : null, packs: Number(a.packs) }));
       const primary = (alloc.find((a) => a.set_id) || {}).set_id || null;
       return { set_id: primary, product_type: l.product, quantity: Number(l.qty) || 0, unit_price: Number(l.price) || 0, packs_per_unit: alloc.reduce((s, a) => s + a.packs, 0), set_packs: alloc };
     }
@@ -913,14 +950,18 @@ function renderSetsModal() {
 
 // ---- confirm dialog ------------------------------------------------------
 function askConfirm(msg, detail, onYes) { state.confirm = { msg, detail, onYes }; renderConfirm(); }
+function askChoice(msg, detail, actions) { state.confirm = { msg, detail, actions }; renderConfirm(); }
 function closeConfirm() { state.confirm = null; renderConfirm(); }
 function renderConfirm() {
   const host = document.getElementById("confirm");
   if (!state.confirm) { host.innerHTML = ""; return; }
   const c = state.confirm;
+  const acts = c.actions
+    ? c.actions.map((a, i) => `<button class="${a.cls || "cancel"}" data-xact="ch" data-i="${i}" style="width:100%">${esc(a.label)}</button>`).join("") + `<button class="cancel" data-xact="no" style="width:100%">Cancel</button>`
+    : `<button class="cancel" data-xact="no" style="flex:1">Cancel</button><button class="btn-danger" data-xact="yes">Delete</button>`;
   host.innerHTML = `<div class="scrim center" data-xact="bg"><div class="confirm-card" data-xact="stop">
     <h3>${esc(c.msg)}</h3><p>${esc(c.detail)}</p>
-    <div class="confirm-acts"><button class="cancel" data-xact="no" style="flex:1">Cancel</button><button class="btn-danger" data-xact="yes">Delete</button></div>
+    <div class="confirm-acts">${acts}</div>
   </div></div>`;
 }
 function requestDeleteOrder(id) {
@@ -1218,6 +1259,7 @@ document.getElementById("confirm").addEventListener("click", (e) => {
   if (a === "bg" || a === "no") closeConfirm();
   else if (a === "stop") e.stopPropagation();
   else if (a === "yes") { const fn = state.confirm && state.confirm.onYes; closeConfirm(); if (fn) fn(); }
+  else if (a === "ch") { const acts = state.confirm && state.confirm.actions; const fn = acts && acts[Number(b.dataset.i)] && acts[Number(b.dataset.i)].fn; closeConfirm(); if (fn) fn(); }
 });
 
 document.getElementById("settings").addEventListener("click", (e) => {

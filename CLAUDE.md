@@ -42,7 +42,10 @@ the new visual + interaction language.
   by pack count** (see `setTotals` + the Spending aggregation). `packs_per_unit` = the
   allocation sum. Composer: the "Special / sealed product" picker (`SPECIAL_PRODUCTS`)
   adds a mixed line with a pre-filled allocation editor. "Booster Display Box" (36) is a
-  normal single-set product.
+  normal single-set product. `SPECIAL_PRODUCTS` allocations use **real set ids even for
+  untracked sets** (Latias Box → `sv10` Destined Rivals, Raikou → `me2` Phantasmal Flames);
+  picking such a product prompts up-front to **import that set first** (`askChoice` →
+  `trackThenAdd`) so its packs get credited — decline and those packs fall back to "Other".
 - **Promo cards** from special products: `order_promos(order_id, name, image_small,
   card_id)`, edited on the order (composer Promos section; image auto-filled via
   `GET /api/cards/search`). Shown as a `🎴 N promos` chip. Separate from pack pulls.
