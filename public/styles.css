@@ -222,6 +222,8 @@ input,select{font-family:inherit;}
 
 .sym,.exp-num,.lart,.hub-art{position:relative;}
 .sym.sp::before,.exp-num.sp::before,.lart.sp::before,.hub-art.sp::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;background:linear-gradient(135deg,#ffd86b,#ff9ad5,#7ad8ff,#9b8cff);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;}
+/* Main Mega-Evolution-era sets get a solid gold border (same ring, one colour). */
+.sym.me::before,.exp-num.me::before,.lart.me::before,.hub-art.me::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;background:#fae915;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;}
 .sp-chip{font-size:10px;font-weight:700;color:#241a00;background:linear-gradient(135deg,#ffd86b,#ff9ad5,#7ad8ff);border-radius:5px;padding:2px 6px;margin-left:7px;vertical-align:middle;}
 .oop{font-size:10.5px;font-weight:600;color:var(--fair);border:1px solid rgba(255,176,32,.4);border-radius:5px;padding:2px 7px;margin-left:7px;white-space:nowrap;}
 .exp-stats{font-size:12px;color:var(--muted2);margin-top:5px;}

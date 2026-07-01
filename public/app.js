@@ -112,6 +112,7 @@ function stopProgress() {
 function setCode(id) { return String(id || "?").toUpperCase().replace(/PT(\d)/, ".$1"); }
 function tintOf(id) { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return `hsl(${h % 360} 46% 42%)`; }
 function isSpecialId(id) { return /pt\d/i.test(String(id)); }                // S&V .5 sets are the special subsets
+function isMega(series, id) { return !isSpecialId(id) && /mega evolution/i.test(series || ""); } // main Mega-era sets
 function releaseSort(date) { if (!date) return 0; const m = String(date).match(/(\d{4})-(\d{2})/); return m ? Number(m[1]) * 100 + Number(m[2]) : 0; }
 function fmtRelease(date) { if (!date) return ""; const d = new Date(String(date).replace(/\//g, "-")); return isNaN(d) ? date : d.toLocaleString("en-US", { month: "short", year: "numeric" }); }
 function monthsOld(date) { const rs = releaseSort(date); if (!rs) return 0; const now = new Date(); return (now.getFullYear() - Math.floor(rs / 100)) * 12 + (now.getMonth() + 1 - (rs % 100)); }
@@ -212,7 +213,7 @@ function enrich(s) {
   const bp = bundlePacks();
   return {
     id: set.id, raw: set, name: set.name, series: set.series || "", code: setCode(set.id),
-    tint: tintOf(set.id), special: isSpecialId(set.id), oop: isOOP(set.release_date),
+    tint: tintOf(set.id), special: isSpecialId(set.id), mega: isMega(set.series, set.id), oop: isOOP(set.release_date),
     base: set.printed_total, total: set.total || set.printed_total,
     release: fmtRelease(set.release_date), releaseDate: set.release_date, rs: releaseSort(set.release_date),
     market, marketEff, ceiling, ev: evEff, msrp: set.pack_msrp,
@@ -501,7 +502,7 @@ function renderHub() {
     const aStyle = anim ? `animation:rowIn .34s cubic-bezier(.22,1,.36,1) backwards;animation-delay:${i * 55}ms;` : "";
     const artBg = s.heroArt ? `background-image:url('${esc(s.heroArt)}')` : `background:linear-gradient(160deg, ${s.tint} 0%, #0e1422 80%)`;
     return `<div class="hubrow" style="${aStyle}">
-      <div class="hub-art${s.special ? ' sp' : ''}" style="${artBg}"><span class="hub-code">${s.code}</span>${s.special ? '<span class="hub-sp">✦</span>' : ''}</div>
+      <div class="hub-art${s.special ? ' sp' : ''}${s.mega ? ' me' : ''}" style="${artBg}"><span class="hub-code">${s.code}</span>${s.special ? '<span class="hub-sp">✦</span>' : ''}</div>
       <div class="hub-mid">
         <div class="hub-name">${esc(s.name)}${s.oop ? '<span class="oop">likely out of print</span>' : ''}</div>
         <div class="hub-sub">${esc(s.series)}${s.release ? ' · ' + s.release : ''}</div>
@@ -554,7 +555,7 @@ function renderSetView() {
 
   const pills = state.sets.map((s) => `
     <button class="pill${on(s.id === state.setId)}" data-act="set" data-v="${s.id}">
-      <span class="sym${s.special ? ' sp' : ''}${SET_SPRITE[s.id] ? ' has-mon' : ''}" style="background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)">${setSpriteImg(s.id)}<span class="sym-code">${s.code}</span></span>
+      <span class="sym${s.special ? ' sp' : ''}${s.mega ? ' me' : ''}${SET_SPRITE[s.id] ? ' has-mon' : ''}" style="background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)">${setSpriteImg(s.id)}<span class="sym-code">${s.code}</span></span>
       <span class="col"><span class="pn">${esc(s.name)}</span><span class="pm">${s.base} base · ${s.total} total</span></span>
     </button>`).join("");
 
@@ -1006,7 +1007,7 @@ function renderLines() {
     }
     const ppu = ppuOf(l.product); const s = setById(l.setId) || state.sets[0];
     return `<div class="lrow" data-line="${l.id}">
-      <div class="lart${s && s.special ? ' sp' : ''}" style="background:linear-gradient(160deg, ${s ? s.tint : '#333'} 0%, #10182a 80%)"><span>${s ? s.code : '—'}</span></div>
+      <div class="lart${s && s.special ? ' sp' : ''}${s && s.mega ? ' me' : ''}" style="background:linear-gradient(160deg, ${s ? s.tint : '#333'} 0%, #10182a 80%)"><span>${s ? s.code : '—'}</span></div>
       <div class="lcol" style="flex:1 1 140px;min-width:120px;"><span class="lk">Set</span>
         <select data-lf="setId">${setOpts(l.setId)}</select></div>
       <div class="lcol" style="flex:1 1 130px;min-width:120px;"><span class="lk">${esc(l.product)}</span><span style="font-size:12px;color:var(--muted);padding:6px 0;">${ppu} pack${ppu > 1 ? "s" : ""}/unit</span></div>
@@ -1067,7 +1068,7 @@ function renderSetsModal() {
     const list = state.allSets.slice().sort((a, b) => (releaseSort(b.releaseDate) - releaseSort(a.releaseDate)));
     const rows = list.map((s) => {
       const tracked = setById(s.id);
-      const special = isSpecialId(s.id), oop = isOOP(s.releaseDate);
+      const special = isSpecialId(s.id), mega = isMega(s.series, s.id), oop = isOOP(s.releaseDate);
       const busy = state.importing === s.id;
       const lockedRemove = tracked && (tracked.ordersCount > 0 || tracked.packsBought > 0);
       const actions = tracked
@@ -1084,7 +1085,7 @@ function renderSetsModal() {
         stats = `Loose rip <b>${s.market != null ? money(Math.max(5, s.market)) : '—'}</b> · not tracked yet`;
       }
       return `<div class="exp-row">
-        <div class="exp-num${special ? ' sp' : ''}" style="background:linear-gradient(160deg, ${tintOf(s.id)} 0%, #10182a 80%)">${setCode(s.id)}</div>
+        <div class="exp-num${special ? ' sp' : ''}${mega ? ' me' : ''}" style="background:linear-gradient(160deg, ${tintOf(s.id)} 0%, #10182a 80%)">${setCode(s.id)}</div>
         <div class="exp-info">
           <div class="exp-name">${esc(s.name)}${badges}</div>
           <div class="exp-meta">${esc(s.series || '')}${s.releaseDate ? ' · ' + fmtRelease(s.releaseDate) : ''} · ${s.printedTotal} cards</div>
