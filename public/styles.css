@@ -378,15 +378,23 @@ input,select{font-family:inherit;}
 .tip-stop{color:var(--accent);background:rgba(255,203,5,.10);border:1px solid rgba(255,203,5,.30);}
 
 /* ---- Set view: left sidebar set-picker on desktop (horizontal scroll on mobile) ---- */
-.set-layout{display:flex;gap:20px;align-items:flex-start;}
-.set-sidebar{flex:0 0 210px;position:sticky;top:14px;}
-.set-sidebar .pills{flex-direction:column;overflow-x:visible;overflow-y:auto;max-height:calc(100vh - 96px);margin:0;gap:8px;padding:0 4px 4px 0;}
-.set-sidebar .pill{width:100%;}
+.wrap.wide{max-width:1240px;}          /* extra room for the sidebar layout (set view only) */
+.set-layout{display:flex;gap:22px;align-items:flex-start;}
+.set-sidebar{flex:0 0 206px;position:sticky;top:14px;}
+.set-sidebar .pills{flex-direction:column;overflow-x:visible;overflow-y:auto;max-height:calc(100vh - 96px);margin:0;gap:7px;padding:0 5px 4px 0;}
+.set-sidebar .pill{width:100%;align-items:center;padding:8px 12px 8px 9px;gap:9px;}
+.set-sidebar .pill .sym{width:34px;height:34px;flex:0 0 34px;font-size:10px;}
+.set-sidebar .pill .pn{font-size:13px;line-height:1.2;}
+.set-sidebar .pill .pm{font-size:10.5px;margin-top:1px;}
 .set-main{flex:1 1 auto;min-width:0;}
+/* Deal hero stacks by default (full-width stepper — no cramped price); 2-up only when wide. */
+.set-main .deal-grid{grid-template-columns:1fr;}
+@media(min-width:1240px){ .set-main .deal-grid{grid-template-columns:1.05fr .95fr;} }
 @media(max-width:900px){
   .set-layout{display:block;}
   .set-sidebar{position:static;flex:none;}
   .set-sidebar .eyebrow{display:none;}
   .set-sidebar .pills{flex-direction:row;overflow-x:auto;overflow-y:visible;max-height:none;margin:9px 0 16px;padding-bottom:6px;}
   .set-sidebar .pill{width:auto;}
+  .set-sidebar .pill .pn{white-space:nowrap;}
 }

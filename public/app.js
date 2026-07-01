@@ -280,6 +280,7 @@ function headerHTML() {
 
 // ---- render entry --------------------------------------------------------
 function render() {
+  document.getElementById("app").classList.toggle("wide", state.view === "set"); // wider container for the sidebar layout
   if (state.loading) { document.getElementById("app").innerHTML = headerHTML() + `<div class="loading">Loading your sets…</div>`; return; }
   if (state.view === "spend") renderSpend();
   else if (state.view === "set" && setById(state.setId)) renderSetView();
