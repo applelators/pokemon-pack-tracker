@@ -49,6 +49,13 @@ the new visual + interaction language.
 - **Promo cards** from special products: `order_promos(order_id, name, image_small,
   card_id)`, edited on the order (composer Promos section; image auto-filled via
   `GET /api/cards/search`). Shown as a `🎴 N promos` chip. Separate from pack pulls.
+- **30th Celebration (expected id `cel30`, releases 2026-09-16):** packs are ONLY sold
+  inside products (no loose packs / booster boxes). Catalog entries exist in
+  `SPECIAL_PRODUCTS` with user-confirmed MSRPs implying ~$5.00/pack (Booster Bundle
+  $26.94/6 = $4.49 is the floor; ETB $49.99/9; UPC $179.99/29+1 Classic). **On import
+  (Sept 2026): seed `pack_msrp` ≈ 5.00 and market/ceiling ≈ 4.49–5.00 manually** until
+  TCGCSV has real market data. Battle Decks contain no packs (spending-only lines with
+  an empty `set_packs` array — validation allows this deliberately).
 - **Collection actuals** override the model: `progress(set_id, collection, cards_collected)`.
   Blank = model estimate; entered = real count.
 

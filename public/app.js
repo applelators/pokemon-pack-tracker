@@ -19,18 +19,44 @@ const QUICK_PRODUCTS = [["Booster Pack", "🎴"], ["Booster Bundle", "📦"], ["
 // allocations use the tracked set ids; "" = untracked/other packs (spending only,
 // no completion credit). `total` (assorted products) seeds one "other" row you edit.
 const SPECIAL_PRODUCTS = [
-  { name: "Lumiose Mini Tin — Meganium", alloc: [["me4", 1], ["me3", 1]] },
-  { name: "Mega Moonlit Tin — Mega Clefable", alloc: [["me4", 2], ["me3", 2]] },
-  { name: "Mega Moonlit Tin — Mega Gengar", alloc: [["me4", 2], ["me3", 2]] },
-  { name: "Mega Zygarde ex Premium Collection", alloc: [["me3", 8]] },   // all Perfect Order
-  { name: "Mega Greninja ex Premium Collection", alloc: [["me4", 8]] },  // all Chaos Rising
-  { name: "Mega Latias ex Box", alloc: [["me1", 2], ["sv10", 2]] },       // + Destined Rivals
-  { name: "Raikou 2-Booster Blister", alloc: [["me1", 1], ["me2", 1]] },  // + Phantasmal Flames
-  { name: "Chaos Rising 3-Booster Blister", alloc: [["me4", 3]] },
-  { name: "First Partner Illustration Collection — Series 2", alloc: [["me3", 1], ["me4", 1]] }, // 1 Perfect Order + 1 Chaos Rising
+  { name: "Lumiose Mini Tin — Meganium", alloc: [["me4", 1], ["me3", 1]], group: "Mega Evolution era" },
+  { name: "Mega Moonlit Tin — Mega Clefable", alloc: [["me4", 2], ["me3", 2]], group: "Mega Evolution era" },
+  { name: "Mega Moonlit Tin — Mega Gengar", alloc: [["me4", 2], ["me3", 2]], group: "Mega Evolution era" },
+  { name: "Mega Zygarde ex Premium Collection", alloc: [["me3", 8]], group: "Mega Evolution era" },   // all Perfect Order
+  { name: "Mega Greninja ex Premium Collection", alloc: [["me4", 8]], group: "Mega Evolution era" },  // all Chaos Rising
+  { name: "Mega Latias ex Box", alloc: [["me1", 2], ["sv10", 2]], group: "Mega Evolution era" },       // + Destined Rivals
+  { name: "Raikou 2-Booster Blister", alloc: [["me1", 1], ["me2", 1]], group: "Mega Evolution era" },  // + Phantasmal Flames
+  { name: "Chaos Rising 3-Booster Blister", alloc: [["me4", 3]], group: "Mega Evolution era" },
+  { name: "First Partner Illustration Collection — Series 2", alloc: [["me3", 1], ["me4", 1]], group: "Mega Evolution era" }, // 1 PO + 1 CR
+
+  // 30th Celebration (Sept–Nov 2026, set id expected "cel30" — packs only exist inside
+  // products; MSRPs user-confirmed). UPC includes 29 set packs + 1 Classic Collection
+  // pack (its own mini-set → Other). Battle Decks contain no packs (spending-only).
+  { name: "30th Celebration Elite Trainer Box", alloc: [["cel30", 9]], group: "30th Celebration" },
+  { name: "30th Celebration Pokémon Center ETB", alloc: [["cel30", 11]], group: "30th Celebration" },
+  { name: "30th Celebration Ultra-Premium Collection — Day (Espeon)", alloc: [["cel30", 29], ["", 1]], group: "30th Celebration" },
+  { name: "30th Celebration Ultra-Premium Collection — Night (Umbreon)", alloc: [["cel30", 29], ["", 1]], group: "30th Celebration" },
+  { name: "30th Celebration Booster Bundle", alloc: [["cel30", 6]], group: "30th Celebration" },
+  { name: "30th Celebration Binder Collection", alloc: [["cel30", 5]], group: "30th Celebration" },
+  { name: "30th Celebration Mini Tin — Day", alloc: [["cel30", 2]], group: "30th Celebration" },
+  { name: "30th Celebration Mini Tin — Night", alloc: [["cel30", 2]], group: "30th Celebration" },
+  { name: "30th Celebration Poster Collection", alloc: [["cel30", 3]], group: "30th Celebration" },
+  { name: "30th Celebration Tech Sticker Collection — Lucario", alloc: [["cel30", 3]], group: "30th Celebration" },
+  { name: "30th Celebration Tech Sticker Collection — Alolan Exeggutor", alloc: [["cel30", 3]], group: "30th Celebration" },
+  { name: "30th Celebration ex Box — Sylveon ex", alloc: [["cel30", 4]], group: "30th Celebration" },
+  { name: "30th Celebration ex Box — Greninja ex", alloc: [["cel30", 4]], group: "30th Celebration" },
+  { name: "30th Celebration ex Tin — Sylveon ex", alloc: [["cel30", 4]], group: "30th Celebration" },
+  { name: "30th Celebration ex Tin — Greninja ex", alloc: [["cel30", 4]], group: "30th Celebration" },
+  { name: "30th Celebration Knock Out Collection", alloc: [["cel30", 2]], group: "30th Celebration" },
+  { name: "30th Celebration 2-Pack Blister", alloc: [["cel30", 2]], group: "30th Celebration" },
+  { name: "30th Celebration Ditto Premium Collection", alloc: [["cel30", 8]], group: "30th Celebration" },
+  { name: "30th Celebration Figure Collection — Mewtwo", alloc: [["cel30", 5]], group: "30th Celebration" },
+  { name: "30th Celebration Figure Collection — Mew", alloc: [["cel30", 5]], group: "30th Celebration" },
+  { name: "30th Celebration Battle Deck — Espeon ex", alloc: [], group: "30th Celebration" },   // no packs
+  { name: "30th Celebration Battle Deck — Umbreon ex", alloc: [], group: "30th Celebration" },  // no packs
 ];
 // Display names for known contained sets that may not be tracked yet (for the prompt).
-const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising" };
+const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising", cel30: "30th Celebration" };
 function setName(id) { const s = setById(id); return s ? s.name : (KNOWN_SET_NAMES[id] || id); }
 // A special product's default allocation as [{setId, packs}] — keeps real ids even for
 // untracked sets (so we can offer to track them); "" = assorted/other.
@@ -857,7 +883,8 @@ function pushSpecialLine(sp, alloc) {
 function promptTrackSets(sp, alloc, untracked) {
   const packsFor = (id) => alloc.filter((a) => a.setId === id).reduce((s, a) => s + a.packs, 0);
   const names = untracked.map(setName);
-  const detail = `${sp.name} includes ${untracked.map((id) => `${packsFor(id)} ${setName(id)}`).join(" + ")} pack${untracked.length > 1 || packsFor(untracked[0]) > 1 ? "s" : ""} from ${untracked.length > 1 ? "sets" : "a set"} you don't track yet. Track ${untracked.length > 1 ? "them" : "it"} now so those packs count toward completion?`;
+  const unreleasedNote = untracked.includes("cel30") ? " (If the set isn't on pokemontcg.io yet — it releases Sept 2026 — tracking will fail and the packs log as Other; re-import later and reassign.)" : "";
+  const detail = `${sp.name} includes ${untracked.map((id) => `${packsFor(id)} ${setName(id)}`).join(" + ")} pack${untracked.length > 1 || packsFor(untracked[0]) > 1 ? "s" : ""} from ${untracked.length > 1 ? "sets" : "a set"} you don't track yet. Track ${untracked.length > 1 ? "them" : "it"} now so those packs count toward completion?${unreleasedNote}`;
   askChoice("Track " + names.join(" & ") + " first?", detail, [
     { label: "Track " + (untracked.length > 1 ? "them" : names[0]), cls: "save", fn: () => trackThenAdd(sp, alloc, untracked) },
     { label: "Add without tracking", cls: "cancel", fn: () => pushSpecialLine(sp, alloc) },
@@ -945,7 +972,7 @@ function renderComposer() {
           ${d.store === "Target" ? `<button class="circle-toggle${d.circle ? ' on' : ''}" data-cact="circle">${d.circle ? "✓" : "○"} Target Circle Card — 5% off subtotal (before tax)</button>` : ""}
           <div class="uplabel" style="margin-bottom:9px;">Quick add</div>
           <div class="quick">${quick}
-            <select class="spsel" data-spadd><option value="">+ Special / sealed product…</option>${SPECIAL_PRODUCTS.map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join("")}</select>
+            <select class="spsel" data-spadd><option value="">+ Special / sealed product…</option>${[...new Set(SPECIAL_PRODUCTS.map((p) => p.group || "Other"))].map((g) => `<optgroup label="${esc(g)}">${SPECIAL_PRODUCTS.filter((p) => (p.group || "Other") === g).map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join("")}</optgroup>`).join("")}</select>
           </div>
           <div class="lines" id="lines"></div>
           <div class="uplabel" style="margin:16px 0 8px;">Promo cards <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;">— from special products, optional</span></div>

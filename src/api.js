@@ -21,7 +21,9 @@ const json = (data, status = 200) =>
 function validateItems(items) {
   if (!Array.isArray(items) || items.length === 0) return "At least one line item is required";
   for (const it of items) {
-    const hasAlloc = Array.isArray(it.set_packs) && it.set_packs.some((a) => Number(a.packs) > 0);
+    // An explicitly-empty allocation array = a deliberate spending-only line (e.g. a
+    // Battle Deck with no packs) — allowed with no set.
+    const hasAlloc = Array.isArray(it.set_packs);
     if (!it.set_id && !hasAlloc) return "Each line needs a set (or a mixed-set pack allocation)";
     if (!it.product_type) return "Each item needs a product_type";
     if (!(Number(it.quantity) > 0)) return "Quantity must be > 0";
