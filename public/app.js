@@ -132,6 +132,48 @@ function stopProgress() {
   if (!_prog) return;
   clearInterval(_prog.int); _prog.el.remove(); _prog = null;
 }
+// Manual variant — real progress you update yourself (used by refresh-all).
+function startProgressManual(title) {
+  stopProgress();
+  const el = document.createElement("div");
+  el.className = "progress-toast";
+  el.innerHTML = `<div class="pt-spin"></div><div style="min-width:190px;"><div class="pt-title"></div><div class="pt-step"></div><div class="pt-bar"><i></i></div></div>`;
+  document.body.appendChild(el);
+  el.querySelector(".pt-title").textContent = title;
+  _prog = { el, int: 0 };
+}
+function setProgressStep(text, frac) {
+  if (!_prog) return;
+  _prog.el.querySelector(".pt-step").textContent = text;
+  const bar = _prog.el.querySelector(".pt-bar > i");
+  if (bar && frac != null) bar.style.width = Math.round(Math.max(0, Math.min(1, frac)) * 100) + "%";
+}
+
+// Refresh market pricing for every tracked set, sequentially (spaced to avoid
+// upstream rate limits), with real set-by-set progress.
+async function refreshAllMarkets() {
+  if (state.refreshingAll) return;
+  const sets = [...state.sets];
+  if (!sets.length) return;
+  state.refreshingAll = true; render();
+  startProgressManual("Refreshing all markets…");
+  const failed = [];
+  for (let i = 0; i < sets.length; i++) {
+    const s = sets[i];
+    setProgressStep(`${i + 1} of ${sets.length} · ${s.name}…`, i / sets.length);
+    try {
+      const r = await api(`/sets/${s.id}/pricing/refresh`, { method: "POST" });
+      state.hubPrice[s.id] = round(Math.max(5, r.pack_market_price || 5));
+    } catch (e) { failed.push(s.name); }
+    if (i < sets.length - 1) await new Promise((res) => setTimeout(res, 700));
+  }
+  setProgressStep("Reloading…", 1);
+  try { await loadHub(); } catch { /* toast below covers it */ }
+  state.refreshingAll = false;
+  stopProgress();
+  render();
+  toast(failed.length ? `Refreshed ${sets.length - failed.length}/${sets.length} — failed: ${failed.join(", ")}` : `All ${sets.length} markets refreshed ✓`, failed.length > 0);
+}
 
 // ---- set-shape helpers ---------------------------------------------------
 // Every set is shown by its number (SV08, SV8.5, …) derived from the API id.
@@ -210,6 +252,7 @@ const state = {
   loosePrice: 5, bundlePrice: 30,
   hubPrice: {},
   hubAnimated: false,
+  refreshingAll: false,
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -544,7 +587,7 @@ function renderHub() {
   }).join("");
   state.hubAnimated = true;
   document.getElementById("app").innerHTML = headerHTML() + `
-    <div class="hub-head"><div><div class="hub-title disp">Your sets</div><div class="hub-tagline">Pick a set to check deals &amp; log orders</div></div></div>
+    <div class="hub-head"><div><div class="hub-title disp">Your sets</div><div class="hub-tagline">Pick a set to check deals &amp; log orders</div></div><button class="hub-mini" data-act="refreshall"${state.refreshingAll ? " disabled" : ""}>${state.refreshingAll ? "↻ Refreshing…" : "↻ Refresh all markets"}</button></div>
     <div class="hub-list">${rows}
       ${sets.length ? "" : `<div class="hub-empty">No sets tracked yet — import one to get started.</div>`}
       <button class="hub-import" data-act="addset" style="${anim ? `animation:rowIn .34s cubic-bezier(.22,1,.36,1) backwards;animation-delay:${sets.length * 55}ms;` : ''}"><span class="hub-import-plus">+</span><span>Import a set<small>browse expansions, newest first</small></span></button>
@@ -1368,6 +1411,7 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "hubdec") hubStep(v, -1);
   else if (act === "hubaddorder") { state.setId = v; openComposer(); }
   else if (act === "hubrefresh") hubRefresh(v);
+  else if (act === "refreshall") refreshAllMarkets();
   else if (act === "editorder") editOrder(Number(v));
   else if (act === "delorder") requestDeleteOrder(Number(v));
 });

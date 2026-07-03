@@ -420,3 +420,7 @@ input,select{font-family:inherit;}
 @keyframes ptspin{to{transform:rotate(360deg);}}
 .pt-title{font-size:13.5px;font-weight:700;color:var(--text);}
 .pt-step{font-size:12px;color:var(--muted);margin-top:1px;}
+
+/* ---- Refresh-all progress bar ---- */
+.pt-bar{height:5px;border-radius:4px;background:rgba(255,255,255,.1);margin-top:7px;overflow:hidden;}
+.pt-bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--accent));border-radius:4px;transition:width .3s ease;}
