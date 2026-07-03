@@ -94,7 +94,9 @@ Derive any new hue in `oklch()` from these — don't invent fresh hex.
 - **Set-number tile:** every set is shown by its **number** (`SV08`, `SV8.5`, `SV09`…),
   never an ad-hoc abbreviation, on a tinted striped gradient chip (`s.tint → #10182a`).
   Special sets get a holographic gradient ring (`.sp::before`, mask trick) + a `✦ Special`
-  chip. Sets &gt;~24 months past release get a muted **"likely out of print"** badge.
+  chip. Every set shows a **print-status chip** (`printChip`/`PRINT_STATUS` — researched
+  Jul 2026 from r/PKMNTCGDeals history: green in-print / amber limited / red out-of-print);
+  unlisted sets fall back to the &gt;24-month heuristic labeled "(est.)".
 - **Deal verdict:** `verdict(perPack,set)` → `{word:BUY|FAIR|PASS, color, bg, border, tone}`.
   good = `≤ ceiling`; bad = `≥ cheapestRip·1.25`; else fair.
 - **Toast:** transient bottom-center; `toast(msg)`.
