@@ -1303,7 +1303,17 @@ function recalc() {
 }
 
 // ---- sets (manage) modal -------------------------------------------------
-async function openSetsModal() { state.setsOpen = true; renderSetsModal(); if (!state.allSets) { try { await loadAllSets(); } catch (e) { /* shown below */ } renderSetsModal(); } }
+const EXPANSIONS_STEPS = ["Fetching the expansion list from pokemontcg.io…", "Reading set details & release dates…", "Merging your deal prices…", "Almost there…"];
+async function openSetsModal() {
+  state.setsOpen = true; state.allSetsError = null; renderSetsModal();
+  if (!state.allSets) {
+    startProgress("Loading expansions…", EXPANSIONS_STEPS);
+    try { await loadAllSets(); }
+    catch (e) { state.allSetsError = e.message || "Couldn't reach pokemontcg.io"; }
+    stopProgress();
+    renderSetsModal();
+  }
+}
 function closeSetsModal() { state.setsOpen = false; renderSetsModal(); }
 async function importSet(id) {
   state.importing = id; renderSetsModal();
@@ -1333,8 +1343,12 @@ function renderSetsModal() {
   const host = document.getElementById("setsmodal");
   if (!state.setsOpen) { host.innerHTML = ""; return; }
   let body;
-  if (!state.allSets) {
-    body = `<div class="loading">Loading expansions…</div>`;
+  if (!state.allSets && state.allSetsError) {
+    body = `<div class="loading" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+      <span style="color:var(--bad);">Couldn't load expansions: ${esc(state.allSetsError)}</span>
+      <button class="btn-primary" data-mact="retryload">↻ Try again</button></div>`;
+  } else if (!state.allSets) {
+    body = `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:12px;"><span class="pt-spin"></span>Loading expansions…</div>`;
   } else {
     const list = state.allSets.slice().sort((a, b) => (releaseSort(b.releaseDate) - releaseSort(a.releaseDate)));
     const rows = list.map((s) => {
@@ -1706,6 +1720,7 @@ document.getElementById("setsmodal").addEventListener("click", (e) => {
   else if (act === "import") importSet(v);
   else if (act === "reimport") reimportSet(v);
   else if (act === "delset") removeSet(v);
+  else if (act === "retryload") openSetsModal();
 });
 
 document.getElementById("confirm").addEventListener("click", (e) => {
