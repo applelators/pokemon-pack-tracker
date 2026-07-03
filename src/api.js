@@ -170,6 +170,17 @@ export async function handleApi(request, env, url) {
   };
 
   try {
+    // Temporary probe: can the Worker fetch Reddit RSS? (drop-alert print-status check)
+    if (pathname === "/api/reddit-probe" && method === "GET") {
+      try {
+        const r = await fetch("https://www.reddit.com/r/PKMNTCGDeals/new.rss?limit=5", {
+          headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36", Accept: "application/rss+xml" },
+        });
+        const t = await r.text();
+        return json({ status: r.status, bytes: t.length, looksLikeFeed: t.includes("<entry>") });
+      } catch (e) { return json({ error: e.message }, 502); }
+    }
+
     // /api/settings
     if (pathname === "/api/settings") {
       if (method === "GET") return json(await getSettings(db));
