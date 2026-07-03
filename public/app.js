@@ -185,6 +185,32 @@ function releaseSort(date) { if (!date) return 0; const m = String(date).match(/
 function fmtRelease(date) { if (!date) return ""; const d = new Date(String(date).replace(/\//g, "-")); return isNaN(d) ? date : d.toLocaleString("en-US", { month: "short", year: "numeric" }); }
 function monthsOld(date) { const rs = releaseSort(date); if (!rs) return 0; const now = new Date(); return (now.getFullYear() - Math.floor(rs / 100)) * 12 + (now.getMonth() + 1 - (rs % 100)); }
 function isOOP(date) { return monthsOld(date) > 24; }
+
+// Researched print status (r/PKMNTCGDeals full post history + market prices, Jul 2026).
+// Overrides the flat 24-month heuristic. tone: good = in print, fair = limited/tail,
+// bad = out of print. Sets not listed fall back to the (est.) heuristic.
+const PRINT_STATUS = {
+  me1: { tone: "good", label: "in print" }, me2: { tone: "good", label: "in print" },
+  me2pt5: { tone: "good", label: "in print" }, me3: { tone: "good", label: "in print" },
+  me4: { tone: "good", label: "in print" },
+  sv8pt5: { tone: "good", label: "in print · active reprints" },
+  zsv10pt5: { tone: "good", label: "in print" }, rsv10pt5: { tone: "good", label: "in print" },
+  sv9: { tone: "good", label: "in print" }, sv10: { tone: "good", label: "in print" },
+  sv8: { tone: "fair", label: "final print run" },
+  sv3pt5: { tone: "fair", label: "special runs only" },
+  sv4pt5: { tone: "bad", label: "out of print" }, sv6: { tone: "bad", label: "out of print" },
+  sv7: { tone: "bad", label: "out of print" }, sv2: { tone: "bad", label: "out of print" },
+  // Untracked sets, for Browse/import lists:
+  sv4: { tone: "good", label: "reprint Mar 2026" }, sv5: { tone: "bad", label: "out of print" },
+  sv6pt5: { tone: "bad", label: "out of print" }, sv3: { tone: "bad", label: "out of print" },
+  swsh12pt5: { tone: "bad", label: "out of print" }, swsh7: { tone: "bad", label: "out of print" },
+  cel25: { tone: "bad", label: "out of print" },
+};
+function printStatusOf(id, releaseDate) {
+  if (PRINT_STATUS[id]) return PRINT_STATUS[id];
+  return isOOP(releaseDate) ? { tone: "bad", label: "likely out of print (est.)" } : { tone: "good", label: "likely in print (est.)" };
+}
+function printChip(id, releaseDate) { const p = printStatusOf(id, releaseDate); return `<span class="pstat pstat-${p.tone}">${p.label}</span>`; }
 const marketOf = (s) => s.marketEff;                                          // typical market rate (TCGplayer loose), floored at $5
 
 // Sidebar flair: each set's headlining Pokemon → animated sprite (Pokemon Showdown).
@@ -748,7 +774,7 @@ function renderHub() {
     return `<div class="hubrow" style="${aStyle}">
       <div class="hub-art${s.special ? ' sp' : ''}${s.mega ? ' me' : ''}" style="${artBg}"><span class="hub-code">${s.code}</span>${s.special ? '<span class="hub-sp">✦</span>' : ''}</div>
       <div class="hub-mid">
-        <div class="hub-name">${esc(s.name)}${s.oop ? '<span class="oop">likely out of print</span>' : ''}</div>
+        <div class="hub-name">${esc(s.name)}${printChip(s.id, s.releaseDate)}</div>
         <div class="hub-sub">${esc(s.series)}${s.release ? ' · ' + s.release : ''}</div>
         <div class="hub-stats"><span><b>${comp}%</b> complete</span><span><b>${drRem != null ? drRem : '—'}</b> to DR</span><span><b>${money(s.spent)}</b> spent</span><span><b>${s.ordersCount}</b> orders</span></div>
         <div class="hub-acts"><button class="hub-open" data-act="opensetview" data-v="${s.id}">Open dashboard →</button><button class="hub-mini" data-act="hubaddorder" data-v="${s.id}">+ Order</button><button class="hub-mini" data-act="hubrefresh" data-v="${s.id}">↻ Refresh</button></div>
@@ -1313,7 +1339,7 @@ function renderSetsModal() {
     const list = state.allSets.slice().sort((a, b) => (releaseSort(b.releaseDate) - releaseSort(a.releaseDate)));
     const rows = list.map((s) => {
       const tracked = setById(s.id);
-      const special = isSpecialId(s.id), mega = isMega(s.series, s.id), oop = isOOP(s.releaseDate);
+      const special = isSpecialId(s.id), mega = isMega(s.series, s.id);
       const busy = state.importing === s.id;
       const lockedRemove = tracked && (tracked.ordersCount > 0 || tracked.packsBought > 0);
       const actions = tracked
@@ -1321,7 +1347,7 @@ function renderSetsModal() {
            <button class="icon-btn" data-mact="reimport" data-v="${s.id}" title="Reimport — refresh art & prices"${busy ? " disabled" : ""}>↻</button>
            <button class="icon-btn del${lockedRemove ? ' off' : ''}" ${lockedRemove ? '' : `data-mact="delset"`} data-v="${s.id}" title="${lockedRemove ? 'Has orders or packs — can’t remove' : 'Remove from tracked'}">✕</button>`
         : `<button class="btn-import" data-mact="import" data-v="${s.id}"${busy ? " disabled" : ""}>${busy ? "Importing…" : "Import"}</button>`;
-      const badges = `${special ? '<span class="sp-chip">✦ Special</span>' : ''}${oop ? '<span class="oop">likely out of print</span>' : ''}`;
+      const badges = `${special ? '<span class="sp-chip">✦ Special</span>' : ''}${printChip(s.id, s.releaseDate)}`;
       let stats;
       if (tracked) {
         const drRem = tracked.drPacks != null ? Math.max(0, tracked.drPacks - tracked.packsBought) : null;
