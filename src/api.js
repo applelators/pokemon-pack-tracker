@@ -162,7 +162,10 @@ export async function handleApi(request, env, url) {
   const { pathname } = url;
   if (!pathname.startsWith("/api/")) return null;
   const db = env.DB;
-  await ensureMigrated(db);
+  // Inside its own guard: a D1 storage hiccup here used to escape handleApi entirely
+  // and surface as an opaque Cloudflare 1101 instead of a JSON error.
+  try { await ensureMigrated(db); }
+  catch (e) { return json({ error: "Database briefly unavailable (" + e.message + ") — retry in a moment.", transient: true }, 503); }
   const method = request.method;
   const seg = pathname.split("/").filter(Boolean); // ["api", ...]
   const body = async () => {

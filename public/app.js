@@ -1757,17 +1757,33 @@ document.getElementById("pulls").addEventListener("click", (e) => {
 let rzt; window.addEventListener("resize", () => { clearTimeout(rzt); rzt = setTimeout(() => { if (state.view === "set") render(); }, 150); });
 
 // ---- go ------------------------------------------------------------------
-(async function init() {
-  render();   // loading
-  try {
-    await loadSettings();
-    await loadHub();
-  } catch (err) {
-    state.loading = false;
-    document.getElementById("app").innerHTML = headerHTML() + `<div class="loading">Couldn't reach the API: ${esc(err.message)}</div>`;
-    return;
+async function boot() {
+  const app = document.getElementById("app");
+  const TRIES = 4;
+  for (let i = 1; i <= TRIES; i++) {
+    try {
+      await loadSettings();
+      await loadHub();
+      state.loading = false;
+      state.view = "hub";   // hub-first on every load
+      render();
+      return;
+    } catch (err) {
+      if (i < TRIES) {
+        const wait = i * 2;
+        app.innerHTML = headerHTML() + `<div class="loading" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <span style="display:flex;align-items:center;gap:11px;"><span class="pt-spin"></span>API hiccup — retrying (${i}/${TRIES - 1})…</span>
+          <span style="font-size:12px;color:var(--muted);max-width:460px;text-align:center;">${esc(err.message)}<br>Usually a brief Cloudflare/D1 blip — your data is safe.</span></div>`;
+        await new Promise((r) => setTimeout(r, wait * 1000));
+      } else {
+        state.loading = false;
+        app.innerHTML = headerHTML() + `<div class="loading" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <span style="color:var(--bad);">Couldn't reach the API after ${TRIES} tries: ${esc(err.message)}</span>
+          <span style="font-size:12px;color:var(--muted);max-width:460px;text-align:center;">If this persists, check cloudflarestatus.com — D1 outages resolve on their own and your data is safe.</span>
+          <button class="btn-primary" id="bootretry">↻ Try again</button></div>`;
+        document.getElementById("bootretry").addEventListener("click", () => { state.loading = true; render(); boot(); });
+      }
+    }
   }
-  state.loading = false;
-  state.view = "hub";   // hub-first on every load
-  render();
-})();
+}
+(function init() { render(); boot(); })();
