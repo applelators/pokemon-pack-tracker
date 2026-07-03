@@ -424,3 +424,47 @@ input,select{font-family:inherit;}
 /* ---- Refresh-all progress bar ---- */
 .pt-bar{height:5px;border-radius:4px;background:rgba(255,255,255,.1);margin-top:7px;overflow:hidden;}
 .pt-bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--accent));border-radius:4px;transition:width .3s ease;}
+
+/* ---- Binders view (page previews + card finder) ---- */
+.bshelf{display:flex;flex-direction:column;gap:12px;margin-top:14px;}
+.bshelf-row{display:flex;align-items:center;gap:16px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 18px;cursor:pointer;transition:border-color .15s,transform .15s;}
+.bshelf-row:hover{border-color:var(--accent);transform:translateY(-1px);}
+.bshelf-spine{display:flex;flex-direction:column;align-items:center;justify-content:center;width:64px;height:78px;border-radius:8px 12px 12px 8px;background:linear-gradient(105deg,#232d45 0%,#141a2a 80%);border:1px solid var(--border2);border-left:5px solid var(--accent);flex:0 0 auto;}
+.bshelf-cap{font-weight:700;font-size:17px;}
+.bshelf-pk{font-size:10px;color:var(--muted);}
+.bshelf-meta{flex:1;min-width:0;}
+.bshelf-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15.5px;}
+.bshelf-sets{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:6px;}
+.bshelf-arrow{color:var(--muted);font-size:11px;}
+.bshelf-sub{font-size:12px;color:var(--muted);margin-top:6px;}
+.bshelf-open{color:var(--accent);font-weight:700;font-size:13px;white-space:nowrap;}
+.bfind{display:flex;gap:9px;margin:14px 0 4px;}
+.bfind input{flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:11px;padding:11px 14px;font-size:14px;}
+.bfind input:focus{outline:none;border-color:var(--accent);}
+.bresults{display:flex;flex-direction:column;gap:8px;margin:10px 0 4px;}
+.bres{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:9px 12px;}
+.bres-thumb{width:42px;height:58px;border-radius:5px;overflow:hidden;background:var(--panel3);display:grid;place-items:center;flex:0 0 auto;}
+.bres-thumb img{width:100%;height:100%;object-fit:cover;}
+.bres-meta{flex:1;min-width:0;font-size:13.5px;line-height:1.45;}
+.bres-loc{font-size:12px;color:var(--soft);}
+.muted2{color:var(--muted2);}
+.bp-chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;}
+.bp-chip{display:flex;align-items:center;gap:7px;border:1px solid var(--border);background:var(--panel3);color:var(--soft);border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.bp-chip:hover{border-color:var(--accent);color:var(--text);}
+.bp-chip .dot{width:8px;height:8px;border-radius:50%;}
+.bp-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 14px;}
+.bp-pos{font-size:13px;color:var(--soft);font-weight:600;min-width:120px;text-align:center;}
+.bp-spread{display:flex;gap:16px;align-items:stretch;}
+.bp-side{flex:1;min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px;}
+.bp-cover{display:grid;place-items:center;background:linear-gradient(150deg,#1a2233,#10151f);color:var(--muted);font-size:12px;border-style:dashed;}
+.bp-side-h{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:9px;text-transform:uppercase;letter-spacing:.05em;}
+.bp-set{color:var(--soft);text-transform:none;letter-spacing:0;font-weight:600;}
+.bp-grid{display:grid;gap:7px;}
+.pocket{position:relative;aspect-ratio:63/88;border-radius:6px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);}
+.pocket img{width:100%;height:100%;object-fit:cover;display:block;}
+.pocket.empty{border-style:dashed;background:transparent;}
+.pk-num{position:absolute;bottom:3px;left:3px;font-family:'Space Grotesk',sans-serif;font-size:9px;font-weight:700;color:#fff;background:rgba(6,9,16,.72);border-radius:4px;padding:1px 5px;}
+.pk-name{display:grid;place-items:center;height:100%;font-size:10px;color:var(--soft);text-align:center;padding:4px;}
+.pocket.hl{outline:3px solid var(--accent);outline-offset:1px;animation:pocketPulse 1.1s ease infinite;}
+@keyframes pocketPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,203,5,.55);}50%{box-shadow:0 0 0 9px rgba(255,203,5,0);}}
+@media(max-width:760px){.bp-spread{flex-direction:column;}}

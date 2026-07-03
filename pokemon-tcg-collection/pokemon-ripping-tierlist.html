@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pokémon TCG — Pack-Ripping Tier List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1117; --bg2:#0b0d12; --surface:#171a22; --row:#141823; --row-alt:#11151e;
+    --line:#262b36; --line-soft:#1e232e;
+    --ink:#e8eaf0; --ink-dim:#9aa0b0; --ink-faint:#6b7180;
+    --sFrom:#ffd76a; --sTo:#ff8cc8; --tierA:#a78bfa; --tierB:#5fa8f5; --tierC:#36c2ad; --tierD:#7c8395;
+    --holo1:#5ad1ff; --holo2:#d18bff; --holo3:#ffd76a;
+    --val:#f4c84a;
+    --packs:#37c9a3; --mixed:#f4c84a; --singles:#ff7a9c;
+    --display:"Space Grotesk",system-ui,sans-serif;
+    --body:"Inter",system-ui,-apple-system,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:
+      radial-gradient(1100px 520px at 78% -8%, rgba(209,139,255,.10), transparent 60%),
+      radial-gradient(900px 480px at 8% -4%, rgba(90,209,255,.08), transparent 55%),
+      linear-gradient(180deg,var(--bg) 0%, var(--bg2) 100%);
+    color:var(--ink); font-family:var(--body); line-height:1.45;
+    min-height:100vh; padding:22px 14px 60px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto;}
+
+  header{margin:0 0 16px;}
+  .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 10px;}
+  h1{font-family:var(--display); font-weight:700; font-size:clamp(25px,5.6vw,40px); line-height:1.02; margin:0; letter-spacing:-.01em;}
+  h1 .holo{background:linear-gradient(100deg,var(--holo1),var(--holo2) 45%,var(--holo3)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .sub{color:var(--ink-dim); font-size:14px; margin:11px 0 0; max-width:64ch;}
+  .sub b{color:var(--ink);}
+
+  /* tabs */
+  .tabs{display:inline-flex; gap:4px; margin:18px 0 4px; padding:4px; background:var(--surface); border:1px solid var(--line); border-radius:12px;}
+  .tab{font-family:var(--display); font-weight:600; font-size:14px; color:var(--ink-dim); background:transparent; border:0; padding:9px 16px; border-radius:9px; cursor:pointer; transition:.15s; white-space:nowrap;}
+  .tab:hover{color:var(--ink);}
+  .tab[aria-selected="true"]{color:#0c0e13; background:linear-gradient(100deg,var(--holo1),var(--holo2) 60%,var(--holo3));}
+  .tabnote{color:var(--ink-faint); font-size:12.5px; margin:10px 2px 0; min-height:1.4em;}
+
+  .controls{display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin:16px 0 14px;}
+  .chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{font-family:var(--mono); font-size:12px; font-weight:500; letter-spacing:.04em; color:var(--ink-dim); background:var(--surface); border:1px solid var(--line); padding:7px 12px; border-radius:999px; cursor:pointer; transition:.15s;}
+  .chip:hover{border-color:#39414f; color:var(--ink);}
+  .chip[aria-pressed="true"]{color:#0c0e13; background:var(--ink); border-color:var(--ink); font-weight:600;}
+  .chip[data-tier="S"][aria-pressed="true"]{background:linear-gradient(100deg,var(--sFrom),var(--sTo)); border-color:transparent;}
+  .chip[data-tier="A"][aria-pressed="true"]{background:var(--tierA); border-color:transparent; color:#0c0e13;}
+  .chip[data-tier="B"][aria-pressed="true"]{background:var(--tierB); border-color:transparent; color:#0c0e13;}
+  .chip[data-tier="C"][aria-pressed="true"]{background:var(--tierC); border-color:transparent; color:#0c0e13;}
+  .chip[data-tier="D"][aria-pressed="true"]{background:var(--tierD); border-color:transparent; color:#0c0e13;}
+  .chip.hide{display:none;}
+
+  .search{margin-left:auto; display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:7px 11px;}
+  .search input{background:transparent; border:0; outline:0; color:var(--ink); font-family:var(--body); font-size:13px; width:150px;}
+  .search input::placeholder{color:var(--ink-faint);}
+  .search svg{flex:none; opacity:.5;}
+  .mobile-sort{display:none;}
+  .mobile-sort label{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-right:8px;}
+  .mobile-sort select{font-family:var(--body); font-size:13px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:8px 10px;}
+
+  .tablecard{background:rgba(20,23,32,.7); border:1px solid var(--line); border-radius:16px; overflow:hidden; box-shadow:0 24px 60px -36px rgba(0,0,0,.8);}
+  .scroll{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; min-width:760px;}
+  thead th{position:relative; text-align:left; font-family:var(--mono); font-weight:600; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim); padding:14px 12px; border-bottom:1px solid var(--line); cursor:pointer; user-select:none; white-space:nowrap; background:linear-gradient(180deg,#181c26,#141823);}
+  thead th.nosort{cursor:default; width:30px;}
+  thead th:not(.nosort):hover{color:var(--ink);}
+  thead th.num{text-align:right;}
+  thead th .arr{opacity:0; margin-left:5px; font-size:10px; transition:.12s;}
+  thead th[data-active] .arr{opacity:1; color:var(--holo1);}
+
+  tbody tr.row{cursor:pointer;}
+  tbody tr.row td{padding:13px 12px; border-bottom:1px solid var(--line-soft); font-size:14px; vertical-align:middle;}
+  tbody tr.row:nth-of-type(4n+1){background:var(--row-alt);}
+  tbody tr.row:nth-of-type(4n+3){background:var(--row);}
+  tbody tr.row:hover{background:#1b2433;}
+
+  .chev{color:var(--ink-faint); font-size:11px; transition:transform .15s; display:inline-block;}
+  tr.row.open .chev{transform:rotate(90deg); color:var(--holo1);}
+  .rank{font-family:var(--mono); font-weight:600; color:var(--ink-faint); font-size:15px;}
+  .setname{font-family:var(--display); font-weight:600; font-size:15px; color:var(--ink); line-height:1.15;}
+  .setmeta{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-top:3px; letter-spacing:.03em;}
+  .chase{color:var(--ink);}
+  .rarity{display:inline-block; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.05em; padding:2px 6px; border-radius:5px; margin-top:4px; border:1px solid var(--line); color:var(--ink-dim); background:#10131b;}
+  .rarity.SIR{color:#ffd9a8; border-color:#7a5a2e;}
+  .rarity.IR{color:#a8d8ff; border-color:#2e567a;}
+  .rarity.BWR{color:#e4e4e4; border-color:#555; background:#0b0b0c;}
+  .rarity.MHR{color:#ffe27a; border-color:#8a6a1e; background:#161204;}
+  td.num{text-align:right; white-space:nowrap;}
+  .val{font-family:var(--mono); font-weight:600; font-size:14px; color:var(--val); position:relative; z-index:1;}
+  .valcell{position:relative;}
+  .valbar{position:absolute; right:0; top:50%; transform:translateY(-50%); height:24px; border-radius:5px; background:linear-gradient(90deg,rgba(244,200,74,.05),rgba(244,200,74,.22)); z-index:0; pointer-events:none;}
+  .rate{font-family:var(--mono); font-size:13px; color:var(--ink);}
+  .ratenote{display:block; font-size:10px; color:var(--holo2); margin-top:3px; font-family:var(--body); letter-spacing:0;}
+
+  .tier{display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:24px; padding:0 4px; border-radius:6px; font-family:var(--display); font-weight:700; font-size:13px; color:#0c0e13;}
+  .tier.S{background:linear-gradient(120deg,var(--sFrom),var(--sTo)); box-shadow:0 0 16px -4px rgba(255,140,200,.5);}
+  .tier.A{background:var(--tierA);} .tier.B{background:var(--tierB);} .tier.C{background:var(--tierC);} .tier.D{background:var(--tierD);}
+
+  .verdict{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.03em; padding:4px 9px; border-radius:999px; white-space:nowrap;}
+  .verdict::before{content:""; width:6px; height:6px; border-radius:50%;}
+  .verdict.Packs{color:var(--packs); background:rgba(55,201,163,.1); border:1px solid rgba(55,201,163,.35);}
+  .verdict.Packs::before{background:var(--packs);}
+  .verdict.Mixed{color:var(--mixed); background:rgba(244,200,74,.1); border:1px solid rgba(244,200,74,.35);}
+  .verdict.Mixed::before{background:var(--mixed);}
+  .verdict.Singles{color:var(--singles); background:rgba(255,122,156,.1); border:1px solid rgba(255,122,156,.35);}
+  .verdict.Singles::before{background:var(--singles);}
+
+  tr.detail{display:none;}
+  tr.detail.open{display:table-row;}
+  tr.detail td{padding:0; border-bottom:1px solid var(--line);}
+  .detailbox{padding:4px 18px 18px 44px; background:#0d1016; border-left:3px solid var(--ink-faint); display:grid; grid-template-columns:1fr 1fr; gap:18px 28px;}
+  .detailbox.S{border-left-color:var(--sTo);} .detailbox.A{border-left-color:var(--tierA);} .detailbox.B{border-left-color:var(--tierB);} .detailbox.C{border-left-color:var(--tierC);} .detailbox.D{border-left-color:var(--tierD);}
+  .dlabel{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); display:block; margin:14px 0 6px;}
+  .detailbox p{margin:0; font-size:13.5px; line-height:1.6; color:#cfd3de;}
+
+  .empty{padding:40px 14px; text-align:center; color:var(--ink-faint); font-size:14px;}
+  .notes{margin:18px 4px 0; color:var(--ink-faint); font-size:12px; line-height:1.6;}
+  .notes b{color:var(--ink-dim); font-weight:600;}
+  .notes ul{margin:8px 0 0; padding-left:18px;} .notes li{margin:3px 0;}
+  .legend{display:flex; flex-wrap:wrap; gap:14px; margin:8px 0 2px;}
+  .legend span{display:inline-flex; align-items:center; gap:6px; font-size:11.5px;}
+
+  @media (max-width:720px){
+    body{padding:18px 10px 48px;}
+    .search{margin-left:0;} .search input{width:120px;}
+    .mobile-sort{display:flex; align-items:center; width:100%; order:-1; margin-bottom:2px;}
+    table{min-width:0;}
+    thead{display:none;}
+    tbody tr.row{display:block; padding:13px 14px 15px; border-bottom:1px solid var(--line); background:transparent !important;}
+    tbody tr.row td{display:flex; justify-content:space-between; align-items:center; gap:14px; padding:4px 0; border:0;}
+    tbody tr.row td::before{content:attr(data-label); font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); flex:none;}
+    td.cell-chev{display:none !important;}
+    td.cell-set{align-items:flex-start;} td.cell-set::before{align-self:flex-start; margin-top:3px;}
+    td.cell-chase::before{align-self:flex-start; margin-top:3px;}
+    .valbar{display:none;}
+    td.cell-tier{order:-1; border-bottom:1px dashed var(--line-soft) !important; padding-bottom:8px !important; margin-bottom:4px;}
+    td.cell-tier::before{content:"Rank #" attr(data-rank) " · Tier · tap to expand";}
+    tr.detail.open{display:block;}
+    tr.detail td{display:block;}
+    .detailbox{grid-template-columns:1fr; gap:2px 0; padding:6px 14px 16px 16px; margin-top:-6px;}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Pokémon TCG · ripping &amp; collecting · not sealed investment</p>
+    <h1>The <span class="holo">Pack-Ripping</span> Tier List</h1>
+    <p class="sub">Sets ranked for the experience of opening packs and building a collection. <b>Rank reflects that experience — it won't track chase value</b>, so sort by any column to compare. <b>Tap any row</b> to see why it's ranked there and whether to rip packs or buy singles.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="sv">Scarlet &amp; Violet</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="me">Mega Evolution</button>
+    </div>
+    <p class="tabnote" id="tabnote"></p>
+  </header>
+
+  <div class="controls">
+    <div class="mobile-sort">
+      <label for="msort">Sort</label>
+      <select id="msort">
+        <option value="rank">Rank (our ranking)</option>
+        <option value="value">Top chase value</option>
+        <option value="rate">SIR pull rate</option>
+        <option value="released">Release date</option>
+        <option value="tier">Tier</option>
+        <option value="verdict">Verdict</option>
+        <option value="set">Set name</option>
+      </select>
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip" data-tier="ALL" aria-pressed="true">All</button>
+      <button class="chip" data-tier="S" aria-pressed="false">S</button>
+      <button class="chip" data-tier="A" aria-pressed="false">A</button>
+      <button class="chip" data-tier="B" aria-pressed="false">B</button>
+      <button class="chip" data-tier="C" aria-pressed="false">C</button>
+      <button class="chip" data-tier="D" aria-pressed="false">D</button>
+    </div>
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="search" placeholder="Find set or card…" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="tablecard">
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="nosort"></th>
+            <th class="num" data-key="rank">#<span class="arr">▲</span></th>
+            <th data-key="tier">Tier<span class="arr">▲</span></th>
+            <th data-key="set">Set<span class="arr">▲</span></th>
+            <th data-key="released">Released<span class="arr">▲</span></th>
+            <th data-key="chase">Top chase<span class="arr">▲</span></th>
+            <th class="num" data-key="value">Chase $<span class="arr">▲</span></th>
+            <th class="num" data-key="rate">≈ SIR rate<span class="arr">▲</span></th>
+            <th data-key="verdict">Verdict<span class="arr">▲</span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="legend">
+      <span><span class="verdict Packs">Packs</span> rip it — fun &amp; relatively rewarding</span>
+      <span><span class="verdict Mixed">Mixed</span> rip for fun, singles for chases</span>
+      <span><span class="verdict Singles">Singles</span> buy the cards you want directly</span>
+    </div>
+    <ul>
+      <li><b>Chase $</b> = approximate raw (ungraded) Near-Mint price of each set's most valuable card — a June 2026 snapshot. Prices swing hard (Prismatic's Umbreon alone ranges ~$1,200–1,700; Mega-era chases have corrected 30–50% from launch).</li>
+      <li><b>≈ SIR rate</b> = odds of pulling <i>any</i> Special Illustration Rare. S&amp;V runs ~1 in 40; the Mega era is tighter (~1 in 70–100) because it added the Mega Attack Rare and Mega Hyper Rare tiers above it. A <i>specific</i> chase is far rarer — MHRs sit around 1 in 540–1,260 packs.</li>
+      <li><b>Rarity tags:</b> SIR = Special Illustration Rare · IR = Illustration Rare · BWR = Black &amp; White Rare · MHR = Mega Hyper Rare (gold). Several top chases are IRs, not SIRs — great art beats rarity tier.</li>
+      <li>The two tabs are <b>ranked separately</b>. Mega Evolution is a brand-new series (Sept 2025–present); its sets aren't slotted against S&amp;V.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const SV = [
+  {rank:1,tier:"S",set:"Prismatic Evolutions",code:"SV8.5",released:"2025-01",chase:"Umbreon ex",rarity:"SIR",value:1500,rate:36,ratenote:"better-than-average SIR odds",verdict:"Mixed",
+   why:"The definitive modern collector set: an all-Eeveelution theme, the first-ever Master Ball reverse-holo parallels (which make even commons worth keeping), God Packs, and the era's most coveted card in Umbreon ex. Universal appeal plus friendlier-than-usual SIR odds lock in #1.",
+   econ:"Average box pull value is ~$90–150 unless you hit Umbreon, so the math favors the house — and sealed is scarce and pricey. Rip for the Eevee experience; buy specific SIRs as singles."},
+  {rank:2,tier:"S",set:"Pokémon 151",code:"SV3.5",released:"2023-09",chase:"Charizard ex",rarity:"SIR",value:420,rate:42,verdict:"Mixed",
+   why:"Pure Kanto nostalgia where every one of the original 151 is worth collecting, wrapped in gorgeous Illustration Rares and anchored by a strong Charizard ex chase. Endlessly reprinted, so it stays accessible.",
+   econ:"Reprints keep boxes affordable and genuinely rip-worthy for the IR run. Grab the Charizard ex as a single rather than chasing it through packs."},
+  {rank:3,tier:"A",set:"Paldean Fates",code:"SV4.5",released:"2024-01",chase:"Shiny Mew ex",rarity:"SIR",value:800,rate:45,ratenote:"shiny ~1 in 3–4 packs",verdict:"Packs",
+   why:"The single most fun set to open — shinies land roughly 1 in 3–4 packs, so nearly every pack hits. Shiny Mew and Shiny Charizard headline. It sits just below S-tier only because most shinies are individually cheap and there are no booster boxes.",
+   econ:"The best pure-rip set on the board; ETBs and bundles deliver constant shiny dopamine. Only the two big shiny SIRs are worth buying as singles."},
+  {rank:4,tier:"A",set:"Destined Rivals",code:"SV10",released:"2025-05",chase:"Team Rocket's Mewtwo ex",rarity:"SIR",value:500,rate:42,verdict:"Mixed",
+   why:"Team Rocket's return gives it the deepest, most characterful chase tier of the era — Mewtwo, Cynthia's Garchomp, Ethan's Ho-Oh — plus a strong IR run. Huge crossover appeal.",
+   econ:"Boxes are rip-worthy for the character IR/SIR spread; cherry-pick the marquee Rocket SIRs as singles."},
+  {rank:5,tier:"A",set:"Black Bolt + White Flare",code:"SV10.5",released:"2025-07",chase:"Reshiram / Zekrom ex",rarity:"BWR",value:600,rate:40,ratenote:"every Unova mon gets a hit",verdict:"Packs",
+   why:"A Gen-5 Unova love letter: every Unova Pokémon gets a special-art version, a brand-new BWR rarity debuts, and pull rates are generous. An enormous, joyful collecting playground.",
+   econ:"Generous pulls make ripping genuinely rewarding, so packs are great here; the monochrome BWR Zekrom and Reshiram are the singles to target."},
+  {rank:6,tier:"A",set:"Surging Sparks",code:"SV8",released:"2024-11",chase:"Pikachu ex",rarity:"SIR",value:255,rate:42,verdict:"Mixed",
+   why:"Widely considered the second-best standard set behind Prismatic, carried by the Pikachu ex chase and strong dual player/collector appeal. In-print and accessible.",
+   econ:"Still rippable at retail for the IR/SIR spread; buy Pikachu ex as a single."},
+  {rank:7,tier:"B",set:"Twilight Masquerade",code:"SV6",released:"2024-05",chase:"Greninja ex",rarity:"SIR",value:320,rate:42,verdict:"Mixed",
+   why:"The most balanced standard set of the era — a strong Greninja ex chase, the beloved Bloodmoon Ursaluna, and meta-defining Ogerpon cards keep both players and collectors happy.",
+   econ:"Solid rip value; pick up Greninja ex and the alt-art trainers (Perrin, Carmine) as singles."},
+  {rank:8,tier:"B",set:"Paldea Evolved",code:"SV2",released:"2023-06",chase:"Magikarp",rarity:"IR",value:305,rate:42,verdict:"Singles",
+   why:"Carried by the iconic Iono SIR and a surprise alt-art Magikarp that became one of the era's priciest non-chase cards. Deep set, but early-era pull rates are rough.",
+   econ:"Older and rough to rip — buy the Magikarp IR and the Iono SIR as singles."},
+  {rank:9,tier:"B",set:"Journey Together",code:"SV9",released:"2025-03",chase:"Lillie's Clefairy ex",rarity:"SIR",value:128,rate:42,verdict:"Singles",
+   why:"Debuted the Trainer's Pokémon mechanic with a meta-defining Lillie's Clefairy chase and lots of character cards, but many trainer Pokémon underwhelmed and singles stayed cheap.",
+   econ:"Singles are affordable across the board; rip a few packs for fun, then finish on the secondary market."},
+  {rank:10,tier:"C",set:"Scarlet & Violet (Base)",code:"SV1",released:"2023-03",chase:"Gardevoir ex",rarity:"SIR",value:80,rate:42,verdict:"Singles",
+   why:"A solid foundation with a standout Gardevoir ex and a surprisingly deep IR lineup, but early-era rough rates and fewer headline cards keep it mid-pack.",
+   econ:"Rotating out and cheap as singles — just buy the cards you want."},
+  {rank:11,tier:"C",set:"Paradox Rift",code:"SV4",released:"2023-11",chase:"Groudon",rarity:"IR",value:89,rate:42,ratenote:"notoriously tight pulls",verdict:"Singles",
+   why:"Some of the most beautiful cards of the era (Roaring Moon, Iron Valiant, the Groudon IR) trapped behind notoriously brutal pull rates — gorgeous to own, miserable to rip.",
+   econ:"Do not rip for value; the bad odds make singles the only sane route."},
+  {rank:12,tier:"C",set:"Shrouded Fable",code:"SV6.5",released:"2024-08",chase:"Duskull",rarity:"IR",value:50,rate:38,ratenote:"small set, denser hits",verdict:"Singles",
+   why:"A compact special set with a decent concentration of hits, but a low chase ceiling keeps the excitement modest.",
+   econ:"Small and cheap to complete via singles; ripping is fine but unremarkable."},
+  {rank:13,tier:"D",set:"Obsidian Flames",code:"SV3",released:"2023-08",chase:"Charizard ex",rarity:"SIR",value:106,rate:42,ratenote:"no true chase (reprinted)",verdict:"Singles",
+   why:"Frustrating on both ends: no true chase (its Charizard ex has been alt-art reprinted to death) and some of the era's worst SIR rates.",
+   econ:"Skip ripping; buy the few cards you want as singles."},
+  {rank:14,tier:"D",set:"Temporal Forces",code:"SV5",released:"2024-03",chase:"Gastly",rarity:"IR",value:91,rate:42,verdict:"Singles",
+   why:"Meta-relevant in its day but forgettable for collectors, with weak chase appeal and little nostalgia.",
+   econ:"Cheap singles; no real reason to rip."},
+  {rank:15,tier:"D",set:"Stellar Crown",code:"SV7",released:"2024-09",chase:"Squirtle",rarity:"IR",value:108,rate:42,verdict:"Singles",
+   why:"Nice Squirtle and Bulbasaur Illustration Rares, but Terapagos never gained traction, leaving it the thinnest set of the era for collectors.",
+   econ:"In-print and cheap — buy the Kanto-starter IRs as singles."},
+];
+
+const ME = [
+  {rank:1,tier:"S",set:"Ascended Heroes",code:"ME2.5",released:"2026-01",chase:"Mega Gengar ex",rarity:"SIR",value:1145,rate:70,ratenote:"God Packs ~1 in 2,000 · MHR 1 in 540",verdict:"Singles",
+   why:"The era's chase powerhouse: it holds the three most valuable English cards of 2026 (Mega Gengar, Pikachu and Mega Dragonite SIRs), debuts the stunning kanji-art Mega Attack Rare tier, and has God Packs stuffed with 3 MARs + 7 SIRs. It also has the friendliest confirmed pull rates of the era.",
+   econ:"It's a special set — no booster boxes, only ETBs and bundles, and the 575+ card master set is brutal to finish. Chases run into four figures, so buy singles; rip ETBs for the God-pack lottery and the art."},
+  {rank:2,tier:"A",set:"Mega Evolution",code:"ME01",released:"2025-09",chase:"Mega Lucario ex",rarity:"MHR",value:260,rate:101,ratenote:"MHR 1 in 1,260",verdict:"Mixed",
+   why:"The foundational debut of the Mega era — the full ten-type Mega ex roster, new-series prestige, and the strongest launch since Sword & Shield base. It ranks high on importance even though chases have cooled and pull rates are tight (SIR 1:101, MHR 1:1,260).",
+   econ:"An Enhanced box at MSRP (~$180–200) is a fine rip for the Bulbasaur promo plus commons (pack EV ~$6); buy the Lucario/Gardevoir MHRs and SIRs as singles."},
+  {rank:3,tier:"A",set:"Chaos Rising",code:"ME04",released:"2026-05",chase:"Mega Greninja ex",rarity:"SIR",value:490,rate:90,ratenote:"gold MHR ~$440 · newest set",verdict:"Mixed",
+   why:"The newest set rides a huge Mega Greninja chase (SIR ~$490, gold MHR ~$440) with solid SIR depth ($55–109) and a fan-favorite Kalos theme. Prices are still settling and it leans heavily on Greninja, but it's a genuinely exciting rip right now.",
+   econ:"Boxes are available and rip-worthy for the SIR spread; Greninja is the single to buy. Its live chase actually tops ME01's, so it's reasonable to rank these two either way."},
+  {rank:4,tier:"B",set:"Phantasmal Flames",code:"ME02",released:"2025-11",chase:"Mega Charizard X ex",rarity:"SIR",value:750,rate:95,ratenote:"one-card set · gold MHR ~$340",verdict:"Singles",
+   why:"The era's smallest regular set and the definition of a one-card set: the Mega Charizard X SIR (~$750) and nostalgia carry it, while non-Charizard SIRs sit under $35.",
+   econ:"Boxes near MSRP make it the best sealed value to rip if you just want to open — but EV outside the Zard is thin, so buy Charizard as a single."},
+  {rank:5,tier:"B",set:"Perfect Order",code:"ME03",released:"2026-03",chase:"Mega Zygarde ex",rarity:"MHR",value:187,rate:80,ratenote:"IR ~1 in 18",verdict:"Packs",
+   why:"The completionist's pick: a small, one-binder master set, a generous IR rate (~1 in 18), and a Z-A video-game tie-in pulling in new collectors. Only the era's lowest chase ceiling (~$187 top card) holds it back.",
+   econ:"The most rip-friendly Mega set, and cheap to finish via singles either way — a great low-stakes set to open."},
+];
+
+const DATASETS = {sv:SV, me:ME};
+const TABNOTES = {
+  sv:"15 Scarlet & Violet expansions, SV1 → SV10.5 — the full series.",
+  me:"5 current Mega Evolution sets (ME01–ME04), the new series that began Sept 2025. Ranked on its own."
+};
+const TIER_ORDER={S:0,A:1,B:2,C:3,D:4};
+const VERDICT_ORDER={Packs:0,Mixed:1,Singles:2};
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function relMonth(s){const [y,m]=s.split("-");return MONTHS[+m-1]+" '"+y.slice(2);}
+
+let curTab="sv", sortKey="rank", sortDir=1, tierFilter="ALL", query="";
+const tbody=document.getElementById("tbody");
+const ths=[...document.querySelectorAll("thead th")];
+
+function maxVal(){return Math.max(...DATASETS[curTab].map(d=>d.value));}
+
+function compare(a,b){
+  let av,bv;
+  switch(sortKey){
+    case "tier": av=TIER_ORDER[a.tier]; bv=TIER_ORDER[b.tier]; break;
+    case "verdict": av=VERDICT_ORDER[a.verdict]; bv=VERDICT_ORDER[b.verdict]; break;
+    case "set": av=a.set.toLowerCase(); bv=b.set.toLowerCase(); break;
+    case "chase": av=a.chase.toLowerCase(); bv=b.chase.toLowerCase(); break;
+    case "value": av=a.value; bv=b.value; break;
+    case "rate": av=a.rate; bv=b.rate; break;
+    case "released": av=a.released; bv=b.released; break;
+    default: av=a.rank; bv=b.rank;
+  }
+  if(av<bv) return -1*sortDir;
+  if(av>bv) return 1*sortDir;
+  return a.rank-b.rank;
+}
+
+function render(){
+  const mx=maxVal();
+  const rows=DATASETS[curTab]
+    .filter(d=> tierFilter==="ALL"||d.tier===tierFilter)
+    .filter(d=> !query || d.set.toLowerCase().includes(query) || d.chase.toLowerCase().includes(query))
+    .sort(compare);
+  if(!rows.length){ tbody.innerHTML='<tr><td class="empty" colspan="9">No sets match that filter.</td></tr>'; return; }
+  tbody.innerHTML=rows.map((d,i)=>{
+    const barW=12+(d.value/mx)*88;
+    const note=d.ratenote?`<span class="ratenote">${d.ratenote}</span>`:"";
+    return `<tr class="row" data-idx="${i}">
+      <td class="cell-chev"><span class="chev">▶</span></td>
+      <td class="num rank" data-label="#">${d.rank}</td>
+      <td class="cell-tier" data-rank="${d.rank}" data-label="Tier"><span class="tier ${d.tier}">${d.tier}</span></td>
+      <td class="cell-set" data-label="Set"><div><div class="setname">${d.set}</div><div class="setmeta">${d.code}</div></div></td>
+      <td data-label="Released"><span class="rate">${relMonth(d.released)}</span></td>
+      <td class="cell-chase chase" data-label="Top chase"><div>${d.chase}<br><span class="rarity ${d.rarity}">${d.rarity}</span></div></td>
+      <td class="num valcell" data-label="Chase $"><span class="valbar" style="width:${barW}%"></span><span class="val">~$${d.value.toLocaleString()}</span></td>
+      <td class="num" data-label="≈ SIR rate"><span class="rate">1 in ${d.rate}</span>${note}</td>
+      <td data-label="Verdict"><span class="verdict ${d.verdict}">${d.verdict}</span></td>
+    </tr>
+    <tr class="detail" data-idx="${i}"><td colspan="9">
+      <div class="detailbox ${d.tier}">
+        <div><span class="dlabel">Why it's ranked #${d.rank}</span><p>${d.why}</p></div>
+        <div><span class="dlabel">Rip economics &amp; verdict</span><p>${d.econ}</p></div>
+      </div>
+    </td></tr>`;
+  }).join("");
+}
+
+function setSort(key){
+  if(sortKey===key) sortDir*=-1; else { sortKey=key; sortDir=(key==="value")?-1:1; }
+  syncHeaders(); document.getElementById("msort").value=sortKey; render();
+}
+function syncHeaders(){
+  ths.forEach(th=>{ if(th.classList.contains("nosort"))return;
+    th.removeAttribute("data-active"); const a=th.querySelector(".arr");
+    if(th.dataset.key===sortKey){ th.setAttribute("data-active",""); if(a)a.textContent=sortDir===1?"▲":"▼"; }
+  });
+}
+
+ths.forEach(th=>{ if(!th.classList.contains("nosort")) th.addEventListener("click",()=>setSort(th.dataset.key)); });
+
+document.getElementById("msort").addEventListener("change",e=>{
+  sortKey=e.target.value; sortDir=(sortKey==="value")?-1:1; syncHeaders(); render();
+});
+
+tbody.addEventListener("click",e=>{
+  const row=e.target.closest("tr.row"); if(!row)return;
+  const idx=row.dataset.idx;
+  const detail=tbody.querySelector(`tr.detail[data-idx="${idx}"]`);
+  const open=row.classList.toggle("open");
+  if(detail) detail.classList.toggle("open",open);
+});
+
+document.getElementById("chips").addEventListener("click",e=>{
+  const btn=e.target.closest(".chip"); if(!btn)return;
+  tierFilter=btn.dataset.tier;
+  [...document.querySelectorAll(".chip")].forEach(c=>c.setAttribute("aria-pressed",c===btn?"true":"false"));
+  render();
+});
+document.getElementById("search").addEventListener("input",e=>{ query=e.target.value.trim().toLowerCase(); render(); });
+
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click",()=>{
+    curTab=tab.dataset.tab;
+    document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t===tab?"true":"false"));
+    document.getElementById("tabnote").textContent=TABNOTES[curTab];
+    // reset view
+    sortKey="rank"; sortDir=1; tierFilter="ALL"; query="";
+    document.getElementById("search").value="";
+    [...document.querySelectorAll(".chip")].forEach(c=>c.setAttribute("aria-pressed",c.dataset.tier==="ALL"?"true":"false"));
+    // hide C/D chips when Mega tab (no C/D tiers there)
+    document.querySelectorAll('.chip[data-tier="C"],.chip[data-tier="D"]').forEach(c=>c.classList.toggle("hide",curTab==="me"));
+    syncHeaders(); document.getElementById("msort").value="rank"; render();
+  });
+});
+
+// init
+document.getElementById("tabnote").textContent=TABNOTES.sv;
+ths.find(t=>t.dataset.key==="rank").setAttribute("data-active","");
+ths.find(t=>t.dataset.key==="rank").querySelector(".arr").textContent="▲";
+render();
+</script>
+</body>
+</html>

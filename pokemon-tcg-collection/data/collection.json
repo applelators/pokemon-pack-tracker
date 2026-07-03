@@ -1,0 +1,92 @@
+{
+  "_meta": {
+    "description": "Pokémon TCG collection data: binder inventory, sets (card counts + ripping/collecting tier data), and finalized binder plans.",
+    "cardCounts": "master-set totals (includes secret rares)",
+    "priceSnapshot": "2026-06 — raw NM ungraded USD, approximate & volatile; re-fetch before any price-facing use",
+    "pullRateNote": "sirRate = approx odds of ANY Special Illustration Rare (1 in N). A specific chase card is far rarer.",
+    "rankingNote": "rank/tier reflect the pack-ripping & collecting EXPERIENCE, not chase value. S&V and Mega are ranked separately.",
+    "verdictValues": ["Packs", "Mixed", "Singles"]
+  },
+
+  "binderTypes": [
+    { "capacity": 160,  "pocketLayout": "4-pocket",  "pocketsPerSide": 4,  "pageSides": 40 },
+    { "capacity": 360,  "pocketLayout": "9-pocket",  "pocketsPerSide": 9,  "pageSides": 40 },
+    { "capacity": 480,  "pocketLayout": "12-pocket", "pocketsPerSide": 12, "pageSides": 40 },
+    { "capacity": 624,  "pocketLayout": "12-pocket", "pocketsPerSide": 12, "pageSides": 52 },
+    { "capacity": 1088, "pocketLayout": "16-pocket", "pocketsPerSide": 16, "pageSides": 68 }
+  ],
+
+  "packingRules": {
+    "wholeSetsNoStraddle": true,
+    "newPageRule": "each set starts on a fresh page-side (either side; no skipping)",
+    "pageSidesUsedFormula": "sum(ceil(setCards / pocketsPerSide)) must be <= capacity/pocketsPerSide",
+    "objective": "minimize total empty pockets = sum(capacities) - sum(cards); tie-break fewer binders",
+    "strictRightPageVariant": "exists but rejected for main series; only use if user asks for right-page starts"
+  },
+
+  "sets": [
+    { "name": "Prismatic Evolutions", "code": "SV8.5", "series": "SV", "type": "special", "cards": 180, "rank": 1, "tier": "S", "topChase": "Umbreon ex", "rarity": "SIR", "chaseValueUSD": 1500, "sirRate": 36, "verdict": "Mixed", "released": "2025-01", "wrapperArtCount": null },
+    { "name": "Pokémon 151", "code": "SV3.5", "series": "SV", "type": "special", "cards": 207, "rank": 2, "tier": "S", "topChase": "Charizard ex", "rarity": "SIR", "chaseValueUSD": 420, "sirRate": 42, "verdict": "Mixed", "released": "2023-09", "wrapperArtCount": null },
+    { "name": "Paldean Fates", "code": "SV4.5", "series": "SV", "type": "special", "cards": 245, "rank": 3, "tier": "A", "topChase": "Shiny Mew ex", "rarity": "SIR", "chaseValueUSD": 800, "sirRate": 45, "verdict": "Packs", "released": "2024-01", "wrapperArtCount": null },
+    { "name": "Destined Rivals", "code": "SV10", "series": "SV", "type": "main", "cards": 244, "rank": 4, "tier": "A", "topChase": "Team Rocket's Mewtwo ex", "rarity": "SIR", "chaseValueUSD": 500, "sirRate": 42, "verdict": "Mixed", "released": "2025-05", "wrapperArtCount": null },
+    { "name": "Black Bolt + White Flare", "code": "SV10.5", "series": "SV", "type": "special", "cards": 345, "rank": 5, "tier": "A", "topChase": "Reshiram / Zekrom ex", "rarity": "BWR", "chaseValueUSD": 600, "sirRate": 40, "verdict": "Packs", "released": "2025-07", "wrapperArtCount": null },
+    { "name": "Surging Sparks", "code": "SV8", "series": "SV", "type": "main", "cards": 252, "rank": 6, "tier": "A", "topChase": "Pikachu ex", "rarity": "SIR", "chaseValueUSD": 255, "sirRate": 42, "verdict": "Mixed", "released": "2024-11", "wrapperArtCount": null },
+    { "name": "Twilight Masquerade", "code": "SV6", "series": "SV", "type": "main", "cards": 226, "rank": 7, "tier": "B", "topChase": "Greninja ex", "rarity": "SIR", "chaseValueUSD": 320, "sirRate": 42, "verdict": "Mixed", "released": "2024-05", "wrapperArtCount": null },
+    { "name": "Paldea Evolved", "code": "SV2", "series": "SV", "type": "main", "cards": 279, "rank": 8, "tier": "B", "topChase": "Magikarp", "rarity": "IR", "chaseValueUSD": 305, "sirRate": 42, "verdict": "Singles", "released": "2023-06", "wrapperArtCount": null },
+    { "name": "Journey Together", "code": "SV9", "series": "SV", "type": "main", "cards": 190, "rank": 9, "tier": "B", "topChase": "Lillie's Clefairy ex", "rarity": "SIR", "chaseValueUSD": 128, "sirRate": 42, "verdict": "Singles", "released": "2025-03", "wrapperArtCount": 4 },
+    { "name": "Scarlet & Violet (Base)", "code": "SV1", "series": "SV", "type": "main", "cards": null, "rank": 10, "tier": "C", "topChase": "Gardevoir ex", "rarity": "SIR", "chaseValueUSD": 80, "sirRate": 42, "verdict": "Singles", "released": "2023-03", "wrapperArtCount": 4 },
+    { "name": "Paradox Rift", "code": "SV4", "series": "SV", "type": "main", "cards": null, "rank": 11, "tier": "C", "topChase": "Groudon", "rarity": "IR", "chaseValueUSD": 89, "sirRate": 42, "verdict": "Singles", "released": "2023-11", "wrapperArtCount": null },
+    { "name": "Shrouded Fable", "code": "SV6.5", "series": "SV", "type": "special", "cards": null, "rank": 12, "tier": "C", "topChase": "Duskull", "rarity": "IR", "chaseValueUSD": 50, "sirRate": 38, "verdict": "Singles", "released": "2024-08", "wrapperArtCount": null },
+    { "name": "Obsidian Flames", "code": "SV3", "series": "SV", "type": "main", "cards": null, "rank": 13, "tier": "D", "topChase": "Charizard ex", "rarity": "SIR", "chaseValueUSD": 106, "sirRate": 42, "verdict": "Singles", "released": "2023-08", "wrapperArtCount": null },
+    { "name": "Temporal Forces", "code": "SV5", "series": "SV", "type": "main", "cards": null, "rank": 14, "tier": "D", "topChase": "Gastly", "rarity": "IR", "chaseValueUSD": 91, "sirRate": 42, "verdict": "Singles", "released": "2024-03", "wrapperArtCount": null },
+    { "name": "Stellar Crown", "code": "SV7", "series": "SV", "type": "main", "cards": 175, "rank": 15, "tier": "D", "topChase": "Squirtle", "rarity": "IR", "chaseValueUSD": 108, "sirRate": 42, "verdict": "Singles", "released": "2024-09", "wrapperArtCount": null },
+
+    { "name": "Ascended Heroes", "code": "ME2.5", "series": "ME", "type": "special", "cards": 295, "rank": 1, "tier": "S", "topChase": "Mega Gengar ex", "rarity": "SIR", "chaseValueUSD": 1145, "sirRate": 70, "verdict": "Singles", "released": "2026-01", "wrapperArtCount": null },
+    { "name": "Mega Evolution", "code": "ME01", "series": "ME", "type": "main", "cards": 188, "rank": 2, "tier": "A", "topChase": "Mega Lucario ex", "rarity": "MHR", "chaseValueUSD": 260, "sirRate": 101, "verdict": "Mixed", "released": "2025-09", "wrapperArtCount": null },
+    { "name": "Chaos Rising", "code": "ME04", "series": "ME", "type": "main", "cards": 122, "rank": 3, "tier": "A", "topChase": "Mega Greninja ex", "rarity": "SIR", "chaseValueUSD": 490, "sirRate": 90, "verdict": "Mixed", "released": "2026-05", "wrapperArtCount": null },
+    { "name": "Phantasmal Flames", "code": "ME02", "series": "ME", "type": "main", "cards": 130, "rank": 4, "tier": "B", "topChase": "Mega Charizard X ex", "rarity": "SIR", "chaseValueUSD": 750, "sirRate": 95, "verdict": "Singles", "released": "2025-11", "wrapperArtCount": null },
+    { "name": "Perfect Order", "code": "ME03", "series": "ME", "type": "main", "cards": 124, "rank": 5, "tier": "B", "topChase": "Mega Zygarde ex", "rarity": "MHR", "chaseValueUSD": 187, "sirRate": 80, "verdict": "Packs", "released": "2026-03", "wrapperArtCount": null },
+
+    { "name": "Pitch Black", "code": "ME05", "series": "ME", "type": "main", "cards": 120, "rank": null, "tier": null, "topChase": null, "rarity": null, "chaseValueUSD": null, "sirRate": null, "verdict": null, "released": "2026-07", "wrapperArtCount": null, "_note": "future set (not yet released as of 2026-06); starts the next Mega main binder" }
+  ],
+
+  "binderPlans": [
+    {
+      "id": "sv-main",
+      "series": "SV", "type": "main",
+      "binders": [
+        { "capacity": 480, "sets": ["Twilight Masquerade", "Surging Sparks"], "cards": 478, "empty": 2, "pageSidesUsed": 40 },
+        { "capacity": 480, "sets": ["Paldea Evolved", "Stellar Crown"], "cards": 454, "empty": 26, "pageSidesUsed": 39 },
+        { "capacity": 480, "sets": ["Journey Together", "Destined Rivals"], "cards": 434, "empty": 46, "pageSidesUsed": 37 }
+      ],
+      "totalEmpty": 74, "rule": "new-page-any-side"
+    },
+    {
+      "id": "sv-special",
+      "series": "SV", "type": "special",
+      "binders": [
+        { "capacity": 1088, "sets": ["Pokémon 151", "Paldean Fates", "Prismatic Evolutions", "Black Bolt + White Flare"], "cards": 977, "empty": 111, "pageSidesUsed": 63 }
+      ],
+      "totalEmpty": 111, "rule": "new-page-any-side", "order": "chronological"
+    },
+    {
+      "id": "me-main",
+      "series": "ME", "type": "main",
+      "binders": [
+        { "capacity": 624, "sets": ["Mega Evolution", "Phantasmal Flames", "Perfect Order", "Chaos Rising"], "cards": 564, "empty": 60, "pageSidesUsed": 49 }
+      ],
+      "totalEmpty": 60, "rule": "new-page-any-side", "order": "release",
+      "_note": "effectively full; future sets (Pitch Black onward) need a NEW binder — a second 624 (~4 sets) or a 1088 (~8)."
+    }
+  ],
+
+  "wrapperArtPlan": {
+    "storesInCardBinders": false,
+    "reason": "wrappers ~2.6in x 4.6-5in — card-width but ~1.5x card-height, too tall for card pockets",
+    "interimStorage": "tarot sleeves (~2.75in x 4.75in)",
+    "targetStorage": "separate pack-art binder, pack-sized pockets (~3.5in x 5in+), ~6 per side / ~12 per sheet",
+    "estimatedTotalWrappers": 38,
+    "estimatedSheets": 4,
+    "perSetCounts": "TBD — see sets[].wrapperArtCount (main sets ~3-4, specials vary; SV base & Journey Together confirmed 4)"
+  }
+}

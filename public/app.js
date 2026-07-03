@@ -210,6 +210,19 @@ window.spriteFallback = function (img) {
   else { img.dataset.s = "1"; img.src = img.dataset.fb; }
 };
 
+// ---- physical binders (FINALIZED plans from pokemon-tcg-collection/CLAUDE.md §4) ----
+// Sections are whole sets in fill order; a section can span two tracker sets that are
+// bound as one block (Black Bolt + White Flare). Page math comes from binderPlanner.js
+// (window.BinderPlanner — verbatim copy served as /binderPlanner.js), never re-derived.
+const BINDERS = [
+  { id: "svm1", label: "S&V Main · Binder 1", capacity: 480, perSide: 12, sections: [["sv6"], ["sv8"]] },
+  { id: "svm2", label: "S&V Main · Binder 2", capacity: 480, perSide: 12, sections: [["sv2"], ["sv7"]] },
+  { id: "svm3", label: "S&V Main · Binder 3", capacity: 480, perSide: 12, sections: [["sv9"], ["sv10"]] },
+  { id: "svsp", label: "S&V Special", capacity: 1088, perSide: 16, sections: [["sv3pt5"], ["sv4pt5"], ["sv8pt5"], ["zsv10pt5", "rsv10pt5"]] },
+  { id: "mem", label: "Mega Evolution Main", capacity: 624, perSide: 12, sections: [["me1"], ["me2"], ["me3"], ["me4"]] },
+];
+const BINDER_COLS = { 4: 2, 9: 3, 12: 4, 16: 4 };  // pocket-grid columns per layout
+
 // Banner key-art vertical focus (% from top; 0 = top, 50 = center). Per-set default,
 // overridable by the user via the ▲/▼ nudge (saved per device).
 const BANNER_POS_DEFAULT = { sv8pt5: 6 };   // Prismatic: Eevees are up top
@@ -253,6 +266,7 @@ const state = {
   hubPrice: {},
   hubAnimated: false,
   refreshingAll: false,
+  binderId: null, bSpread: 0, bHighlight: null, bSearch: "", bResults: null, binderCards: {}, // Binders view
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -416,6 +430,7 @@ function headerHTML() {
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       ${state.showShared ? `<div class="seg"><button data-act="binder" data-v="mine" class="${on(state.binder === 'mine')}">Mine</button><button data-act="binder" data-v="shared" class="${on(state.binder === 'shared')}">Shared</button></div>` : ""}
+      <button class="icon-btn${state.view === 'binders' ? ' on' : ''}" data-act="binders" title="Binder page previews" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">📖 Binders</button>
       <button class="icon-btn${state.view === 'spend' ? ' on' : ''}" data-act="spend" title="Spending" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">▤ Spending</button>
       <button class="icon-btn" data-act="settings" title="Settings" style="width:38px;height:38px;border-radius:999px;font-size:16px;">⚙</button>
     </div>
@@ -424,11 +439,171 @@ function headerHTML() {
 
 // ---- render entry --------------------------------------------------------
 function render() {
-  document.getElementById("app").classList.toggle("wide", state.view === "set"); // wider container for the sidebar layout
+  document.getElementById("app").classList.toggle("wide", state.view === "set" || state.view === "binders"); // wider container
   if (state.loading) { document.getElementById("app").innerHTML = headerHTML() + `<div class="loading">Loading your sets…</div>`; return; }
   if (state.view === "spend") renderSpend();
+  else if (state.view === "binders") renderBinders();
   else if (state.view === "set" && setById(state.setId)) renderSetView();
   else { state.view = "hub"; renderHub(); }
+}
+
+// ---- BINDERS (page previews + card finder) --------------------------------
+function collNum(n) { const m = String(n || "").match(/^(\d+)(.*)$/); return m ? [Number(m[1]), m[2]] : [Infinity, String(n)]; }
+function sortMaster(cards) { return [...cards].sort((a, b) => { const A = collNum(a.number), B = collNum(b.number); return A[0] - B[0] || (A[1] < B[1] ? -1 : A[1] > B[1] ? 1 : 0); }); }
+const binderById = (id) => BINDERS.find((b) => b.id === id);
+function sectionLabel(sec) { return sec.map((id) => { const s = setById(id); return s ? s.name : id; }).join(" + "); }
+function sectionCards(sec) { return sec.flatMap((id) => (state.binderCards[id] || []).map((c) => ({ ...c, setId: id }))); }
+function binderLoaded(b) { return b.sections.every((sec) => sec.every((id) => state.binderCards[id])); }
+
+async function loadBinderSets(setIds, title) {
+  const missing = setIds.filter((id) => !state.binderCards[id]);
+  if (!missing.length) return;
+  startProgressManual(title);
+  for (let i = 0; i < missing.length; i++) {
+    const s = setById(missing[i]);
+    setProgressStep(`${i + 1} of ${missing.length} · ${s ? s.name : missing[i]}…`, i / missing.length);
+    state.binderCards[missing[i]] = sortMaster(await api(`/sets/${missing[i]}/cards`));
+  }
+  stopProgress();
+}
+
+// Page map for a binder via binderPlanner (buildPageMap; new-page rule).
+function binderPageMap(b) {
+  if (!window.BinderPlanner) return null;
+  const sets = b.sections.map((sec) => ({ name: sectionLabel(sec), cards: sectionCards(sec).length }));
+  return window.BinderPlanner.buildPageMap(sets, b.perSide, "new-page");
+}
+
+// Where a card lives: {binder, sideNum, pocket (0-based), row, col}.
+function locateCard(b, cardId) {
+  const map = binderPageMap(b); if (!map) return null;
+  for (let si = 0; si < b.sections.length; si++) {
+    const cards = sectionCards(b.sections[si]);
+    const idx = cards.findIndex((c) => c.id === cardId);
+    if (idx < 0) continue;
+    const sideNum = map[si].startPage + Math.floor(idx / b.perSide);
+    const pocket = idx % b.perSide;
+    const cols = BINDER_COLS[b.perSide];
+    return { binder: b, sideNum, pocket, row: Math.floor(pocket / cols) + 1, col: (pocket % cols) + 1 };
+  }
+  return null;
+}
+
+// Spreads: page-side 1 is a right-hand page → spread 0 = [—|1], spread k = [2k|2k+1].
+function spreadOfSide(sideNum) { return Math.floor(sideNum / 2); }
+function sidesOfSpread(k, totalSides) { const L = 2 * k, R = 2 * k + 1; return [L >= 1 && L <= totalSides ? L : null, R <= totalSides ? R : null]; }
+
+async function openBinders() { state.view = "binders"; state.binderId = null; state.bResults = null; render(); }
+async function openBinder(id) {
+  const b = binderById(id); if (!b) return;
+  try { await loadBinderSets(b.sections.flat(), "Opening " + b.label + "…"); }
+  catch (e) { stopProgress(); toast(e.message, true); return; }
+  state.binderId = id; state.bSpread = 0; state.bHighlight = null; render();
+}
+function refocusSearch() {
+  const el = document.getElementById("bsearch");
+  if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+}
+async function binderSearch(q) {
+  state.bSearch = q;
+  if (!q.trim()) { state.bResults = null; render(); refocusSearch(); return; }
+  const all = [...new Set(BINDERS.flatMap((b) => b.sections.flat()))];
+  try { await loadBinderSets(all, "Indexing all binders…"); }
+  catch (e) { stopProgress(); toast(e.message, true); return; }
+  const needle = q.trim().toLowerCase();
+  const numQ = needle.match(/^#?(\d+)$/);
+  const out = [];
+  for (const b of BINDERS) {
+    for (const sec of b.sections) {
+      for (const c of sectionCards(sec)) {
+        const numHit = numQ && collNum(c.number)[0] === Number(numQ[1]);
+        if (!numHit && !c.name.toLowerCase().includes(needle)) continue;
+        const loc = locateCard(b, c.id);
+        if (loc) out.push({ c, b, loc });
+        if (out.length >= 24) break;
+      }
+      if (out.length >= 24) break;
+    }
+    if (out.length >= 24) break;
+  }
+  state.bResults = out; render(); refocusSearch();
+}
+function binderJump(binderId, sideNum, cardId) {
+  state.binderId = binderId; state.bSpread = spreadOfSide(sideNum); state.bHighlight = cardId;
+  render();
+  const el = document.querySelector(".pocket.hl");
+  if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function binderSideHTML(b, sideNum, map) {
+  const cols = BINDER_COLS[b.perSide];
+  if (sideNum == null) return `<div class="bp-side bp-cover"><span>— cover —</span></div>`;
+  const entry = map.find((m) => sideNum >= m.startPage && sideNum <= m.endPage);
+  const si = entry ? map.indexOf(entry) : -1;
+  let cells = "";
+  if (entry) {
+    const cards = sectionCards(b.sections[si]);
+    const local = (sideNum - entry.startPage) * b.perSide;
+    for (let p = 0; p < b.perSide; p++) {
+      const c = cards[local + p];
+      if (!c) { cells += `<div class="pocket empty"></div>`; continue; }
+      const hl = state.bHighlight === c.id ? " hl" : "";
+      cells += `<div class="pocket${hl}" title="${esc(c.name)} · #${esc(c.number)}">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : `<span class="pk-name">${esc(c.name)}</span>`}<span class="pk-num">#${esc(c.number)}</span></div>`;
+    }
+  } else {
+    for (let p = 0; p < b.perSide; p++) cells += `<div class="pocket empty"></div>`;
+  }
+  const setTag = entry ? `${esc(entry.set)}${entry.startPage === sideNum ? " · starts here" : ""}` : "blank (growth room)";
+  return `<div class="bp-side"><div class="bp-side-h"><span>page ${sideNum} · ${sideNum % 2 === 1 ? "right" : "left"}</span><span class="bp-set">${setTag}</span></div><div class="bp-grid" style="grid-template-columns:repeat(${cols},1fr)">${cells}</div></div>`;
+}
+
+function renderBinders() {
+  const app = document.getElementById("app");
+  const search = `<div class="bfind"><input type="text" id="bsearch" placeholder="🔍 Find a card — name or #number…" value="${esc(state.bSearch)}">${state.bResults ? `<button class="hub-mini" data-act="bclear">✕ Clear</button>` : ""}</div>`;
+  const results = state.bResults ? `<div class="bresults">${state.bResults.length ? state.bResults.map(({ c, b, loc }) => `
+      <div class="bres">
+        <div class="bres-thumb">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : "🎴"}</div>
+        <div class="bres-meta"><b>${esc(c.name)}</b> <span class="muted2">#${esc(c.number)}</span><br><span class="bres-loc">${esc(b.label)} · page ${loc.sideNum} (${loc.sideNum % 2 === 1 ? "right" : "left"}) · row ${loc.row}, pocket ${loc.col}</span></div>
+        <button class="hub-open" data-act="bjump" data-v="${b.id}:${loc.sideNum}:${esc(c.id)}">Jump →</button>
+      </div>`).join("") : `<div class="muted" style="font-size:13px;padding:8px 2px;">No matches in any binder.</div>`}</div>` : "";
+
+  if (!state.binderId) {
+    // Shelf
+    const shelf = BINDERS.map((b) => {
+      const loaded = binderLoaded(b);
+      const cards = loaded ? b.sections.reduce((a, sec) => a + sectionCards(sec).length, 0) : null;
+      const secs = b.sections.map((sec) => sec.map((id) => { const s = setById(id); return `<span class="setchip" style="color:${s ? s.tint : 'var(--soft)'}">${s ? s.code : id}</span>`; }).join("")).join('<span class="bshelf-arrow">→</span>');
+      return `<div class="bshelf-row" data-act="openbinder" data-v="${b.id}">
+        <div class="bshelf-spine"><span class="bshelf-cap disp">${b.capacity}</span><span class="bshelf-pk">${b.perSide}-pkt</span></div>
+        <div class="bshelf-meta"><div class="bshelf-name">${esc(b.label)}</div><div class="bshelf-sets">${secs}</div>
+          <div class="bshelf-sub">${cards != null ? `${cards} / ${b.capacity} cards · ${b.capacity - cards} empty` : `${b.capacity} pockets · ${b.capacity / b.perSide} page-sides`}</div></div>
+        <span class="bshelf-open">Open →</span>
+      </div>`;
+    }).join("");
+    app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
+      <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">📖 Binders</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">Finalized packing plans — tap a binder to flip through its pages</div></div></div>
+      ${search}${results}
+      <div class="bshelf">${shelf}</div>`;
+    return;
+  }
+
+  // Spread view
+  const b = binderById(state.binderId);
+  const map = binderPageMap(b);
+  if (!map) { app.innerHTML = headerHTML() + `<div class="loading">Binder math not loaded — refresh the page.</div>`; return; }
+  const totalSides = b.capacity / b.perSide;
+  const usedSides = map.length ? map[map.length - 1].endPage : 0;
+  const maxSpread = spreadOfSide(usedSides);
+  state.bSpread = Math.max(0, Math.min(state.bSpread, maxSpread));
+  const [L, R] = sidesOfSpread(state.bSpread, totalSides);
+  const chips = map.map((m, i) => `<button class="bp-chip" data-act="bgoto" data-v="${m.startPage}"><span class="dot" style="background:${(setById(b.sections[i][0]) || {}).tint || 'var(--muted)'}"></span>${esc(m.set)}<span class="muted2" style="margin-left:5px;">p${m.startPage}</span></button>`).join("");
+  app.innerHTML = headerHTML() + `<button class="backchip" data-act="binders">← All binders</button>
+    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">${esc(b.label)}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${b.capacity} pockets · ${b.perSide}-pocket pages · ${usedSides}/${totalSides} page-sides used</div></div></div>
+    ${search}${results}
+    <div class="bp-chips">${chips}</div>
+    <div class="bp-nav"><button class="hub-mini" data-act="bprev"${state.bSpread <= 0 ? " disabled" : ""}>◀ Prev</button><span class="disp bp-pos">Spread ${state.bSpread + 1} / ${maxSpread + 1}</span><button class="hub-mini" data-act="bnext"${state.bSpread >= maxSpread ? " disabled" : ""}>Next ▶</button></div>
+    <div class="bp-spread">${binderSideHTML(b, L, map)}${binderSideHTML(b, R, map)}</div>
+    ${usedSides < totalSides ? `<div style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center;">+ ${totalSides - usedSides} blank page-side${totalSides - usedSides > 1 ? "s" : ""} at the back (growth room)</div>` : ""}`;
 }
 
 // ---- HUB -----------------------------------------------------------------
@@ -1405,6 +1580,13 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "settings") openSettings();
   else if (act === "pulls") openPulls(Number(v));
   else if (act === "spend") openSpend();
+  else if (act === "binders") openBinders();
+  else if (act === "openbinder") openBinder(v);
+  else if (act === "bprev") { state.bSpread--; state.bHighlight = null; render(); }
+  else if (act === "bnext") { state.bSpread++; state.bHighlight = null; render(); }
+  else if (act === "bgoto") { state.bSpread = spreadOfSide(Number(v)); state.bHighlight = null; render(); }
+  else if (act === "bjump") { const [bid, side, ...rest] = v.split(":"); binderJump(bid, Number(side), rest.join(":")); }
+  else if (act === "bclear") { state.bSearch = ""; state.bResults = null; render(); }
   else if (act === "gohub") goHub();
   else if (act === "opensetview") openSetView(v);
   else if (act === "hubinc") hubStep(v, 1);
@@ -1414,6 +1596,14 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "refreshall") refreshAllMarkets();
   else if (act === "editorder") editOrder(Number(v));
   else if (act === "delorder") requestDeleteOrder(Number(v));
+});
+let _bSearchTimer;
+document.getElementById("app").addEventListener("input", (e) => {
+  if (e.target.id !== "bsearch") return;
+  const q = e.target.value;
+  state.bSearch = q; // keep value across re-renders without re-rendering on each key
+  clearTimeout(_bSearchTimer);
+  _bSearchTimer = setTimeout(() => binderSearch(q), 350);
 });
 document.getElementById("app").addEventListener("change", (e) => {
   const t = e.target;
