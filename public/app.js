@@ -317,7 +317,7 @@ const state = {
   cardsCache: {},      // setId -> card list (for the pulls picker)
   // sheets
   composerOpen: false, editingId: null, draft: null,
-  setsOpen: false, importing: null,
+  setsOpen: false, importing: null, seriesOpen: {},
   settingsOpen: false, settingsAdvanced: false,
   confirm: null,
   pullsOpen: false, pullsId: null, pullsFinds: {}, pullsTagged: [], pullsTagOpen: false, pullsCards: null,
@@ -1461,7 +1461,7 @@ function renderSetsModal() {
     body = `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:12px;"><span class="pt-spin"></span>Loading expansions…</div>`;
   } else {
     const list = state.allSets.slice().sort((a, b) => (releaseSort(b.releaseDate) - releaseSort(a.releaseDate)));
-    const rows = list.map((s) => {
+    const rowFor = (s) => {
       const tracked = setById(s.id);
       const special = isSpecialId(s.id), mega = isMega(s.series, s.id);
       const busy = state.importing === s.id;
@@ -1488,8 +1488,28 @@ function renderSetsModal() {
         </div>
         <div class="exp-actions">${actions}</div>
       </div>`;
+    };
+    // Group by series (each group newest-first; groups ordered by their newest set).
+    // Series older than Scarlet & Violet collapse by default; header click toggles.
+    const groups = [];
+    const byName = {};
+    for (const s of list) {
+      const ser = s.series || "Other";
+      if (!byName[ser]) { byName[ser] = { name: ser, sets: [] }; groups.push(byName[ser]); }
+      byName[ser].sets.push(s);
+    }
+    const DEFAULT_OPEN = new Set(["Mega Evolution", "Scarlet & Violet"]);
+    const isOpen = (g) => state.seriesOpen[g.name] != null ? state.seriesOpen[g.name] : DEFAULT_OPEN.has(g.name);
+    const rows = groups.map((g) => {
+      const open = isOpen(g);
+      const trackedN = g.sets.filter((s) => setById(s.id)).length;
+      return `<div class="exp-serhdr" data-mact="sertoggle" data-v="${esc(g.name)}">
+          <span class="exp-serchev">${open ? "▾" : "▸"}</span>
+          <span class="exp-sername">${esc(g.name)}</span>
+          <span class="exp-sercount">${g.sets.length} set${g.sets.length !== 1 ? "s" : ""}${trackedN ? ` · ${trackedN} tracked` : ""}</span>
+        </div>${open ? g.sets.map(rowFor).join("") : ""}`;
     }).join("");
-    body = `<div class="exp-grouphdr">All expansions · newest first</div><div class="exp-list">${rows}</div>`;
+    body = `<div class="exp-grouphdr">All expansions · grouped by series · newest first</div><div class="exp-list">${rows}</div>`;
   }
   host.innerHTML = `
     <div class="scrim" data-mact="bg">
@@ -1842,6 +1862,13 @@ document.getElementById("setsmodal").addEventListener("click", (e) => {
   else if (act === "reimport") reimportSet(v);
   else if (act === "delset") removeSet(v);
   else if (act === "retryload") openSetsModal();
+  else if (act === "sertoggle") {
+    const g = v;
+    const DEFAULT_OPEN = new Set(["Mega Evolution", "Scarlet & Violet"]);
+    const cur = state.seriesOpen[g] != null ? state.seriesOpen[g] : DEFAULT_OPEN.has(g);
+    state.seriesOpen[g] = !cur;
+    renderSetsModal();
+  }
 });
 
 document.getElementById("confirm").addEventListener("click", (e) => {
