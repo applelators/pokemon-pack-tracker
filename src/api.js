@@ -9,7 +9,7 @@ import {
 import { searchSets, importSet, listSetCards, searchCardsByName } from "./pokemontcg.js";
 import { CUSTOM_SETS, customCards, customCurve } from "./customsets.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
-import { fetchSealedRipPrices, fetchPackBox } from "./tcgcsv.js";
+import { fetchSealedRipPrices, fetchPackBox, fetchSealedList } from "./tcgcsv.js";
 import { fetchEbayPackPrice } from "./ebay.js";
 import { computeCurve, applyProgress, chaseEstimate } from "./estimator.js";
 
@@ -463,6 +463,33 @@ export async function handleApi(request, env, url) {
       await db.prepare("INSERT INTO settings (key, value) VALUES ('tier_prices_cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
         .bind(JSON.stringify(cache)).run();
       return json({ complete, updated: cache.updated, prices: cache.prices });
+    }
+
+    // GET /api/sealeddeals[?refresh=1] — every sealed product w/ pack counts across all
+    // SV/ME sets (client filters to not-in-print + ranks). Chunked build like tierprices
+    // (TCGCSV has no CORS + Worker subrequest caps); cached 24h in settings.
+    if (pathname === "/api/sealeddeals" && method === "GET") {
+      const SEALED_GROUPS = { // set id → TCGplayer groupId
+        sv1: 22873, sv2: 23120, sv3: 23228, sv4: 23286, sv5: 23381, sv6: 23473,
+        sv6pt5: 23529, sv7: 23537, sv3pt5: 23237, sv4pt5: 23353, sv8: 23651,
+        sv8pt5: 23821, sv9: 24073, sv10: 24269, zsv10pt5: 24325, rsv10pt5: 24326,
+        me1: 24380, me2: 24448, me2pt5: 24541, me3: 24587, me4: 24655,
+      };
+      const row = await db.prepare("SELECT value FROM settings WHERE key = 'sealed_deals_cache'").first();
+      let cache = { updated: 0, sets: {} };
+      try { if (row) cache = JSON.parse(row.value) || cache; } catch { /* rebuild */ }
+      const DAY = 24 * 3600 * 1000;
+      if (url.searchParams.get("refresh") === "1" || (cache.updated && Date.now() - cache.updated > DAY)) cache = { updated: 0, sets: {} };
+      const missing = Object.keys(SEALED_GROUPS).filter((id) => !cache.sets[id]);
+      for (const id of missing.slice(0, 4)) {
+        try { cache.sets[id] = await fetchSealedList(SEALED_GROUPS[id]); }
+        catch { cache.sets[id] = []; } // failed group → empty (retryable via refresh)
+      }
+      const complete = Object.keys(SEALED_GROUPS).every((id) => cache.sets[id]);
+      if (complete && !cache.updated) cache.updated = Date.now();
+      await db.prepare("INSERT INTO settings (key, value) VALUES ('sealed_deals_cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .bind(JSON.stringify(cache)).run();
+      return json({ complete, updated: cache.updated, done: Object.keys(cache.sets).length, total: Object.keys(SEALED_GROUPS).length, sets: cache.sets });
     }
 
     // /api/cards/search?q= — card lookup for tagging promo cards (any set)

@@ -97,6 +97,61 @@ export async function fetchSealedRipPrices(name, releaseDate, groupIdOverride) {
   };
 }
 
+// All sealed products for one group with pack counts (for the Sealed Deals view).
+// Pattern order matters; null = skip (cases/displays/seller lots/unknown collections).
+const SEALED_PACKS = [
+  [/case\b|display\b|art bundle|set of|lot\b|bundle \+/i, null],
+  [/booster bundle/i, 6],
+  [/pokemon center.*elite|elite.*pokemon center/i, 11],
+  [/elite trainer/i, 9],
+  [/enhanced booster box|half booster box/i, null],
+  [/booster box/i, 36],
+  [/sleeved booster pack$/i, 1],
+  [/booster pack$/i, 1],
+  [/3[- ]pack blister|three[- ]booster/i, 3],
+  [/2[- ]pack blister/i, 2],
+  [/1[- ]pack blister|checklane/i, 1],
+  [/mini tin/i, 2],
+  [/poster collection/i, 3],
+  [/tech sticker/i, 3],
+  [/binder collection/i, 5],
+  [/super.premium|ultra.premium/i, 16],
+  [/surprise box/i, 4],
+  [/premium figure/i, 11],
+  [/accessory pouch/i, 5],
+  [/pin collection/i, 5],
+  [/special illustration collection/i, 5],
+  [/illustration collection/i, 4],
+  [/ex collection\b/i, 4],
+  [/ex box\b/i, 4],
+  [/build & battle stadium/i, null],
+  [/build & battle/i, 4],
+  [/stacking tin/i, 3],
+  [/\btin\b/i, 3],
+  [/collection|deck|kit|pouch|album|figure/i, null],
+];
+export async function fetchSealedList(groupId) {
+  const [products, prices] = await Promise.all([
+    getJson(`${BASE}/${POKEMON_CATEGORY}/${groupId}/products`),
+    getJson(`${BASE}/${POKEMON_CATEGORY}/${groupId}/prices`),
+  ]);
+  const pm = {};
+  for (const r of prices) pm[r.productId] = Math.max(pm[r.productId] || 0, r.marketPrice || 0);
+  const out = [];
+  for (const p of products) {
+    const n = p.name || "";
+    if ((p.extendedData || []).some((e) => e.name === "Rarity")) continue; // cards, not sealed
+    if (/^code card/i.test(n)) continue;
+    const v = pm[p.productId];
+    if (!v || v < 3) continue;
+    let packs;
+    for (const [rx, c] of SEALED_PACKS) { if (rx.test(n)) { packs = c; break; } }
+    if (!packs) continue;
+    out.push({ name: n, market: Math.round(v * 100) / 100, packs });
+  }
+  return out;
+}
+
 // Loose-pack + booster-box market prices for one group (for the tier list).
 export async function fetchPackBox(groupId) {
   const [products, prices] = await Promise.all([

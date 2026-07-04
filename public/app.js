@@ -59,7 +59,7 @@ const SPECIAL_PRODUCTS = [
   { name: "30th Celebration Battle Deck — Umbreon ex", alloc: [], group: "30th Celebration" },  // no packs
 ];
 // Display names for known contained sets that may not be tracked yet (for the prompt).
-const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising", cel30: "30th Celebration", fp1: "First Partner — Series 1", fp2: "First Partner — Series 2", fp3: "First Partner — Series 3" };
+const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising", cel30: "30th Celebration", fp1: "First Partner — Series 1", fp2: "First Partner — Series 2", fp3: "First Partner — Series 3", sv1: "Scarlet & Violet Base", sv3: "Obsidian Flames", sv4: "Paradox Rift", sv5: "Temporal Forces", sv6pt5: "Shrouded Fable", sv2: "Paldea Evolved", sv3pt5: "151", sv4pt5: "Paldean Fates", sv6: "Twilight Masquerade", sv7: "Stellar Crown", sv8: "Surging Sparks" };
 function setName(id) { const s = setById(id); return s ? s.name : (KNOWN_SET_NAMES[id] || id); }
 // A special product's default allocation as [{setId, packs}] — keeps real ids even for
 // untracked sets (so we can offer to track them); "" = assorted/other.
@@ -317,6 +317,7 @@ const state = {
   refreshingAll: false,
   binderId: null, bSpread: 0, bHighlight: null, bSearch: "", bResults: null, binderCards: {}, // Binders view
   tierData: null, tierTab: "sv", tierSort: "rank", tierOpen: null, tierPrices: null, tierPricesComplete: false, // Tier-list view
+  sealedData: null, sealedComplete: false, sealedUpdated: 0, sealedBusy: false, // Sealed-deals view
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -480,6 +481,7 @@ function headerHTML() {
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       ${state.showShared ? `<div class="seg"><button data-act="binder" data-v="mine" class="${on(state.binder === 'mine')}">Mine</button><button data-act="binder" data-v="shared" class="${on(state.binder === 'shared')}">Shared</button></div>` : ""}
+      <button class="icon-btn${state.view === 'sealed' ? ' on' : ''}" data-act="sealed" title="Sealed deals — sets no longer in print" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">🛒 Sealed</button>
       <button class="icon-btn${state.view === 'tiers' ? ' on' : ''}" data-act="tiers" title="Ripping & collecting tier list" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">★ Tiers</button>
       <button class="icon-btn${state.view === 'binders' ? ' on' : ''}" data-act="binders" title="Binder page previews" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">📖 Binders</button>
       <button class="icon-btn${state.view === 'spend' ? ' on' : ''}" data-act="spend" title="Spending" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">▤ Spending</button>
@@ -493,6 +495,7 @@ function render() {
   document.getElementById("app").classList.toggle("wide", state.view === "set" || state.view === "binders"); // wider container
   if (state.loading) { document.getElementById("app").innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading your sets…</div>`; return; }
   if (state.view === "spend") renderSpend();
+  else if (state.view === "sealed") renderSealed();
   else if (state.view === "tiers") renderTiers();
   else if (state.view === "binders") renderBinders();
   else if (state.view === "set" && setById(state.setId)) renderSetView();
@@ -575,6 +578,71 @@ function renderTiers() {
       <div class="seg sq"><button data-act="tiersort" data-v="rank" class="${on(state.tierSort === "rank")}">Rank</button><button data-act="tiersort" data-v="value" class="${on(state.tierSort === "value")}">Chase $</button><button data-act="tiersort" data-v="odds" class="${on(state.tierSort === "odds")}">Best odds</button></div>
     </div>
     <div class="tlist">${list}</div>`;
+}
+
+// ---- SEALED DEALS (products of not-in-print sets, ranked by $/pack) --------
+async function openSealed() {
+  state.view = "sealed"; render();
+  try { await loadTierData(); } catch { /* tier badges optional */ }
+  ensureSealedDeals(false);
+}
+async function ensureSealedDeals(force) {
+  if (state.sealedBusy) return;
+  if (!force && state.sealedComplete) return;
+  state.sealedBusy = true;
+  startProgressManual(force ? "Refreshing sealed prices…" : "Loading sealed prices…");
+  try {
+    for (let i = 0; i < 10; i++) {
+      const r = await api(`/sealeddeals${force && i === 0 ? "?refresh=1" : ""}`);
+      state.sealedData = r.sets; state.sealedComplete = r.complete; state.sealedUpdated = r.updated;
+      setProgressStep(`${r.done} of ${r.total} sets…`, r.done / r.total);
+      if (state.view === "sealed") render();
+      if (r.complete) break;
+    }
+  } catch (e) { toast("Sealed prices unavailable: " + e.message, true); }
+  stopProgress();
+  state.sealedBusy = false;
+  render();
+}
+function renderSealed() {
+  const app = document.getElementById("app");
+  if (!state.sealedData) { app.innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading sealed deals…</div>`; return; }
+  // Only sets NOT actively in print (chip tone fair/bad) — follows PRINT_STATUS live.
+  const rows = [];
+  const loose = {};
+  for (const [sid, prods] of Object.entries(state.sealedData)) {
+    const ps = printStatusOf(sid, null);
+    if (ps.tone === "good") continue;
+    for (const p of prods) {
+      if (p.packs === 1 && /booster pack$/i.test(p.name) && !/sleeved/i.test(p.name)) loose[sid] = Math.min(loose[sid] || 1e9, p.market);
+      rows.push({ sid, ps, ...p, ppk: p.market / p.packs });
+    }
+  }
+  rows.sort((a, b) => a.ppk - b.ppk);
+  const tierOf = (sid) => tierForSetId(sid);
+  const isRec = (r) => { const t = tierOf(r.sid); const l = loose[r.sid]; return t && (t.tier === "S" || t.tier === "A") && (l == null || r.ppk <= l * 1.03) && r.packs > 1; };
+  const recs = rows.filter(isRec).slice(0, 6);
+  const rowHTML = (r, i) => {
+    const s = setById(r.sid); const t = tierOf(r.sid);
+    return `<div class="sd-row${isRec(r) ? " rec" : ""}">
+      <span class="sd-rank disp">${i + 1}</span>
+      <span class="setchip" style="color:${s ? s.tint : tintOf(r.sid)}">${setCode(r.sid)}</span>
+      <span class="sd-name">${esc(r.name)}${isRec(r) ? ' <span class="sd-fire">🔥</span>' : ""}</span>
+      ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}
+      <span class="pstat pstat-${r.ps.tone}">${esc(r.ps.label)}</span>
+      <span class="sd-fig disp">${money(r.market)}</span>
+      <span class="sd-pk">${r.packs} pk</span>
+      <span class="sd-ppk disp">${money(r.ppk)}/pk</span>
+    </div>`;
+  };
+  const recCards = recs.map((r) => `<div class="sd-pick"><div class="sd-pick-name">${esc(r.name)}</div><div class="sd-pick-fig disp">${money(r.market)} · ${money(r.ppk)}/pk</div><div class="sd-pick-why">${esc((tierOf(r.sid) || {}).tier || "")}-tier · ${r.ppk <= (loose[r.sid] || 1e9) ? "at/under loose" : "near loose"} · ${esc(r.ps.label)}</div></div>`).join("");
+  app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
+    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed deals — closing windows</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">Every TCGplayer sealed product from sets no longer actively printing, ranked by $/pack. ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}</div></div>
+      <button class="hub-mini" data-act="sealedrefresh"${state.sealedBusy ? " disabled" : ""}>${state.sealedBusy ? "↻ Refreshing…" : "↻ Update prices"}</button></div>
+    ${recs.length ? `<div class="uplabel" style="margin:14px 0 8px;">🔥 Best buys right now (S/A-tier at or under loose price)</div><div class="sd-picks">${recCards}</div>` : ""}
+    <div class="uplabel" style="margin:18px 0 8px;">Full ranking — cheapest rip first</div>
+    <div class="sd-list">${rows.map(rowHTML).join("") || `<div class="muted" style="font-size:13px;">No data yet — hit Update prices.</div>`}</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Pack counts from standard product configs · 🔥 = S/A-tier set at ≤ its loose-pack price · sets shown follow the hub's print-status chips (amber + red only).</div>`;
 }
 
 // ---- BINDERS (page previews + card finder) --------------------------------
@@ -1810,6 +1878,8 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "spend") openSpend();
   else if (act === "binders") openBinders();
   else if (act === "tiers") openTiers();
+  else if (act === "sealed") openSealed();
+  else if (act === "sealedrefresh") ensureSealedDeals(true);
   else if (act === "tiertab") { state.tierTab = v; state.tierOpen = null; render(); }
   else if (act === "tiersort") { state.tierSort = v; render(); }
   else if (act === "tierrow") { state.tierOpen = state.tierOpen === v ? null : v; render(); }
