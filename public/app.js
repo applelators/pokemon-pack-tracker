@@ -203,15 +203,21 @@ function isOOP(date) { return monthsOld(date) > 24; }
 // Researched print status (r/PKMNTCGDeals full post history + market prices, Jul 2026).
 // Overrides the flat 24-month heuristic. tone: good = in print, fair = limited/tail,
 // bad = out of print. Sets not listed fall back to the (est.) heuristic.
+// Recency rule (rev. 2026-07-04, multi-source drop data): last drop < 3mo → good,
+// 3–6mo → fair (label notes the last-drop month), > 6mo → bad.
 const PRINT_STATUS = {
-  me1: { tone: "good", label: "in print" }, me2: { tone: "good", label: "in print" },
-  me2pt5: { tone: "good", label: "in print" }, me3: { tone: "good", label: "in print" },
-  me4: { tone: "good", label: "in print" },
-  sv8pt5: { tone: "good", label: "in print · active reprints" },
-  zsv10pt5: { tone: "good", label: "in print" }, rsv10pt5: { tone: "good", label: "in print" },
-  sv9: { tone: "fair", label: "final print run" }, sv10: { tone: "good", label: "in print" },
-  sv8: { tone: "bad", label: "out of print" },
-  sv3pt5: { tone: "fair", label: "special runs only" },
+  me1: { tone: "good", label: "in print" },                            // deals thru Jun 2026
+  me2: { tone: "fair", label: "quiet since Mar 2026" },                // 3.5mo silent
+  me2pt5: { tone: "good", label: "in print" },                         // drops thru Jun 2026
+  me3: { tone: "good", label: "in print" },                            // drops thru Jun 2026
+  me4: { tone: "good", label: "in print" },                            // drops thru Jul 2026
+  sv8pt5: { tone: "good", label: "in print · active reprints" },       // drops thru Jul 2026
+  zsv10pt5: { tone: "fair", label: "quiet since Mar 2026" },           // Sam's wave Mar 16
+  rsv10pt5: { tone: "fair", label: "quiet since Mar 2026" },
+  sv9: { tone: "fair", label: "final print run" },                     // quiet since Feb 2026
+  sv10: { tone: "fair", label: "final print run" },                    // quiet since Mar 2026
+  sv8: { tone: "bad", label: "out of print" },                         // quiet since Aug 2025
+  sv3pt5: { tone: "fair", label: "seasonal runs only" },               // Sam's tins Oct–Dec 2025
   sv4pt5: { tone: "bad", label: "out of print" }, sv6: { tone: "bad", label: "out of print" },
   sv7: { tone: "bad", label: "out of print" }, sv2: { tone: "bad", label: "out of print" },
   // Untracked sets, for Browse/import lists:
