@@ -27,7 +27,10 @@ const SPECIAL_PRODUCTS = [
   { name: "Mega Latias ex Box", alloc: [["me1", 2], ["sv10", 2]], group: "Mega Evolution era" },       // + Destined Rivals
   { name: "Raikou 2-Booster Blister", alloc: [["me1", 1], ["me2", 1]], group: "Mega Evolution era" },  // + Phantasmal Flames
   { name: "Chaos Rising 3-Booster Blister", alloc: [["me4", 3]], group: "Mega Evolution era" },
-  { name: "First Partner Illustration Collection — Series 2", alloc: [["me3", 1], ["me4", 1]], group: "Mega Evolution era" }, // 1 PO + 1 CR
+  // First Partner 2026 boxes: 1 region-locked promo pack (its own custom set) + 2 regular boosters.
+  { name: "First Partner Illustration Collection — Series 1", alloc: [["fp1", 1], ["", 2]], group: "First Partner 2026" },
+  { name: "First Partner Illustration Collection — Series 2", alloc: [["fp2", 1], ["me3", 1], ["me4", 1]], group: "First Partner 2026" },
+  { name: "First Partner Illustration Collection — Series 3", alloc: [["fp3", 1], ["", 2]], group: "First Partner 2026" },
 
   // 30th Celebration (Sept–Nov 2026, set id expected "cel30" — packs only exist inside
   // products; MSRPs user-confirmed). UPC includes 29 set packs + 1 Classic Collection
@@ -56,7 +59,7 @@ const SPECIAL_PRODUCTS = [
   { name: "30th Celebration Battle Deck — Umbreon ex", alloc: [], group: "30th Celebration" },  // no packs
 ];
 // Display names for known contained sets that may not be tracked yet (for the prompt).
-const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising", cel30: "30th Celebration" };
+const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising", cel30: "30th Celebration", fp1: "First Partner — Series 1", fp2: "First Partner — Series 2", fp3: "First Partner — Series 3" };
 function setName(id) { const s = setById(id); return s ? s.name : (KNOWN_SET_NAMES[id] || id); }
 // A special product's default allocation as [{setId, packs}] — keeps real ids even for
 // untracked sets (so we can offer to track them); "" = assorted/other.
@@ -212,6 +215,8 @@ const PRINT_STATUS = {
   sv4pt5: { tone: "bad", label: "out of print" }, sv6: { tone: "bad", label: "out of print" },
   sv7: { tone: "bad", label: "out of print" }, sv2: { tone: "bad", label: "out of print" },
   // Untracked sets, for Browse/import lists:
+  fp1: { tone: "good", label: "in print" }, fp2: { tone: "good", label: "in print" },
+  fp3: { tone: "fair", label: "releases Aug 7" },
   sv4: { tone: "good", label: "reprint Mar 2026" }, sv5: { tone: "bad", label: "out of print" },
   sv6pt5: { tone: "bad", label: "out of print" }, sv3: { tone: "bad", label: "out of print" },
   swsh12pt5: { tone: "bad", label: "out of print" }, swsh7: { tone: "bad", label: "out of print" },
@@ -233,6 +238,7 @@ const SET_SPRITE = {
   sv8pt5: { slug: "umbreon" }, sv8: { slug: "pikachu" },     sv7: { slug: "terapagos" },
   sv6: { slug: "ogerpon" },    sv4pt5: { slug: "charizard", shiny: true }, sv3pt5: { slug: "mew" },
   sv2: { slug: "meowscarada" },
+  fp1: { slug: "bulbasaur" }, fp2: { slug: "cyndaquil" }, fp3: { slug: "mudkip" },
 };
 const SPRITE_BASE = "https://play.pokemonshowdown.com/sprites";
 function setSpriteImg(id) {
@@ -867,15 +873,25 @@ function renderSetView() {
   const setOrders = state.orders.filter((o) => orderSets(o).includes(set.id));
   const orders = ordersListHTML(setOrders);
 
-  document.getElementById("app").innerHTML = headerHTML() + `
-    <button class="backchip" data-act="gohub">← All sets</button>
-    <div class="set-layout">
-      <aside class="set-sidebar">
-        <div class="eyebrow" style="margin-bottom:9px;">Your sets</div>
-        <div class="pills">${pills}<button class="pill add" data-act="addset">+ Add set</button></div>
-      </aside>
-      <div class="set-main">
-    ${banner}
+  // Custom trio sets: the loose-pack deal hero doesn't apply (packs only exist
+  // inside the $14.99 box) — show the region-trio odds card instead.
+  const isFP = ["fp1", "fp2", "fp3"].includes(set.id);
+  const heroHTML = isFP ? `
+    <div class="hero">
+      <div class="hero-top"><div style="display:flex;align-items:center;gap:10px;"><span class="hero-title disp">How this set works</span><span class="hero-set">${esc(set.name)}</span></div></div>
+      <div style="font-size:13.5px;color:var(--soft);line-height:1.6;">
+        Each <b style="color:var(--text)">$14.99 box</b> contains one promo pack = one region's <b style="color:var(--text)">complete 3-card trio</b>, region random (1 in 3), plus 2 regular boosters and a sticker sheet. Packs are never sold loose — the deal check doesn't apply here.
+      </div>
+      <div class="fp-odds">
+        <div class="fp-chip"><span class="k">Box 1</span><span class="v disp">3 new</span></div>
+        <div class="fp-chip"><span class="k">Box 2</span><span class="v disp">~2 new</span></div>
+        <div class="fp-chip"><span class="k">Box 3</span><span class="v disp">~1.3 new</span></div>
+        <div class="fp-chip warn"><span class="k">Box 4+</span><span class="v disp">&lt;1 new</span></div>
+        <div class="fp-chip"><span class="k">Complete all 9</span><span class="v disp">~5–6 boxes</span></div>
+        <div class="fp-chip"><span class="k">Unlucky</span><span class="v disp">~10</span></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:11px;">Smart play: ~3 boxes, then buy any missing region's trio as singles instead of lottery-ing more boxes.</div>
+    </div>` : `
     <div class="hero">
       <div class="hero-top">
         <div style="display:flex;align-items:center;gap:10px;"><span class="hero-title disp">Should I grab it?</span><span class="hero-set">${esc(set.name)}</span></div>
@@ -913,7 +929,18 @@ function renderSetView() {
         </div>
       </div>
       ${dealScaleHTML}
-    </div>
+    </div>`;
+
+  document.getElementById("app").innerHTML = headerHTML() + `
+    <button class="backchip" data-act="gohub">← All sets</button>
+    <div class="set-layout">
+      <aside class="set-sidebar">
+        <div class="eyebrow" style="margin-bottom:9px;">Your sets</div>
+        <div class="pills">${pills}<button class="pill add" data-act="addset">+ Add set</button></div>
+      </aside>
+      <div class="set-main">
+    ${banner}
+    ${heroHTML}
     <div class="grid2">
       <div class="card">
         <div class="uplabel">Diminishing returns</div>

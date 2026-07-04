@@ -7,6 +7,7 @@ import {
   setHasOrders, deleteSet,
 } from "./store.js";
 import { searchSets, importSet, listSetCards, searchCardsByName } from "./pokemontcg.js";
+import { CUSTOM_SETS, customCards, customCurve } from "./customsets.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
 import { fetchSealedRipPrices } from "./tcgcsv.js";
 import { fetchEbayPackPrice } from "./ebay.js";
@@ -93,6 +94,9 @@ async function summaryFor(db, set, collection) {
 
 // Cached completion curve for a set (re-simulate only when rarities/model/runs change).
 async function getSetCurve(db, set) {
+  // Custom sets (First Partner trios) use an analytic curve — the booster pack
+  // model doesn't apply to a region-locked 3-card promo pack.
+  if (CUSTOM_SETS[set.id]) return customCurve(set.id);
   const raw = await getRawSettings(db);
   let packModel;
   try { packModel = JSON.parse(raw.pack_model); } catch { packModel = { slots: [] }; }
@@ -205,6 +209,22 @@ export async function handleApi(request, env, url) {
         return set ? json(set) : json({ error: "Set not imported" }, 404);
       }
       if (seg.length === 4 && seg[3] === "import" && method === "POST") {
+        // Custom sets (not on pokemontcg.io) import from the built-in definition.
+        if (CUSTOM_SETS[setId]) {
+          const def = CUSTOM_SETS[setId];
+          await saveSet(
+            db,
+            { id: setId, name: def.name, series: def.series, printed_total: 9, total: 9,
+              release_date: def.release_date, logo_url: null, symbol_url: null,
+              fetched_at: new Date().toISOString() },
+            { Promo: 9 }, { Promo: 9 }, {}, null
+          );
+          await setSetPricing(db, setId, {
+            msrp: 14.99,
+            note: "Custom set — 9 IR promos, 3-card region-locked trio per $14.99 box (promo pack + 2 regular boosters). Not sold as loose packs.",
+          });
+          return json(await getCachedSet(db, setId));
+        }
         return json(await importSet(db, setId));
       }
       // PUT /api/sets/:id/art { hero_url } — manual banner-art override (blank clears).
@@ -214,6 +234,7 @@ export async function handleApi(request, env, url) {
       }
       // GET /api/sets/:id/cards — live card list for the "tag pulls" picker
       if (seg.length === 4 && seg[3] === "cards" && method === "GET") {
+        if (CUSTOM_SETS[setId]) return json(customCards(setId));
         return json(await listSetCards(db, setId));
       }
       // GET /api/sets/:id/packvalue?price=&collection= — how many packs to buy at $price

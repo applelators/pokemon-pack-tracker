@@ -481,3 +481,10 @@ input,select{font-family:inherit;}
 .mchg:last-of-type{border-bottom:none;}
 .mchg-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .mchg-move{font-family:'Space Grotesk',sans-serif;white-space:nowrap;font-size:12.5px;}
+
+/* ---- First Partner custom-set hero ---- */
+.fp-odds{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;}
+.fp-chip{display:flex;flex-direction:column;gap:2px;background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:9px 13px;}
+.fp-chip .k{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;}
+.fp-chip .v{font-weight:700;font-size:15px;}
+.fp-chip.warn .v{color:var(--fair);}
