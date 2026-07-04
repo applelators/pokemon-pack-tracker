@@ -2,7 +2,7 @@ import {
   getSettings, updateSettings, getRawSettings,
   listSets, getCachedSet, setExists,
   listOrders, getOrder, createOrder, updateOrder, deleteOrder, orderExists,
-  setTotals, getProgress, setProgress, setSetPricing, setSetHero,
+  setTotals, getProgress, setProgress, setSetPricing, setSetHero, saveSet,
   getEstimateCache, saveEstimateCache,
   setHasOrders, deleteSet,
 } from "./store.js";
