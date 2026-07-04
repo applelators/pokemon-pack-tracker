@@ -622,14 +622,29 @@ function renderSealed() {
   }
   rows.sort((a, b) => a.ppk - b.ppk);
   const tierOf = (sid) => tierForSetId(sid);
-  const isRec = (r) => { const t = tierOf(r.sid); const l = loose[r.sid]; return t && (t.tier === "S" || t.tier === "A") && (l == null || r.ppk <= l * 1.03) && r.packs > 1; };
-  const recs = rows.filter(isRec).slice(0, 6);
-  const rowHTML = (r, i) => {
+  // Buckets: best = S/A-tier at ≤ loose (multi-pack); fair = ≤ 25% over loose (the
+  // app-wide "overpriced ≥ 1.25×" line); no = pricier than that, or a C/D-tier set
+  // whose verdict says buy singles, not packs.
+  const classify = (r) => {
+    const t = tierOf(r.sid); const l = loose[r.sid];
+    if (t && (t.tier === "C" || t.tier === "D")) return "no";
+    if (t && (t.tier === "S" || t.tier === "A") && (l == null || r.ppk <= l * 1.03) && r.packs > 1) return "best";
+    if (l == null || r.ppk <= l * 1.25) return "fair";
+    return "no";
+  };
+  const buckets = { best: [], fair: [], no: [] };
+  for (const r of rows) buckets[classify(r)].push(r);
+  const noReason = (r) => {
+    const t = tierOf(r.sid); const l = loose[r.sid];
+    if (t && (t.tier === "C" || t.tier === "D")) return `${t.tier}-tier · ${esc(t.verdict)} set`;
+    return l ? `+${Math.round((r.ppk / l - 1) * 100)}% over loose` : "premium product";
+  };
+  const rowHTML = (r, i, dim) => {
     const s = setById(r.sid); const t = tierOf(r.sid);
-    return `<div class="sd-row${isRec(r) ? " rec" : ""}">
+    return `<div class="sd-row${dim ? " no" : ""}">
       <span class="sd-rank disp">${i + 1}</span>
       <span class="setchip" style="color:${s ? s.tint : tintOf(r.sid)}">${setCode(r.sid)}</span>
-      <span class="sd-name">${esc(r.name)}${isRec(r) ? ' <span class="sd-fire">🔥</span>' : ""}</span>
+      <span class="sd-name">${esc(r.name)}${dim ? ` <span class="sd-why">${noReason(r)}</span>` : ""}</span>
       ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}
       <span class="pstat pstat-${r.ps.tone}">${esc(r.ps.label)}</span>
       <span class="sd-fig disp">${money(r.market)}</span>
@@ -637,14 +652,18 @@ function renderSealed() {
       <span class="sd-ppk disp">${money(r.ppk)}/pk</span>
     </div>`;
   };
-  const recCards = recs.map((r) => `<div class="sd-pick"><div class="sd-pick-name">${esc(r.name)}</div><div class="sd-pick-fig disp">${money(r.market)} · ${money(r.ppk)}/pk</div><div class="sd-pick-why">${esc((tierOf(r.sid) || {}).tier || "")}-tier · ${r.ppk <= (loose[r.sid] || 1e9) ? "at/under loose" : "near loose"} · ${esc(r.ps.label)}</div></div>`).join("");
+  const recCards = buckets.best.slice(0, 8).map((r) => `<div class="sd-pick"><div class="sd-pick-name">${esc(r.name)}</div><div class="sd-pick-fig disp">${money(r.market)} · ${money(r.ppk)}/pk</div><div class="sd-pick-why">${esc((tierOf(r.sid) || {}).tier || "")}-tier · at/under loose · ${esc(r.ps.label)}</div></div>`).join("");
   app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
     <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed deals — closing windows</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">TCGplayer sealed products from your tracked sets that are no longer actively printing, ranked by $/pack. ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}</div></div>
       <button class="hub-mini" data-act="sealedrefresh"${state.sealedBusy ? " disabled" : ""}>${state.sealedBusy ? "↻ Refreshing…" : "↻ Update prices"}</button></div>
-    ${recs.length ? `<div class="uplabel" style="margin:14px 0 8px;">🔥 Best buys right now (S/A-tier at or under loose price)</div><div class="sd-picks">${recCards}</div>` : ""}
-    <div class="uplabel" style="margin:18px 0 8px;">Full ranking — cheapest rip first</div>
-    <div class="sd-list">${rows.map(rowHTML).join("") || `<div class="muted" style="font-size:13px;">No data yet — hit Update prices.</div>`}</div>
-    <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Tracked sets only · pack counts from standard product configs · 🔥 = S/A-tier set at ≤ its loose-pack price · scope follows the hub's print-status chips (amber + red only).</div>`;
+    ${buckets.best.length ? `<div class="uplabel" style="margin:14px 0 8px;">🔥 Best buys (S/A-tier set, at or under its loose price)</div><div class="sd-picks">${recCards}</div>` : ""}
+    <div class="uplabel" style="margin:18px 0 8px;">👍 Fair buys (≤ 25% over loose — reasonable if you want that set now)</div>
+    <div class="sd-list">${buckets.fair.map((r, i) => rowHTML(r, i, false)).join("") || `<div class="muted" style="font-size:13px;">Nothing in the fair band right now.</div>`}</div>
+    <details class="sd-no" ${buckets.no.length && !buckets.fair.length ? "open" : ""}>
+      <summary class="uplabel" style="margin:18px 0 8px;cursor:pointer;">🚫 Not recommended — ${buckets.no.length} product${buckets.no.length !== 1 ? "s" : ""} (overpriced vs loose, or C/D-tier singles sets)</summary>
+      <div class="sd-list">${buckets.no.map((r, i) => rowHTML(r, i, true)).join("")}</div>
+    </details>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Tracked sets only · pack counts from standard product configs · buckets follow your tier list + the app-wide "overpriced ≥ 1.25× loose" line · scope follows the hub's print-status chips (amber + red only).</div>`;
 }
 
 // ---- BINDERS (page previews + card finder) --------------------------------

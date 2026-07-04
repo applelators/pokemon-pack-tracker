@@ -548,3 +548,10 @@ input,select{font-family:inherit;}
 .sd-pk{width:42px;text-align:right;color:var(--muted);font-size:11.5px;flex:0 0 auto;}
 .sd-ppk{width:84px;text-align:right;font-weight:700;font-size:13.5px;color:var(--accent);flex:0 0 auto;}
 @media(max-width:640px){.sd-rank{display:none;}}
+
+/* ---- Sealed Deals buckets ---- */
+.sd-row.no{opacity:.55;}
+.sd-why{font-size:10.5px;color:var(--bad);font-weight:600;margin-left:6px;}
+.sd-no summary::-webkit-details-marker{display:none;}
+.sd-no summary{list-style:none;}
+.sd-no[open] summary{color:var(--soft);}
