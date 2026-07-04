@@ -579,6 +579,19 @@ function sectionLabel(sec) { return sec.map((id) => { const s = setById(id); ret
 function sectionCards(sec) { return sec.flatMap((id) => (state.binderCards[id] || []).map((c) => ({ ...c, setId: id }))); }
 function binderLoaded(b) { return b.sections.every((sec) => sec.every((id) => state.binderCards[id])); }
 
+// Card lists persist in localStorage (7-day TTL) so binders open instantly across
+// sessions; the art itself is then served from the browser's HTTP cache.
+const BINDER_CACHE_KEY = "ppt_bindercards_v1";
+function loadBinderCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem(BINDER_CACHE_KEY));
+    if (c && c.at && Date.now() - c.at < 7 * 24 * 3600 * 1000 && c.cards) state.binderCards = c.cards;
+  } catch { /* fresh fetch */ }
+}
+function saveBinderCache() {
+  try { localStorage.setItem(BINDER_CACHE_KEY, JSON.stringify({ at: Date.now(), cards: state.binderCards })); }
+  catch { /* storage full — session cache still works */ }
+}
 async function loadBinderSets(setIds, title) {
   const missing = setIds.filter((id) => !state.binderCards[id]);
   if (!missing.length) return;
@@ -589,6 +602,7 @@ async function loadBinderSets(setIds, title) {
     state.binderCards[missing[i]] = sortMaster(await api(`/sets/${missing[i]}/cards`));
   }
   stopProgress();
+  saveBinderCache();
 }
 
 // Page map for a binder via binderPlanner (buildPageMap; new-page rule).
@@ -617,7 +631,7 @@ function locateCard(b, cardId) {
 function spreadOfSide(sideNum) { return Math.floor(sideNum / 2); }
 function sidesOfSpread(k, totalSides) { const L = 2 * k, R = 2 * k + 1; return [L >= 1 && L <= totalSides ? L : null, R <= totalSides ? R : null]; }
 
-async function openBinders() { state.view = "binders"; state.binderId = null; state.bResults = null; render(); }
+async function openBinders() { loadBinderCache(); state.view = "binders"; state.binderId = null; state.bResults = null; render(); }
 async function openBinder(id) {
   const b = binderById(id); if (!b) return;
   try { await loadBinderSets(b.sections.flat(), "Opening " + b.label + "…"); }
@@ -728,6 +742,18 @@ function renderBinders() {
     <div class="bp-nav"><button class="hub-mini" data-act="bprev"${state.bSpread <= 0 ? " disabled" : ""}>◀ Prev</button><span class="disp bp-pos">Spread ${state.bSpread + 1} / ${maxSpread + 1}</span><button class="hub-mini" data-act="bnext"${state.bSpread >= maxSpread ? " disabled" : ""}>Next ▶</button></div>
     <div class="bp-spread">${binderSideHTML(b, L, map)}${binderSideHTML(b, R, map)}</div>
     ${usedSides < totalSides ? `<div style="font-size:12px;color:var(--muted);margin-top:10px;text-align:center;">+ ${totalSides - usedSides} blank page-side${totalSides - usedSides > 1 ? "s" : ""} at the back (growth room)</div>` : ""}`;
+  // Warm the browser cache for the adjacent spreads so flipping feels instant.
+  for (const k of [state.bSpread - 1, state.bSpread + 1]) {
+    if (k < 0 || k > maxSpread) continue;
+    for (const side of sidesOfSpread(k, totalSides)) {
+      if (side == null) continue;
+      const entry = map.find((m) => side >= m.startPage && side <= m.endPage);
+      if (!entry) continue;
+      const cards = sectionCards(b.sections[map.indexOf(entry)]);
+      const local = (side - entry.startPage) * b.perSide;
+      for (const c of cards.slice(local, local + b.perSide)) if (c && c.image) { const im = new Image(); im.src = c.image; }
+    }
+  }
 }
 
 // ---- HUB -----------------------------------------------------------------
