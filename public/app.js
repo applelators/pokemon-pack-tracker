@@ -310,6 +310,7 @@ const state = {
   hubAnimated: false,
   refreshingAll: false,
   binderId: null, bSpread: 0, bHighlight: null, bSearch: "", bResults: null, binderCards: {}, // Binders view
+  tierData: null, tierTab: "sv", tierSort: "rank", tierOpen: null, // Tier-list view
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -473,6 +474,7 @@ function headerHTML() {
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       ${state.showShared ? `<div class="seg"><button data-act="binder" data-v="mine" class="${on(state.binder === 'mine')}">Mine</button><button data-act="binder" data-v="shared" class="${on(state.binder === 'shared')}">Shared</button></div>` : ""}
+      <button class="icon-btn${state.view === 'tiers' ? ' on' : ''}" data-act="tiers" title="Ripping & collecting tier list" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">★ Tiers</button>
       <button class="icon-btn${state.view === 'binders' ? ' on' : ''}" data-act="binders" title="Binder page previews" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">📖 Binders</button>
       <button class="icon-btn${state.view === 'spend' ? ' on' : ''}" data-act="spend" title="Spending" style="width:auto;padding:0 12px;height:38px;border-radius:999px;font-size:13px;font-weight:700;gap:6px;">▤ Spending</button>
       <button class="icon-btn" data-act="settings" title="Settings" style="width:38px;height:38px;border-radius:999px;font-size:16px;">⚙</button>
@@ -485,9 +487,73 @@ function render() {
   document.getElementById("app").classList.toggle("wide", state.view === "set" || state.view === "binders"); // wider container
   if (state.loading) { document.getElementById("app").innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading your sets…</div>`; return; }
   if (state.view === "spend") renderSpend();
+  else if (state.view === "tiers") renderTiers();
   else if (state.view === "binders") renderBinders();
   else if (state.view === "set" && setById(state.setId)) renderSetView();
   else { state.view = "hub"; renderHub(); }
+}
+
+// ---- TIER LIST (ripping & collecting rankings from the collection module) --
+const TIER_STYLE = { S: "var(--accent)", A: "var(--good)", B: "var(--blue)", C: "var(--muted2)", D: "var(--bad)" };
+const VERDICT_STYLE = { Packs: "var(--good)", Mixed: "var(--fair)", Singles: "var(--blue)" };
+// tier code → tracker set id(s); SV10.5 is the BB+WF pair.
+function tierSetIds(code) {
+  if (code === "SV10.5") return ["zsv10pt5", "rsv10pt5"];
+  const m = String(code).match(/^(SV|ME)(\d+)(?:\.(\d))?$/i);
+  if (!m) return [];
+  return [(m[1].toLowerCase()) + Number(m[2]) + (m[3] ? "pt" + m[3] : "")];
+}
+function tierForSetId(id) {
+  if (!state.tierData) return null;
+  for (const e of [...state.tierData.sv, ...state.tierData.me]) if (tierSetIds(e.code).includes(id)) return e;
+  return null;
+}
+async function loadTierData() {
+  if (state.tierData) return;
+  const res = await fetch("/tierlist.json");
+  if (!res.ok) throw new Error("Couldn't load tierlist.json");
+  state.tierData = await res.json();
+}
+async function openTiers() {
+  state.view = "tiers"; render();
+  try { await loadTierData(); } catch (e) { toast(e.message, true); }
+  render();
+}
+function renderTiers() {
+  const app = document.getElementById("app");
+  if (!state.tierData) { app.innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading tier list…</div>`; return; }
+  const rows = [...(state.tierTab === "sv" ? state.tierData.sv : state.tierData.me)];
+  if (state.tierSort === "value") rows.sort((a, b) => (b.value || 0) - (a.value || 0));
+  else if (state.tierSort === "odds") rows.sort((a, b) => (a.rate || 999) - (b.rate || 999));
+  else rows.sort((a, b) => (a.rank || 99) - (b.rank || 99));
+  const list = rows.map((e) => {
+    const ids = tierSetIds(e.code).filter((id) => setById(id));
+    const open = state.tierOpen === e.code;
+    return `<div class="trow-card${open ? " open" : ""}">
+      <div class="trow" data-act="tierrow" data-v="${esc(e.code)}">
+        <span class="tbadge" style="color:${TIER_STYLE[e.tier] || "var(--soft)"};border-color:${TIER_STYLE[e.tier] || "var(--border)"}">${esc(e.tier)}</span>
+        <span class="trank disp">#${e.rank}</span>
+        <span class="tname"><b>${esc(e.set)}</b> <span class="muted2" style="font-size:11px;">${esc(e.code)}</span></span>
+        <span class="tverdict" style="color:${VERDICT_STYLE[e.verdict] || "var(--soft)"}">${esc(e.verdict)}</span>
+        <span class="tchase">${esc(e.chase)} <span class="muted2">· ${esc(e.rarity)} · ~$${e.value}</span></span>
+        <span class="todds disp">1 in ${e.rate}${e.ratenote ? "*" : ""}</span>
+        <span class="texp">${open ? "▴" : "▾"}</span>
+      </div>
+      ${open ? `<div class="tdetail">
+        <p><b>Why:</b> ${esc(e.why || "")}</p>
+        ${e.econ ? `<p><b>Packs vs singles:</b> ${esc(e.econ)}</p>` : ""}
+        ${e.ratenote ? `<p class="muted" style="font-size:12px;">* ${esc(e.ratenote)}</p>` : ""}
+        ${ids.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">${ids.map((id) => `<button class="hub-mini" data-act="opensetview" data-v="${id}">Open ${esc(setById(id).name)} →</button>`).join("")}</div>` : ""}
+      </div>` : ""}
+    </div>`;
+  }).join("");
+  app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
+    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">★ Ripping & collecting tiers</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${esc(state.tierData._meta.note)}</div></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0 14px;">
+      <div class="seg sq"><button data-act="tiertab" data-v="sv" class="${on(state.tierTab === "sv")}">Scarlet & Violet</button><button data-act="tiertab" data-v="me" class="${on(state.tierTab === "me")}">Mega Evolution</button></div>
+      <div class="seg sq"><button data-act="tiersort" data-v="rank" class="${on(state.tierSort === "rank")}">Rank</button><button data-act="tiersort" data-v="value" class="${on(state.tierSort === "value")}">Chase $</button><button data-act="tiersort" data-v="odds" class="${on(state.tierSort === "odds")}">Best odds</button></div>
+    </div>
+    <div class="tlist">${list}</div>`;
 }
 
 // ---- BINDERS (page previews + card finder) --------------------------------
@@ -791,7 +857,7 @@ function renderHub() {
     return `<div class="hubrow" style="${aStyle}">
       <div class="hub-art${s.special ? ' sp' : ''}${s.mega ? ' me' : ''}" style="${artBg}"><span class="hub-code">${s.code}</span>${s.special ? '<span class="hub-sp">✦</span>' : ''}</div>
       <div class="hub-mid">
-        <div class="hub-name">${esc(s.name)}${printChip(s.id, s.releaseDate)}</div>
+        <div class="hub-name">${esc(s.name)}${(() => { const t = tierForSetId(s.id); return t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}" title="Ripping tier ${t.tier} · #${t.rank} — see ★ Tiers">${t.tier}</span>` : ""; })()}${printChip(s.id, s.releaseDate)}</div>
         <div class="hub-sub">${esc(s.series)}${s.release ? ' · ' + s.release : ''}</div>
         <div class="hub-stats"><span><b>${comp}%</b> complete</span><span><b>${drRem != null ? drRem : '—'}</b> to DR</span><span><b>${money(s.spent)}</b> spent</span><span><b>${s.ordersCount}</b> orders</span></div>
         <div class="hub-acts"><button class="hub-open" data-act="opensetview" data-v="${s.id}">Open dashboard →</button><button class="hub-mini" data-act="hubaddorder" data-v="${s.id}">+ Order</button><button class="hub-mini" data-act="hubrefresh" data-v="${s.id}">↻ Refresh</button></div>
@@ -1662,6 +1728,10 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "pulls") openPulls(Number(v));
   else if (act === "spend") openSpend();
   else if (act === "binders") openBinders();
+  else if (act === "tiers") openTiers();
+  else if (act === "tiertab") { state.tierTab = v; state.tierOpen = null; render(); }
+  else if (act === "tiersort") { state.tierSort = v; render(); }
+  else if (act === "tierrow") { state.tierOpen = state.tierOpen === v ? null : v; render(); }
   else if (act === "openbinder") openBinder(v);
   else if (act === "bprev") { state.bSpread--; state.bHighlight = null; render(); }
   else if (act === "bnext") { state.bSpread++; state.bHighlight = null; render(); }
@@ -1808,6 +1878,8 @@ async function boot() {
       state.loading = false;
       state.view = "hub";   // hub-first on every load
       render();
+      // Background: tier data for the hub's tier badges (re-render hub when it lands).
+      loadTierData().then(() => { if (state.view === "hub") render(); }).catch(() => { /* badges just stay hidden */ });
       return;
     } catch (err) {
       if (i < TRIES) {
