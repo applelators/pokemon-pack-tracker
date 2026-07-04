@@ -474,3 +474,10 @@ input,select{font-family:inherit;}
 .pstat-good{color:var(--good);border:1px solid rgba(47,213,138,.4);}
 .pstat-fair{color:var(--fair);border:1px solid rgba(255,176,32,.4);}
 .pstat-bad{color:var(--bad);border:1px solid rgba(247,107,107,.4);}
+
+/* ---- Refresh-all market-change summary popup ---- */
+.confirm-body{max-height:46vh;overflow-y:auto;margin:0 0 16px;}
+.mchg{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.mchg:last-of-type{border-bottom:none;}
+.mchg-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mchg-move{font-family:'Space Grotesk',sans-serif;white-space:nowrap;font-size:12.5px;}

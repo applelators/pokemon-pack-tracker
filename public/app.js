@@ -157,22 +157,33 @@ async function refreshAllMarkets() {
   if (!sets.length) return;
   state.refreshingAll = true; render();
   startProgressManual("Refreshing all markets…");
-  const failed = [];
+  const failed = [], changes = [];
   for (let i = 0; i < sets.length; i++) {
     const s = sets[i];
     setProgressStep(`${i + 1} of ${sets.length} · ${s.name}…`, i / sets.length);
+    const oldM = s.market != null ? round(s.market * 100) / 100 : null;
     try {
       const r = await api(`/sets/${s.id}/pricing/refresh`, { method: "POST" });
       state.hubPrice[s.id] = round(Math.max(5, r.pack_market_price || 5));
+      const newM = r.pack_market_price != null ? round(r.pack_market_price * 100) / 100 : null;
+      if (newM != null && newM !== oldM) changes.push({ name: s.name, old: oldM, now: newM });
     } catch (e) { failed.push(s.name); }
     if (i < sets.length - 1) await new Promise((res) => setTimeout(res, 700));
   }
   setProgressStep("Reloading…", 1);
-  try { await loadHub(); } catch { /* toast below covers it */ }
+  try { await loadHub(); } catch { /* summary below covers it */ }
   state.refreshingAll = false;
   stopProgress();
   render();
-  toast(failed.length ? `Refreshed ${sets.length - failed.length}/${sets.length} — failed: ${failed.join(", ")}` : `All ${sets.length} markets refreshed ✓`, failed.length > 0);
+  // Summary popup: which markets moved (drop = green — good for a buyer; rise = red).
+  const rows = changes.map((c) => {
+    const up = c.old != null && c.now > c.old;
+    const delta = c.old != null ? `${up ? "▲" : "▼"} ${money(Math.abs(c.now - c.old))}` : "new";
+    return `<div class="mchg"><span class="mchg-name">${esc(c.name)}</span><span class="mchg-move"><span class="muted2">${c.old != null ? money(c.old) : "—"}</span> → <b>${money(c.now)}</b> <span style="color:${up ? "var(--bad)" : "var(--good)"}">${delta}</span></span></div>`;
+  }).join("");
+  const summary = `${changes.length ? rows : `<div class="muted" style="font-size:13px;">No market prices changed.</div>`}
+    <div style="font-size:12px;color:var(--muted);margin-top:11px;">${sets.length - failed.length}/${sets.length} refreshed · ${sets.length - failed.length - changes.length} unchanged${failed.length ? ` · <span style="color:var(--bad)">failed: ${failed.map(esc).join(", ")}</span>` : ""}</div>`;
+  askInfo(changes.length ? `Markets refreshed — ${changes.length} changed` : "Markets refreshed", summary);
 }
 
 // ---- set-shape helpers ---------------------------------------------------
@@ -1396,16 +1407,19 @@ function renderSetsModal() {
 // ---- confirm dialog ------------------------------------------------------
 function askConfirm(msg, detail, onYes) { state.confirm = { msg, detail, onYes }; renderConfirm(); }
 function askChoice(msg, detail, actions) { state.confirm = { msg, detail, actions }; renderConfirm(); }
+function askInfo(msg, html) { state.confirm = { msg, html, info: true }; renderConfirm(); }
 function closeConfirm() { state.confirm = null; renderConfirm(); }
 function renderConfirm() {
   const host = document.getElementById("confirm");
   if (!state.confirm) { host.innerHTML = ""; return; }
   const c = state.confirm;
-  const acts = c.actions
+  const acts = c.info
+    ? `<button class="save" data-xact="no" style="width:100%">Done</button>`
+    : c.actions
     ? c.actions.map((a, i) => `<button class="${a.cls || "cancel"}" data-xact="ch" data-i="${i}" style="width:100%">${esc(a.label)}</button>`).join("") + `<button class="cancel" data-xact="no" style="width:100%">Cancel</button>`
     : `<button class="cancel" data-xact="no" style="flex:1">Cancel</button><button class="btn-danger" data-xact="yes">Delete</button>`;
   host.innerHTML = `<div class="scrim center" data-xact="bg"><div class="confirm-card" data-xact="stop">
-    <h3>${esc(c.msg)}</h3><p>${esc(c.detail)}</p>
+    <h3>${esc(c.msg)}</h3>${c.html ? `<div class="confirm-body">${c.html}</div>` : `<p>${esc(c.detail)}</p>`}
     <div class="confirm-acts">${acts}</div>
   </div></div>`;
 }
