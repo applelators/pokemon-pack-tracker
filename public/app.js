@@ -845,10 +845,12 @@ function renderSpend() {
     ${orderList}`;
 }
 
+const isFPSet = (s) => (s.series || "") === "First Partner 2026";
 function renderHub() {
   const anim = !state.hubAnimated;
-  const sets = state.sets;       // already newest-first
-  const rows = sets.map((s, i) => {
+  const mainSets = state.sets.filter((s) => !isFPSet(s));   // already newest-first
+  const fpSets = state.sets.filter(isFPSet).sort((a, b) => a.id.localeCompare(b.id)); // S1 → S3
+  const hubRow = (s, i) => {
     const price = hubPriceOf(s.id), v = verdict(price, s), stale = daysSince(s.lastRefresh) > 7;
     const comp = round(s.collected / s.base * 100);
     const drRem = s.drPacks != null ? Math.max(0, s.drPacks - s.packsBought) : null;
@@ -868,13 +870,16 @@ function renderHub() {
         <div class="hub-rip">rip ${money(marketOf(s))}${s.lastRefresh ? ' · upd ' + fmtDate(s.lastRefresh) : ''}${stale ? ' · <span class="stale-dot"></span>refresh' : ''}</div>
       </div>
     </div>`;
-  }).join("");
+  };
+  const rows = mainSets.map(hubRow).join("");
+  const fpRows = fpSets.map((s, i) => hubRow(s, mainSets.length + i)).join("");
   state.hubAnimated = true;
   document.getElementById("app").innerHTML = headerHTML() + `
     <div class="hub-head"><div><div class="hub-title disp">Your sets</div><div class="hub-tagline">Pick a set to check deals &amp; log orders</div></div><button class="hub-mini" data-act="refreshall"${state.refreshingAll ? " disabled" : ""}>${state.refreshingAll ? "↻ Refreshing…" : "↻ Refresh all markets"}</button></div>
     <div class="hub-list">${rows}
-      ${sets.length ? "" : `<div class="hub-empty">No sets tracked yet — import one to get started.</div>`}
-      <button class="hub-import" data-act="addset" style="${anim ? `animation:rowIn .34s cubic-bezier(.22,1,.36,1) backwards;animation-delay:${sets.length * 55}ms;` : ''}"><span class="hub-import-plus">+</span><span>Import a set<small>browse expansions, newest first</small></span></button>
+      ${state.sets.length ? "" : `<div class="hub-empty">No sets tracked yet — import one to get started.</div>`}
+      ${fpSets.length ? `<div class="hub-section"><span>First Partner 2026</span><small>9-card promo trio sets · one region per box</small></div>${fpRows}` : ""}
+      <button class="hub-import" data-act="addset" style="${anim ? `animation:rowIn .34s cubic-bezier(.22,1,.36,1) backwards;animation-delay:${state.sets.length * 55}ms;` : ''}"><span class="hub-import-plus">+</span><span>Import a set<small>browse expansions, newest first</small></span></button>
     </div>`;
 }
 
@@ -912,11 +917,14 @@ function renderSetView() {
   const M = marketOf(set);
   const stale = daysSince(set.lastRefresh) > 7;
 
-  const pills = state.sets.map((s) => `
+  const pillFor = (s) => `
     <button class="pill${on(s.id === state.setId)}" data-act="set" data-v="${s.id}">
       <span class="sym${s.special ? ' sp' : ''}${s.mega ? ' me' : ''}${SET_SPRITE[s.id] ? ' has-mon' : ''}" style="background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)">${setSpriteImg(s.id)}<span class="sym-code">${s.code}</span></span>
       <span class="col"><span class="pn">${esc(s.name)}</span><span class="pm">${s.base} base · ${s.total} total</span></span>
-    </button>`).join("");
+    </button>`;
+  const fpPillSets = state.sets.filter(isFPSet).sort((a, b) => a.id.localeCompare(b.id));
+  const pills = state.sets.filter((s) => !isFPSet(s)).map(pillFor).join("")
+    + (fpPillSets.length ? `<div class="pill-divider">First Partner 2026</div>` + fpPillSets.map(pillFor).join("") : "");
 
   const stats = [
     ["Spent", money(set.spent), ""],

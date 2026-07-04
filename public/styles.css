@@ -519,3 +519,10 @@ input,select{font-family:inherit;}
 .exp-serchev{color:var(--muted);font-size:12px;width:12px;}
 .exp-sername{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13.5px;}
 .exp-sercount{margin-left:auto;font-size:11.5px;color:var(--muted);}
+
+/* ---- First Partner section separators (hub + sidebar) ---- */
+.hub-section{display:flex;align-items:baseline;gap:10px;margin:22px 2px 2px;}
+.hub-section span{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;}
+.hub-section small{font-size:11.5px;color:var(--muted);}
+.pill-divider{flex:0 0 auto;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:10px 4px 2px;width:100%;}
+@media(max-width:900px){ .pill-divider{width:auto;align-self:center;padding:0 8px;white-space:nowrap;} }
