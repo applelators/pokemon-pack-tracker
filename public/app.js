@@ -607,10 +607,12 @@ async function ensureSealedDeals(force) {
 function renderSealed() {
   const app = document.getElementById("app");
   if (!state.sealedData) { app.innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading sealed deals…</div>`; return; }
-  // Only sets NOT actively in print (chip tone fair/bad) — follows PRINT_STATUS live.
+  // Only TRACKED sets that are NOT actively in print (chip tone fair/bad) — follows
+  // the hub's set list + PRINT_STATUS live.
   const rows = [];
   const loose = {};
   for (const [sid, prods] of Object.entries(state.sealedData)) {
+    if (!setById(sid)) continue;                 // untracked sets excluded
     const ps = printStatusOf(sid, null);
     if (ps.tone === "good") continue;
     for (const p of prods) {
@@ -637,12 +639,12 @@ function renderSealed() {
   };
   const recCards = recs.map((r) => `<div class="sd-pick"><div class="sd-pick-name">${esc(r.name)}</div><div class="sd-pick-fig disp">${money(r.market)} · ${money(r.ppk)}/pk</div><div class="sd-pick-why">${esc((tierOf(r.sid) || {}).tier || "")}-tier · ${r.ppk <= (loose[r.sid] || 1e9) ? "at/under loose" : "near loose"} · ${esc(r.ps.label)}</div></div>`).join("");
   app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
-    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed deals — closing windows</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">Every TCGplayer sealed product from sets no longer actively printing, ranked by $/pack. ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}</div></div>
+    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed deals — closing windows</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">TCGplayer sealed products from your tracked sets that are no longer actively printing, ranked by $/pack. ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}</div></div>
       <button class="hub-mini" data-act="sealedrefresh"${state.sealedBusy ? " disabled" : ""}>${state.sealedBusy ? "↻ Refreshing…" : "↻ Update prices"}</button></div>
     ${recs.length ? `<div class="uplabel" style="margin:14px 0 8px;">🔥 Best buys right now (S/A-tier at or under loose price)</div><div class="sd-picks">${recCards}</div>` : ""}
     <div class="uplabel" style="margin:18px 0 8px;">Full ranking — cheapest rip first</div>
     <div class="sd-list">${rows.map(rowHTML).join("") || `<div class="muted" style="font-size:13px;">No data yet — hit Update prices.</div>`}</div>
-    <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Pack counts from standard product configs · 🔥 = S/A-tier set at ≤ its loose-pack price · sets shown follow the hub's print-status chips (amber + red only).</div>`;
+    <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Tracked sets only · pack counts from standard product configs · 🔥 = S/A-tier set at ≤ its loose-pack price · scope follows the hub's print-status chips (amber + red only).</div>`;
 }
 
 // ---- BINDERS (page previews + card finder) --------------------------------
