@@ -506,3 +506,9 @@ input,select{font-family:inherit;}
 .tdetail{padding:2px 16px 14px;border-top:1px solid var(--line);}
 .tdetail p{font-size:13px;color:var(--soft);line-height:1.55;margin:10px 0 0;}
 @media(max-width:640px){.tchase{display:none;}.trow-card.open .tchase{display:block;flex-basis:100%;}}
+
+/* ---- Exact-price input in the deal hero ---- */
+.price-wrap{display:flex;align-items:baseline;justify-content:center;min-width:150px;}
+.price-cur{font-weight:700;font-size:28px;color:var(--muted2);margin-right:2px;}
+.price-input{width:118px;background:transparent;border:none;outline:none;color:var(--text);font-weight:700;font-size:46px;letter-spacing:-.02em;text-align:center;padding:0;}
+.price-input:focus{border-bottom:2px solid var(--accent);}

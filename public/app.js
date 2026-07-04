@@ -882,6 +882,12 @@ function renderHub() {
 function selectSet(id) { const s = setById(id); if (!s) return; state.setId = id; state.dealTab = "loose"; state.loosePrice = round(marketOf(s)); state.bundlePrice = round(s.bundleMarket); persistPrefs(); render(); }
 function setTab(t) { state.dealTab = t; render(); }
 function stepPrice(d) { if (state.dealTab === "loose") state.loosePrice = Math.max(0, state.loosePrice + d); else state.bundlePrice = Math.max(0, state.bundlePrice + d); render(); }
+// Exact price typed into the hero (cents allowed, e.g. 8.44); commits on Enter/blur.
+function setExactPrice(raw) {
+  const v = Math.max(0, Number(raw) || 0);
+  if (state.dealTab === "loose") state.loosePrice = v; else state.bundlePrice = v;
+  render();
+}
 
 function renderSetView() {
   const set = setById(state.setId);
@@ -972,7 +978,7 @@ function renderSetView() {
           <div class="stepper">
             <button class="b5" data-act="step" data-v="-5">−5</button>
             <button class="b1" data-act="step" data-v="-1">−</button>
-            <div class="price">${money(rawPrice)}</div>
+            <div class="price-wrap"><span class="price-cur disp">$</span><input id="dealPriceInput" class="price-input disp" type="number" min="0" step="0.01" inputmode="decimal" value="${(Math.round(rawPrice * 100) / 100).toFixed(2)}" title="Type an exact price — Enter to apply"></div>
             <button class="b1" data-act="step" data-v="1">+</button>
             <button class="b5" data-act="step" data-v="5">+5</button>
           </div>
@@ -1756,8 +1762,12 @@ document.getElementById("app").addEventListener("input", (e) => {
   clearTimeout(_bSearchTimer);
   _bSearchTimer = setTimeout(() => binderSearch(q), 350);
 });
+document.getElementById("app").addEventListener("keydown", (e) => {
+  if (e.target.id === "dealPriceInput" && e.key === "Enter") { e.target.blur(); }
+});
 document.getElementById("app").addEventListener("change", (e) => {
   const t = e.target;
+  if (t.id === "dealPriceInput") { setExactPrice(t.value); return; }
   if (t.dataset.spendf !== undefined) {
     if (t.dataset.spendf === "set") state.spendSet = t.value || null;
     else if (t.dataset.spendf === "store") state.spendStore = t.value || null;
