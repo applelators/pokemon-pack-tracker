@@ -310,7 +310,7 @@ const state = {
   hubAnimated: false,
   refreshingAll: false,
   binderId: null, bSpread: 0, bHighlight: null, bSearch: "", bResults: null, binderCards: {}, // Binders view
-  tierData: null, tierTab: "sv", tierSort: "rank", tierOpen: null, // Tier-list view
+  tierData: null, tierTab: "sv", tierSort: "rank", tierOpen: null, tierPrices: null, tierPricesComplete: false, // Tier-list view
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -518,6 +518,20 @@ async function openTiers() {
   state.view = "tiers"; render();
   try { await loadTierData(); } catch (e) { toast(e.message, true); }
   render();
+  ensureTierPrices();
+}
+// Market prices build server-side ~6 sets per call (TCGCSV has no CORS + Worker
+// subrequest caps) — poll until the 24h cache is complete, re-rendering as it fills.
+async function ensureTierPrices() {
+  if (state.tierPricesComplete) return;
+  try {
+    for (let i = 0; i < 8; i++) {
+      const r = await api("/tierprices");
+      state.tierPrices = r.prices; state.tierPricesComplete = r.complete;
+      if (state.view === "tiers") render();
+      if (r.complete) break;
+    }
+  } catch (e) { toast("Market prices unavailable: " + e.message, true); }
 }
 function renderTiers() {
   const app = document.getElementById("app");
@@ -536,6 +550,7 @@ function renderTiers() {
         <span class="tname"><b>${esc(e.set)}</b> <span class="muted2" style="font-size:11px;">${esc(e.code)}</span></span>
         <span class="tverdict" style="color:${VERDICT_STYLE[e.verdict] || "var(--soft)"}">${esc(e.verdict)}</span>
         <span class="tchase">${esc(e.chase)} <span class="muted2">· ${esc(e.rarity)} · ~$${e.value}</span></span>
+        <span class="tprice disp">${(() => { const p = state.tierPrices && state.tierPrices[e.code]; if (!p) return state.tierPricesComplete ? "—" : "…"; return `${p.pack != null ? money(p.pack) + " pk" : "— pk"}${p.box != null ? ` · ${money(p.box)} box` : ""}`; })()}</span>
         <span class="todds disp">1 in ${e.rate}${e.ratenote ? "*" : ""}</span>
         <span class="texp">${open ? "▴" : "▾"}</span>
       </div>
@@ -548,7 +563,7 @@ function renderTiers() {
     </div>`;
   }).join("");
   app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
-    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">★ Ripping & collecting tiers</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${esc(state.tierData._meta.note)}</div></div></div>
+    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">★ Ripping & collecting tiers</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${esc(state.tierData._meta.note)} Pack/box prices are live TCGplayer market (refreshed daily).</div></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0 14px;">
       <div class="seg sq"><button data-act="tiertab" data-v="sv" class="${on(state.tierTab === "sv")}">Scarlet & Violet</button><button data-act="tiertab" data-v="me" class="${on(state.tierTab === "me")}">Mega Evolution</button></div>
       <div class="seg sq"><button data-act="tiersort" data-v="rank" class="${on(state.tierSort === "rank")}">Rank</button><button data-act="tiersort" data-v="value" class="${on(state.tierSort === "value")}">Chase $</button><button data-act="tiersort" data-v="odds" class="${on(state.tierSort === "odds")}">Best odds</button></div>

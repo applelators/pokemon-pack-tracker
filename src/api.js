@@ -9,7 +9,7 @@ import {
 import { searchSets, importSet, listSetCards, searchCardsByName } from "./pokemontcg.js";
 import { CUSTOM_SETS, customCards, customCurve } from "./customsets.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
-import { fetchSealedRipPrices } from "./tcgcsv.js";
+import { fetchSealedRipPrices, fetchPackBox } from "./tcgcsv.js";
 import { fetchEbayPackPrice } from "./ebay.js";
 import { computeCurve, applyProgress, chaseEstimate } from "./estimator.js";
 
@@ -434,6 +434,35 @@ export async function handleApi(request, env, url) {
       const completion = await computeEstimate(db, set, opened);
       if (!completion) return json({ error: "No rarity data for this set" }, 400);
       return json(completion);
+    }
+
+    // GET /api/tierprices — loose-pack + booster-box market for every tier-list set.
+    // TCGCSV has no CORS, so the Worker fetches; subrequest limits mean we build the
+    // cache ~6 sets per call (client polls until complete). Cached 24h in settings.
+    if (pathname === "/api/tierprices" && method === "GET") {
+      const TIER_GROUPS = { // tier-list code → TCGplayer groupId(s); SV10.5 = BB+WF pair
+        "SV8.5": [23821], "SV3.5": [23237], "SV4.5": [23353], "SV10": [24269], "SV10.5": [24325, 24326],
+        "SV8": [23651], "SV6": [23473], "SV2": [23120], "SV9": [24073], "SV1": [22873],
+        "SV4": [23286], "SV6.5": [23529], "SV3": [23228], "SV5": [23381], "SV7": [23537],
+        "ME2.5": [24541], "ME01": [24380], "ME04": [24655], "ME02": [24448], "ME03": [24587],
+      };
+      const row = await db.prepare("SELECT value FROM settings WHERE key = 'tier_prices_cache'").first();
+      let cache = { updated: 0, prices: {} };
+      try { if (row) cache = JSON.parse(row.value) || cache; } catch { /* rebuild */ }
+      const DAY = 24 * 3600 * 1000;
+      if (cache.updated && Date.now() - cache.updated > DAY) cache = { updated: 0, prices: {} };
+      const missing = Object.keys(TIER_GROUPS).filter((c) => !cache.prices[c]);
+      for (const code of missing.slice(0, 6)) {
+        const vals = [];
+        for (const g of TIER_GROUPS[code]) { try { vals.push(await fetchPackBox(g)); } catch { /* skip group */ } }
+        const avg = (a) => (a.length ? Math.round((a.reduce((x, y) => x + y, 0) / a.length) * 100) / 100 : null);
+        cache.prices[code] = { pack: avg(vals.map((v) => v.pack).filter(Boolean)), box: avg(vals.map((v) => v.box).filter(Boolean)) };
+      }
+      const complete = Object.keys(TIER_GROUPS).every((c) => cache.prices[c]);
+      if (complete && !cache.updated) cache.updated = Date.now();
+      await db.prepare("INSERT INTO settings (key, value) VALUES ('tier_prices_cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .bind(JSON.stringify(cache)).run();
+      return json({ complete, updated: cache.updated, prices: cache.prices });
     }
 
     // /api/cards/search?q= — card lookup for tagging promo cards (any set)

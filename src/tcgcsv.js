@@ -97,6 +97,23 @@ export async function fetchSealedRipPrices(name, releaseDate, groupIdOverride) {
   };
 }
 
+// Loose-pack + booster-box market prices for one group (for the tier list).
+export async function fetchPackBox(groupId) {
+  const [products, prices] = await Promise.all([
+    getJson(`${BASE}/${POKEMON_CATEGORY}/${groupId}/products`),
+    getJson(`${BASE}/${POKEMON_CATEGORY}/${groupId}/prices`),
+  ]);
+  const pm = {};
+  for (const r of prices) pm[r.productId] = Math.max(pm[r.productId] || 0, r.marketPrice || 0);
+  let pack = null, box = null;
+  for (const p of products) {
+    const n = p.name || "";
+    if (/booster pack$/i.test(n) && !/sleeved|code|blister|art/i.test(n)) pack = pm[p.productId] || pack;
+    if (/booster box$/i.test(n) && !/case|enhanced|half/i.test(n)) box = pm[p.productId] || box;
+  }
+  return { pack: pack || null, box: box || null };
+}
+
 // Per-rarity average market price (USD) for a set's singles, via TCGCSV. Rarity
 // strings ("Illustration Rare", "Mega Hyper Rare", …) match pokemontcg.io's, so
 // the result drops straight into set_all_rarities.avg_price.
