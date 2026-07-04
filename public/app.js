@@ -466,7 +466,7 @@ function headerHTML() {
 // ---- render entry --------------------------------------------------------
 function render() {
   document.getElementById("app").classList.toggle("wide", state.view === "set" || state.view === "binders"); // wider container
-  if (state.loading) { document.getElementById("app").innerHTML = headerHTML() + `<div class="loading">Loading your sets…</div>`; return; }
+  if (state.loading) { document.getElementById("app").innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading your sets…</div>`; return; }
   if (state.view === "spend") renderSpend();
   else if (state.view === "binders") renderBinders();
   else if (state.view === "set" && setById(state.setId)) renderSetView();
