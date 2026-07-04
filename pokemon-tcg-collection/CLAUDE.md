@@ -65,46 +65,52 @@ fewer binders). A working Python version was used to produce the plans below.
 
 ---
 
-## 4. Current collection & FINALIZED binder plans
+## 4. Current collection & FINALIZED binder plans (rev. 2026-07-03)
 
 All card counts are master-set totals. Plans below already satisfy §3.
+**Dropped from the collection (2026-07-03): Paldea Evolved, 151, Paldean Fates** —
+too expensive / hard to find at market. Their entries in `collection.json` carry
+`dropped: true` plus **`savedBannerUrl`** (the owner's hand-picked tracker banner —
+restore it via the tracker's 🖼 button if any of these are ever reimported).
+Hardware: Vault X ZIP binders; 12-Pocket = 480, 12-Pocket XL = 624. Colors final.
 
-### 4a. Scarlet & Violet — MAIN series → three 480 binders (12-pocket)
-Grouping chosen for min empty space (74 total) + new-page rule. Order is
-per-binder fill order.
+### 4a. Scarlet & Violet — MAIN series → one 480 + one 624
+Re-optimized after dropping Paldea Evolved (it was the packing constraint).
 
-| Binder | Sets (in order) | Cards | Empty | Page-sides |
-|--------|-----------------|------:|------:|-----------:|
-| 480 #1 | Twilight Masquerade (226) → Surging Sparks (252) | 478 | 2  | 40/40 |
-| 480 #2 | Paldea Evolved (279) → Stellar Crown (175)       | 454 | 26 | 39/40 |
-| 480 #3 | Journey Together (190) → Destined Rivals (244)   | 434 | 46 | 37/40 |
+| Binder | Color | Sets (in order) | Cards | Empty | Page-sides |
+|--------|-------|-----------------|------:|------:|-----------:|
+| 480 (12-pkt) | **Yellow** (gold Pikachu ex) | Twilight Masquerade (226) → Surging Sparks (252) | 478 | 2 | 40/40 |
+| 624 XL | **Red** (Team Rocket) | Stellar Crown (175) → Journey Together (190) → Destined Rivals (244) | 609 | 15 | **52/52** |
 
-Note: Paldea Evolved is the constraint — at 279 it can only share a 480 with one of
-the two smallest sets. Binder #3 holds the two newest sets (most growth room).
+Only 17 empty pockets total; the 624 fills its page-sides exactly.
 
-### 4b. Scarlet & Violet — SPECIAL sets → one 1088 binder (16-pocket)
-Chronological order. Uses new-page rule → 63/68 page-sides, 111 empty (mostly the
-5 blank pages at the back = growth room).
+### 4b. Scarlet & Violet — SPECIAL sets → one 624 XL
+Chronological order. Downsized from the 1088 after dropping 151 + Paldean Fates.
 
-`151 (207) → Paldean Fates (245) → Prismatic (180) → Black Bolt + White Flare (345)`
-= 977 cards.
-(As originally delivered with the stricter right-page rule this used 64/68 with one
-forced blank page after 151; the new-page rule above removes that blank page.)
+| Binder | Color | Sets (in order) | Cards | Empty | Page-sides |
+|--------|-------|-----------------|------:|------:|-----------:|
+| 624 XL | **Black** (Umbreon ex + Black Bolt) | Prismatic (180) → Black Bolt + White Flare (345) | 525 | 99 | 44/52 |
 
-### 4c. Mega Evolution — MAIN series → one 624 binder (12-pocket)
-Release order. New-page rule → 49/52 page-sides, 60 empty (~3 blank pages at back).
+### 4c. Mega Evolution — MAIN series → one 624 XL (unchanged layout, color chosen)
+Release order. New-page rule → 49/52 page-sides, 60 empty.
 Ascended Heroes is a SPECIAL set and is intentionally excluded here.
 
-`Mega Evolution (188) → Phantasmal Flames (130) → Perfect Order (124) → Chaos Rising (122)`
-= 564 cards.
+| Binder | Color | Sets (in order) | Cards | Empty | Page-sides |
+|--------|-------|-----------------|------:|------:|-----------:|
+| 624 XL | **Navy** (Mega branding / Lucario) | Mega Evolution (188) → Phantasmal Flames (130) → Perfect Order (124) → Chaos Rising (122) | 564 | 60 | 49/52 |
 
-### 4d. Future / undecided
-- **Mega main, future sets** (Pitch Black 120, then Storm Emerald, etc.): the 624 in
-  §4c is effectively full, so future sets need a **new binder**. Options: a second 624
-  (~4 future main sets) or a 1088 (~8). Recommend matching 624s for a uniform shelf.
-  You can't optimize fit yet (unknown future counts) — pick for runway, not tightness.
-- **Mega special sets** (Ascended Heroes 295, future specials): own binder, TBD.
-  Mirror the S&V special-set approach (§4b).
+### 4d. Future / freed hardware
+- **Freed by the 2026-07-03 revision:** the 1088 (16-pocket) and two 480s.
+- **Mega main, future sets** (Pitch Black 120, Storm Emerald, …): the navy 624 is
+  effectively full → future Mega mains go in the **freed 1088** (~8 future sets of
+  runway). No purchase needed.
+- **Mega special sets** (Ascended Heroes 295, future specials): own binder — a freed
+  480 covers Ascended Heroes with room for one small future special.
+
+### 4e. Superseded plan (pre-2026-07-03, for reference)
+3× 480 SV main (74 empty; Paldea Evolved constrained the packing) + 1088 SV special
+(151 → Paldean Fates → Prismatic → BB+WF, 63/68) + 624 Mega main. Replaced by the
+4-binder layout above when PE/151/PaF were dropped.
 
 ---
 

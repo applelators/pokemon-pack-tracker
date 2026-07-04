@@ -257,12 +257,12 @@ window.spriteFallback = function (img) {
 // Sections are whole sets in fill order; a section can span two tracker sets that are
 // bound as one block (Black Bolt + White Flare). Page math comes from binderPlanner.js
 // (window.BinderPlanner — verbatim copy served as /binderPlanner.js), never re-derived.
+// Rev. 2026-07-03: 4-binder plan (PE/151/PaF dropped) with chosen Vault X colors.
 const BINDERS = [
-  { id: "svm1", label: "S&V Main · Binder 1", capacity: 480, perSide: 12, sections: [["sv6"], ["sv8"]] },
-  { id: "svm2", label: "S&V Main · Binder 2", capacity: 480, perSide: 12, sections: [["sv2"], ["sv7"]] },
-  { id: "svm3", label: "S&V Main · Binder 3", capacity: 480, perSide: 12, sections: [["sv9"], ["sv10"]] },
-  { id: "svsp", label: "S&V Special", capacity: 1088, perSide: 16, sections: [["sv3pt5"], ["sv4pt5"], ["sv8pt5"], ["zsv10pt5", "rsv10pt5"]] },
-  { id: "mem", label: "Mega Evolution Main", capacity: 624, perSide: 12, sections: [["me1"], ["me2"], ["me3"], ["me4"]] },
+  { id: "svy", label: "S&V Main · Yellow 480", capacity: 480, perSide: 12, color: "#e8c531", sections: [["sv6"], ["sv8"]] },
+  { id: "svr", label: "S&V Main · Red 624 XL", capacity: 624, perSide: 12, color: "#c94848", sections: [["sv7"], ["sv9"], ["sv10"]] },
+  { id: "svb", label: "S&V Special · Black 624 XL", capacity: 624, perSide: 12, color: "#23262e", sections: [["sv8pt5"], ["zsv10pt5", "rsv10pt5"]] },
+  { id: "men", label: "Mega Main · Navy 624 XL", capacity: 624, perSide: 12, color: "#2b4a8f", sections: [["me1"], ["me2"], ["me3"], ["me4"]] },
 ];
 const BINDER_COLS = { 4: 2, 9: 3, 12: 4, 16: 4 };  // pocket-grid columns per layout
 
@@ -683,7 +683,7 @@ function renderBinders() {
       const cards = loaded ? b.sections.reduce((a, sec) => a + sectionCards(sec).length, 0) : null;
       const secs = b.sections.map((sec) => sec.map((id) => { const s = setById(id); return `<span class="setchip" style="color:${s ? s.tint : 'var(--soft)'}">${s ? s.code : id}</span>`; }).join("")).join('<span class="bshelf-arrow">→</span>');
       return `<div class="bshelf-row" data-act="openbinder" data-v="${b.id}">
-        <div class="bshelf-spine"><span class="bshelf-cap disp">${b.capacity}</span><span class="bshelf-pk">${b.perSide}-pkt</span></div>
+        <div class="bshelf-spine" style="${b.color ? `border-left-color:${b.color};background:linear-gradient(105deg, color-mix(in oklch, ${b.color} 34%, #141a2a) 0%, #141a2a 85%);` : ""}"><span class="bshelf-cap disp">${b.capacity}</span><span class="bshelf-pk">${b.perSide}-pkt</span></div>
         <div class="bshelf-meta"><div class="bshelf-name">${esc(b.label)}</div><div class="bshelf-sets">${secs}</div>
           <div class="bshelf-sub">${cards != null ? `${cards} / ${b.capacity} cards · ${b.capacity - cards} empty` : `${b.capacity} pockets · ${b.capacity / b.perSide} page-sides`}</div></div>
         <span class="bshelf-open">Open →</span>
