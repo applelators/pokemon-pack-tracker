@@ -49,6 +49,12 @@ the new visual + interaction language.
 - **Promo cards** from special products: `order_promos(order_id, name, image_small,
   card_id)`, edited on the order (composer Promos section; image auto-filled via
   `GET /api/cards/search`). Shown as a `🎴 N promos` chip. Separate from pack pulls.
+- **Custom sets** (`src/customsets.js`): sets absent from pokemontcg.io — currently
+  First Partner 2026 `fp1/fp2/fp3` (9 IR promos each; one $14.99 box = one region-locked
+  3-card trio, random of 3 regions). Import/cards/curve are special-cased in api.js; the
+  completion curve is ANALYTIC (fwd = 9(1−(2/3)^k); DR box 4, steep 8, complete ~5.5)
+  instead of Monte-Carlo, and the set view swaps the deal hero for a "How this set works"
+  odds card (packs are never sold loose). Rarity "Promo" keeps chase slots off.
 - **30th Celebration (expected id `cel30`, releases 2026-09-16):** packs are ONLY sold
   inside products (no loose packs / booster boxes). Catalog entries exist in
   `SPECIAL_PRODUCTS` with user-confirmed MSRPs implying ~$5.00/pack (Booster Bundle
