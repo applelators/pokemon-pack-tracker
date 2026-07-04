@@ -1312,7 +1312,7 @@ function renderComposer() {
             <label class="field">Vendor<input type="text" data-df="vendor" value="${esc(d.vendor)}" placeholder="e.g. Anime Expo — Booth 412"></label>
             <label class="field">Store
               <select data-df="store">
-                ${["", "Offcourt TCG", "Target", "Too Many Games", "Other"].map((o) => `<option value="${o}"${(d.store || "") === o ? " selected" : ""}>${o || "— none —"}</option>`).join("")}
+                ${["", "Offcourt TCG", "Target", "TCGplayer", "Too Many Games", "Other"].map((o) => `<option value="${o}"${(d.store || "") === o ? " selected" : ""}>${o || "— none —"}</option>`).join("")}
               </select>
             </label>
             <label class="field">Sales tax %<input type="number" data-df="tax" step="0.001" min="0" value="${d.tax}"></label>

@@ -167,7 +167,7 @@ density toggle. The switcher is a prototype comparison aid; production can ship 
   the default (shown as placeholder). When set, surface the **delta vs the estimate**
   (`+N` green if above, `−N` amber if below).
 - **Order composer** (sheet) — one receipt, **each line picks its own set**; quick-add
-  product chips; **store presets** (Offcourt TCG / Target / Too Many Games / Other) with
+  product chips; **store presets** (Offcourt TCG / Target / TCGplayer / Too Many Games / Other) with
   **Target Circle −5%** toggle (discount applied before tax); live running total. Used for
   create **and** edit. Editing is a *before-opening* action — it does **not** include pull
   tagging.
