@@ -1010,13 +1010,33 @@ function renderHub() {
     </div>`;
   };
   const rows = mainSets.map(hubRow).join("");
-  const fpRows = fpSets.map((s, i) => hubRow(s, mainSets.length + i)).join("");
+  // FP series get one combined compact card — no deal check (packs only exist inside
+  // the $14.99 box) and the three series are parts of one 27-card collection.
+  const fpCard = fpSets.length ? (() => {
+    const totC = fpSets.reduce((a, s) => a + (s.collected || 0), 0);
+    const totSpent = fpSets.reduce((a, s) => a + (s.spent || 0), 0);
+    const mini = fpSets.map((s) => {
+      const pct = Math.round(((s.collected || 0) / s.base) * 100);
+      return `<div class="fpm-row">
+        <span class="sym${SET_SPRITE[s.id] ? " has-mon" : ""}" style="background:linear-gradient(160deg, ${s.tint} 0%, #10182a 80%)">${setSpriteImg(s.id)}<span class="sym-code">${s.code}</span></span>
+        <div class="fpm-meta"><div class="fpm-name">${esc(s.name.replace("First Partner — ", ""))}${printChip(s.id, s.releaseDate)}</div>
+          <div class="bar"><i style="width:${pct}%"></i></div>
+          <div class="fpm-sub">${s.collected || 0}/9 promos · ${s.packsBought || 0} box${(s.packsBought || 0) === 1 ? "" : "es"} · ${money(s.spent)} spent</div></div>
+        <button class="hub-mini" data-act="opensetview" data-v="${s.id}">Open →</button>
+      </div>`;
+    }).join("");
+    return `<div class="hub-section"><span>First Partner 2026</span><small>one 27-card promo collection · region trios · packs only inside the $14.99 boxes</small></div>
+      <div class="fp-hubcard">
+        <div class="fpm-head"><span class="disp" style="font-weight:700;font-size:15px;">${totC} / 27 collected</span><span class="muted2" style="font-size:12px;">${money(totSpent)} spent · ~3 boxes per series, then singles</span></div>
+        ${mini}
+      </div>`;
+  })() : "";
   state.hubAnimated = true;
   document.getElementById("app").innerHTML = headerHTML() + `
     <div class="hub-head"><div><div class="hub-title disp">Your sets</div><div class="hub-tagline">Pick a set to check deals &amp; log orders</div></div><button class="hub-mini" data-act="refreshall"${state.refreshingAll ? " disabled" : ""}>${state.refreshingAll ? "↻ Refreshing…" : "↻ Refresh all markets"}</button></div>
     <div class="hub-list">${rows}
       ${state.sets.length ? "" : `<div class="hub-empty">No sets tracked yet — import one to get started.</div>`}
-      ${fpSets.length ? `<div class="hub-section"><span>First Partner 2026</span><small>9-card promo trio sets · one region per box</small></div>${fpRows}` : ""}
+      ${fpCard}
       <button class="hub-import" data-act="addset" style="${anim ? `animation:rowIn .34s cubic-bezier(.22,1,.36,1) backwards;animation-delay:${state.sets.length * 55}ms;` : ''}"><span class="hub-import-plus">+</span><span>Import a set<small>browse expansions, newest first</small></span></button>
     </div>`;
 }

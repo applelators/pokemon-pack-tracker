@@ -555,3 +555,13 @@ input,select{font-family:inherit;}
 .sd-no summary::-webkit-details-marker{display:none;}
 .sd-no summary{list-style:none;}
 .sd-no[open] summary{color:var(--soft);}
+
+/* ---- First Partner combined hub card ---- */
+.fp-hubcard{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:11px;}
+.fpm-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;padding-bottom:9px;border-bottom:1px solid var(--line);}
+.fpm-row{display:flex;align-items:center;gap:12px;}
+.fpm-row .sym{width:38px;height:38px;flex:0 0 auto;border-radius:9px;display:flex;align-items:stretch;justify-content:center;position:relative;overflow:hidden;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;color:rgba(255,255,255,.92);}
+.fpm-meta{flex:1;min-width:0;}
+.fpm-name{font-size:13.5px;font-weight:700;}
+.fpm-row .bar{margin-top:6px;height:6px;}
+.fpm-sub{font-size:11.5px;color:var(--muted);margin-top:5px;}
