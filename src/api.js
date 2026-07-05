@@ -445,6 +445,11 @@ export async function handleApi(request, env, url) {
         "SV8": [23651], "SV6": [23473], "SV2": [23120], "SV9": [24073], "SV1": [22873],
         "SV4": [23286], "SV6.5": [23529], "SV3": [23228], "SV5": [23381], "SV7": [23537],
         "ME2.5": [24541], "ME01": [24380], "ME04": [24655], "ME02": [24448], "ME03": [24587],
+        // SwSh era (consensus tab):
+        "SWSH7": [2848], "SWSH12.5": [17688], "SWSH9": [2948], "SWSH11": [3118], "SWSH12": [3170],
+        "SWSH4.5": [2754], "CEL25": [2867], "SWSH10": [3040], "SWSH8": [2906], "SWSH6": [2807],
+        "SWSH4": [2701], "SWSH3": [2675], "SWSH3.5": [2685], "SWSH5": [2765], "PGO": [3064],
+        "SWSH1": [2585], "SWSH2": [2626],
       };
       const row = await db.prepare("SELECT value FROM settings WHERE key = 'tier_prices_cache'").first();
       let cache = { updated: 0, prices: {} };

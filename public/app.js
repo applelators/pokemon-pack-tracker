@@ -508,13 +508,15 @@ const VERDICT_STYLE = { Packs: "var(--good)", Mixed: "var(--fair)", Singles: "va
 // tier code → tracker set id(s); SV10.5 is the BB+WF pair.
 function tierSetIds(code) {
   if (code === "SV10.5") return ["zsv10pt5", "rsv10pt5"];
-  const m = String(code).match(/^(SV|ME)(\d+)(?:\.(\d))?$/i);
+  const IRREGULAR = { "SWSH3.5": ["swsh35"], "SWSH4.5": ["swsh45"], "SWSH12.5": ["swsh12pt5"], "CEL25": ["cel25"], "PGO": ["pgo"] };
+  if (IRREGULAR[code]) return IRREGULAR[code];
+  const m = String(code).match(/^(SV|ME|SWSH)(\d+)(?:\.(\d))?$/i);
   if (!m) return [];
   return [(m[1].toLowerCase()) + Number(m[2]) + (m[3] ? "pt" + m[3] : "")];
 }
 function tierForSetId(id) {
   if (!state.tierData) return null;
-  for (const e of [...state.tierData.sv, ...state.tierData.me]) if (tierSetIds(e.code).includes(id)) return e;
+  for (const e of [...state.tierData.sv, ...state.tierData.me, ...(state.tierData.swsh || [])]) if (tierSetIds(e.code).includes(id)) return e;
   return null;
 }
 async function loadTierData() {
@@ -545,7 +547,7 @@ async function ensureTierPrices() {
 function renderTiers() {
   const app = document.getElementById("app");
   if (!state.tierData) { app.innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading tier list…</div>`; return; }
-  const rows = [...(state.tierTab === "sv" ? state.tierData.sv : state.tierData.me)];
+  const rows = [...(state.tierData[state.tierTab] || [])];
   if (state.tierSort === "value") rows.sort((a, b) => (b.value || 0) - (a.value || 0));
   else if (state.tierSort === "odds") rows.sort((a, b) => (a.rate || 999) - (b.rate || 999));
   else rows.sort((a, b) => (a.rank || 99) - (b.rank || 99));
@@ -574,7 +576,7 @@ function renderTiers() {
   app.innerHTML = headerHTML() + `<button class="backchip" data-act="gohub">← All sets</button>
     <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">★ Ripping & collecting tiers</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${esc(state.tierData._meta.note)} Pack/box prices are live TCGplayer market (refreshed daily).</div></div></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0 14px;">
-      <div class="seg sq"><button data-act="tiertab" data-v="sv" class="${on(state.tierTab === "sv")}">Scarlet & Violet</button><button data-act="tiertab" data-v="me" class="${on(state.tierTab === "me")}">Mega Evolution</button></div>
+      <div class="seg sq"><button data-act="tiertab" data-v="sv" class="${on(state.tierTab === "sv")}">Scarlet & Violet</button><button data-act="tiertab" data-v="me" class="${on(state.tierTab === "me")}">Mega Evolution</button><button data-act="tiertab" data-v="swsh" class="${on(state.tierTab === "swsh")}">Sword & Shield</button></div>${state.tierTab === "swsh" ? '<span style="font-size:11.5px;color:var(--fair);">consensus rankings — not owner-curated</span>' : ""}
       <div class="seg sq"><button data-act="tiersort" data-v="rank" class="${on(state.tierSort === "rank")}">Rank</button><button data-act="tiersort" data-v="value" class="${on(state.tierSort === "value")}">Chase $</button><button data-act="tiersort" data-v="odds" class="${on(state.tierSort === "odds")}">Best odds</button></div>
     </div>
     <div class="tlist">${list}</div>`;
