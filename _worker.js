@@ -2,8 +2,15 @@
 // /api/* is handled by the D1-backed API; everything else falls through to the
 // static assets in public/ (served via the ASSETS binding).
 import { handleApi } from "./src/api.js";
+import { snapshotAllPrices } from "./src/snapshot.js";
 
 export default {
+  // Daily cron (wrangler.toml [triggers]): snapshot every tracked set's TCGplayer
+  // market price into price_history so trend charts grow without manual refreshes.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(snapshotAllPrices(env.DB).then((r) => console.log("price snapshot:", r.join(" · "))));
+  },
+
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {

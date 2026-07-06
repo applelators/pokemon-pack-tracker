@@ -3,6 +3,7 @@ import {
   listSets, getCachedSet, setExists,
   listOrders, getOrder, createOrder, updateOrder, deleteOrder, orderExists,
   setTotals, getProgress, setProgress, setSetPricing, setSetHero, saveSet,
+  recordPriceHistory, getPriceHistory,
   getEstimateCache, saveEstimateCache,
   setHasOrders, deleteSet,
 } from "./store.js";
@@ -74,6 +75,16 @@ function ensureMigrated(db) {
       if (!(sinfo.results || []).some((c) => c.name === "hero_url")) {
         await db.prepare("ALTER TABLE sets ADD COLUMN hero_url TEXT").run();
       }
+      // Daily market-price history (trend charts). Seed each set's current price at its
+      // last-refresh day so charts start with a point (OR IGNORE keeps this one-time).
+      await db.prepare(
+        "CREATE TABLE IF NOT EXISTS price_history (set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE, day TEXT NOT NULL, market REAL NOT NULL, basis TEXT, PRIMARY KEY (set_id, day))"
+      ).run();
+      await db.prepare(
+        `INSERT OR IGNORE INTO price_history (set_id, day, market, basis)
+         SELECT id, substr(pack_price_updated, 1, 10), pack_market_price, 'seed — last refresh before history existed'
+         FROM sets WHERE pack_market_price > 0 AND pack_price_updated IS NOT NULL`
+      ).run();
     })().catch((e) => { migrationPromise = null; throw e; });
   }
   return migrationPromise;
@@ -359,7 +370,14 @@ export async function handleApi(request, env, url) {
       if (seg.length === 4 && seg[3] === "pricing" && method === "PUT") {
         if (!(await getCachedSet(db, setId))) return json({ error: "Set not imported" }, 404);
         const b = await body();
-        return json(await setSetPricing(db, setId, b));
+        const saved = await setSetPricing(db, setId, b);
+        if (Number(b.market_price) > 0) await recordPriceHistory(db, setId, b.market_price, "manual edit");
+        return json(saved);
+      }
+      // GET /api/sets/:id/pricing/history — daily market-price points for the trend chart
+      if (seg.length === 5 && seg[3] === "pricing" && seg[4] === "history" && method === "GET") {
+        if (!(await getCachedSet(db, setId))) return json({ error: "Set not imported" }, 404);
+        return json(await getPriceHistory(db, setId));
       }
       // POST /api/sets/:id/pricing/refresh — blended market price from multiple sources
       if (seg.length === 5 && seg[3] === "pricing" && seg[4] === "refresh" && method === "POST") {
@@ -411,6 +429,7 @@ export async function handleApi(request, env, url) {
           ceiling,
           note: `Market $${market.toFixed(2)} (${basis}) · good-deal ≤ $${ceiling.toFixed(2)} · ${parts.join(" · ")}`,
         });
+        await recordPriceHistory(db, setId, market, basis);
         return json({ ...saved, sources: { tcg, pc, ebay, ev, market, ceiling, basis } });
       }
       // PUT /api/sets/:id/progress

@@ -8,6 +8,10 @@ routes = [
   { pattern = "packs.nabunan.com", custom_domain = true }
 ]
 
+# Daily market-price snapshot into price_history (23:10 UTC ≈ 6–7pm ET "daily close").
+[triggers]
+crons = ["10 23 * * *"]
+
 [assets]
 directory = "public"
 binding = "ASSETS"

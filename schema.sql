@@ -38,6 +38,17 @@ CREATE TABLE IF NOT EXISTS sets (
 --   ALTER TABLE sets ADD COLUMN pack_price_updated TEXT;
 --   ALTER TABLE sets ADD COLUMN art_json TEXT;
 
+-- Daily market-price history (trend charts): one row per set per UTC day — the daily
+-- cron and manual refreshes upsert, so a day's last price wins ("daily close").
+-- Auto-created + seeded by ensureMigrated in src/api.js.
+CREATE TABLE IF NOT EXISTS price_history (
+  set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
+  day    TEXT NOT NULL,   -- ISO date (UTC)
+  market REAL NOT NULL,   -- loose-pack market price that day
+  basis  TEXT,            -- where the number came from
+  PRIMARY KEY (set_id, day)
+);
+
 CREATE TABLE IF NOT EXISTS set_rarities (
   set_id TEXT NOT NULL REFERENCES sets(id) ON DELETE CASCADE,
   rarity TEXT NOT NULL,

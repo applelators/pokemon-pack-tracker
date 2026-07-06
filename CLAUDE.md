@@ -187,6 +187,14 @@ density toggle. The switcher is a prototype comparison aid; production can ship 
   pull-rate model JSON.
 - **Refresh marker** — each set stores `lastRefresh`; the deal card shows "Updated {date}"
   and, after &gt;7 days, an amber "refresh recommended" nudge + highlighted Refresh button.
+- **Market price trend** — `price_history(set_id, day, market, basis)` in D1, one row per
+  set per UTC day (upsert = daily close). Written by manual refreshes, manual pricing
+  edits, and a **daily cron** (23:10 UTC, `_worker.js scheduled` → `src/snapshot.js`,
+  TCGCSV-only, group ids cached in settings `tcgcsv_group_cache`; never touches the live
+  `pack_market_price`). `GET /api/sets/:id/pricing/history` feeds `trendChartHTML` — a
+  hand-rolled inline-SVG line chart card in the set view (`--blue` line, accent dots on
+  order days, drop = green / rise = red for a buyer). Hidden for custom (FP) sets, which
+  are also excluded from all market refreshes (fixed retail pricing).
 
 ---
 

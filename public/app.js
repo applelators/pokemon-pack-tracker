@@ -177,6 +177,7 @@ async function refreshAllMarkets() {
   }
   setProgressStep("Reloading…", 1);
   try { await loadHub(); } catch { /* summary below covers it */ }
+  state.priceHist = {}; // refreshed prices add today's history points — refetch charts
   state.refreshingAll = false;
   stopProgress();
   render();
@@ -315,6 +316,7 @@ const state = {
   dealTab: "loose",
   loosePrice: 5, bundlePrice: 30,
   hubPrice: {},
+  priceHist: {},       // setId -> [{day, market}] (trend chart; "loading" while fetching)
   hubAnimated: false,
   refreshingAll: false,
   binderId: null, bSpread: 0, bHighlight: null, bSearch: "", bResults: null, binderCards: {}, // Binders view
@@ -859,7 +861,16 @@ function renderBinders() {
 function hubPriceOf(id) { if (state.hubPrice[id] == null) state.hubPrice[id] = round(marketOf(setById(id))); return state.hubPrice[id]; }
 function hubStep(id, d) { state.hubPrice[id] = Math.max(0, hubPriceOf(id) + d); render(); }
 function goHub() { state.view = "hub"; state.hubAnimated = false; persistPrefs(); render(); }
-function openSetView(id) { const s = setById(id); if (!s) return; state.view = "set"; state.setId = id; state.dealTab = "loose"; state.loosePrice = round(marketOf(s)); state.bundlePrice = round(s.bundleMarket); persistPrefs(); loadOrders().then(render).catch((e) => { render(); toast(e.message, true); }); }
+function openSetView(id) { const s = setById(id); if (!s) return; state.view = "set"; state.setId = id; state.dealTab = "loose"; state.loosePrice = round(marketOf(s)); state.bundlePrice = round(s.bundleMarket); persistPrefs(); loadOrders().then(render).catch((e) => { render(); toast(e.message, true); }); loadPriceHistory(id); }
+
+// Trend-chart data (lazy per set; re-render when it lands if we're still on that set).
+async function loadPriceHistory(id) {
+  if (state.priceHist[id]) return;
+  state.priceHist[id] = "loading";
+  try { state.priceHist[id] = await api(`/sets/${id}/pricing/history`); }
+  catch { state.priceHist[id] = []; }
+  if (state.view === "set" && state.setId === id) render();
+}
 function openSpend() { state.view = "spend"; render(); loadOrders().then(render).catch((e) => { render(); toast(e.message, true); }); }
 
 // ---- SPENDING ------------------------------------------------------------
@@ -1192,6 +1203,7 @@ function renderSetView() {
       </div>
       <div class="stats">${stats}</div>
     </div>
+    ${isFP ? "" : trendChartHTML(set, setOrders)}
     ${deskDetail}
     <div class="sec-head"><div><div class="sec-title">${state.showShared && state.binder === "shared" ? "Shared binder orders" : "Recent orders"}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;"><b style="color:var(--good)">${money(set.spent)}</b> spent on ${esc(set.name)} · ${setOrders.length} order${setOrders.length !== 1 ? "s" : ""}</div></div><button class="btn-primary" data-act="addorder">+ Add order</button></div>
     ${orders}
@@ -1303,6 +1315,59 @@ function itemDeal(o, it) {
   if (ceil != null && perPack <= ceil) return { l: "Good deal", c: "var(--good)", bg: "rgba(47,213,138,.12)" };
   if (mkt != null && perPack >= mkt * 1.25) return { l: "Overpaid", c: "var(--bad)", bg: "rgba(247,107,107,.12)" };
   return { l: "Fair", c: "var(--fair)", bg: "rgba(255,176,32,.12)" };
+}
+
+// Market-price trend chart (inline SVG, no library). One point per day from
+// price_history (manual refreshes + the daily cron snapshot); accent dots mark the
+// days you placed orders for this set. Buyer's framing: price drop = green.
+function trendChartHTML(set, setOrders) {
+  const hist = state.priceHist[set.id];
+  if (!Array.isArray(hist)) return "";
+  const card = (inner) => `<div class="card" style="margin-top:14px;"><div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;"><div class="uplabel">Market price trend</div>${inner.head || ""}</div>${inner.body}</div>`;
+  if (hist.length < 2) {
+    return card({ body: `<div style="font-size:13px;color:var(--muted);margin-top:10px;">${hist.length === 1 ? `Tracking started — 1 snapshot so far (${money(hist[0].market)}/pack on ${fmtDate(hist[0].day)}).` : "No price snapshots yet."} A new point lands automatically every evening; the trend line appears once there are two.</div>` });
+  }
+  const pts = hist.map((h) => ({ t: Date.parse(h.day), v: h.market }));
+  const W = 640, H = 190, L = 46, R = 16, T = 14, B = 26;
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+  let lo = Math.min(...pts.map((p) => p.v)), hi = Math.max(...pts.map((p) => p.v));
+  const pad = Math.max((hi - lo) * 0.1, hi * 0.04);
+  lo = Math.max(0, lo - pad); hi += pad;
+  const x = (t) => L + (t - t0) / (t1 - t0) * (W - L - R);
+  const y = (v) => T + (hi - v) / (hi - lo) * (H - T - B);
+  const yAt = (t) => { // linear interpolation on the series (for order markers)
+    if (t <= t0) return pts[0].v; if (t >= t1) return pts[pts.length - 1].v;
+    for (let i = 1; i < pts.length; i++) if (t <= pts[i].t) { const a = pts[i - 1], b = pts[i]; return a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t || 1); }
+    return pts[pts.length - 1].v;
+  };
+  const line = pts.map((p) => `${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const gid = `phg-${set.id}`;
+  const grid = [lo, (lo + hi) / 2, hi].map((v) => `<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 7}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="var(--muted)" class="disp">${money(v)}</text>`).join("");
+  const short = (t) => new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  const xlabels = `<text x="${L}" y="${H - 8}" font-size="10.5" fill="var(--muted)" class="disp">${short(t0)}</text><text x="${W - R}" y="${H - 8}" text-anchor="end" font-size="10.5" fill="var(--muted)" class="disp">${short(t1)}</text>`;
+  // Order-day markers (dedup by day, clamped to the charted window).
+  const seen = new Set(), marks = [];
+  for (const o of setOrders || []) {
+    const t = Date.parse(o.purchase_date);
+    if (!(t >= t0 && t <= t1) || seen.has(o.purchase_date)) continue;
+    seen.add(o.purchase_date);
+    marks.push(`<circle cx="${x(t).toFixed(1)}" cy="${y(yAt(t)).toFixed(1)}" r="4" fill="var(--accent)" stroke="#1a1300" stroke-width="1.5"><title>${esc(fmtDate(o.purchase_date))} — you ordered</title></circle>`);
+  }
+  const last = pts[pts.length - 1], first = pts[0];
+  const d = last.v - first.v, up = d > 0.004, flat = Math.abs(d) <= 0.004;
+  const head = `<div style="font-size:12.5px;" class="disp"><b style="color:var(--text);font-size:14px;">${money(last.v)}</b><span style="color:${flat ? "var(--muted)" : up ? "var(--bad)" : "var(--good)"};margin-left:8px;">${flat ? "flat" : `${up ? "▲" : "▼"} ${money(Math.abs(d))}`}</span><span style="color:var(--muted);margin-left:6px;">since ${short(first.t)}</span></div>`;
+  const body = `
+    <svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%;height:auto;margin-top:8px;" role="img" aria-label="Market price trend for ${esc(set.name)}">
+      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--blue)" stop-opacity=".28"/><stop offset="1" stop-color="var(--blue)" stop-opacity="0"/></linearGradient></defs>
+      ${grid}
+      <polygon points="${L},${(H - B).toFixed(1)} ${line} ${(W - R)},${(H - B).toFixed(1)}" fill="url(#${gid})"/>
+      <polyline points="${line}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${marks}
+      <circle cx="${x(last.t).toFixed(1)}" cy="${y(last.v).toFixed(1)}" r="3.5" fill="var(--blue)"/>
+      ${xlabels}
+    </svg>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px;">Loose-pack market, one point per day (manual refreshes + the automatic evening snapshot).${marks.length ? ` <span style="color:var(--accent)">●</span> = a day you placed an order for this set.` : ""}</div>`;
+  return card({ head, body });
 }
 
 // Deep breakpoint: once you own more packs than the primary DR point, recommend a
@@ -1886,13 +1951,13 @@ async function refreshMarket(id) {
   const btn = document.querySelector('[data-act="refresh"]');
   if (btn) { btn.disabled = true; btn.textContent = "↻ Refreshing…"; }
   startProgress("Refreshing " + set.name + " market…", REFRESH_STEPS);
-  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); stopProgress(); toast(`Market: ${money(r.pack_market_price)}/pack`); await reload(); }
+  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); delete state.priceHist[id]; stopProgress(); toast(`Market: ${money(r.pack_market_price)}/pack`); await reload(); loadPriceHistory(id); }
   catch (err) { stopProgress(); toast(err.message, true); if (btn) { btn.disabled = false; btn.textContent = "↻ Refresh market"; } }
 }
 async function hubRefresh(id) {
   const s0 = setById(id);
   startProgress("Refreshing " + (s0 ? s0.name : "set") + " market…", REFRESH_STEPS);
-  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); const s = setById(id); state.hubPrice[id] = round(Math.max(5, r.pack_market_price || 5)); stopProgress(); toast(`Refreshed ${s ? s.name : "set"} — rip ${money(r.pack_market_price)}`); await reload(); }
+  try { const r = await api(`/sets/${id}/pricing/refresh`, { method: "POST" }); const s = setById(id); state.hubPrice[id] = round(Math.max(5, r.pack_market_price || 5)); delete state.priceHist[id]; stopProgress(); toast(`Refreshed ${s ? s.name : "set"} — rip ${money(r.pack_market_price)}`); await reload(); }
   catch (err) { stopProgress(); toast(err.message, true); }
 }
 const _actualTimer = {};

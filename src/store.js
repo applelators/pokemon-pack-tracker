@@ -126,6 +126,22 @@ export async function setSetPricing(db, setId, { market_price, ceiling, msrp, no
   return getCachedSet(db, setId);
 }
 
+// Daily market-price history: one row per set per UTC day; a later write the same
+// day overwrites (the chart plots daily closes, not every manual refresh).
+export async function recordPriceHistory(db, setId, market, basis) {
+  const m = Math.round(Number(market) * 100) / 100;
+  if (!(m > 0)) return;
+  await db
+    .prepare(`INSERT INTO price_history (set_id, day, market, basis) VALUES (?, ?, ?, ?)
+      ON CONFLICT(set_id, day) DO UPDATE SET market = excluded.market, basis = excluded.basis`)
+    .bind(setId, new Date().toISOString().slice(0, 10), m, basis || null)
+    .run();
+}
+export async function getPriceHistory(db, setId) {
+  const r = await db.prepare("SELECT day, market FROM price_history WHERE set_id = ? ORDER BY day").bind(setId).all();
+  return r.results || [];
+}
+
 // Manual banner-art override (auto-scrape from tcg.pokemon.com is bot-blocked).
 export async function setSetHero(db, setId, url) {
   const v = (url || "").trim() || null;
