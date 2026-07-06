@@ -365,6 +365,9 @@ export async function handleApi(request, env, url) {
       if (seg.length === 5 && seg[3] === "pricing" && seg[4] === "refresh" && method === "POST") {
         const set = await getCachedSet(db, setId);
         if (!set) return json({ error: "Set not imported" }, 404);
+        // Custom sets are never market-refreshed: boxes are fixed retail and their names
+        // match unrelated vintage TCGplayer products, storing junk per-pack prices.
+        if (CUSTOM_SETS[setId]) return json({ error: `${set.name} is a custom set with fixed retail pricing — market refresh is disabled.` }, 400);
 
         let pc = null, ebay = null, tcg = null;
         try { tcg = await fetchSealedRipPrices(set.name, set.release_date); } catch (e) { tcg = { _err: e.message }; }

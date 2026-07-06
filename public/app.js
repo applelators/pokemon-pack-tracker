@@ -61,6 +61,8 @@ const SPECIAL_PRODUCTS = [
 // Display names for known contained sets that may not be tracked yet (for the prompt).
 const KNOWN_SET_NAMES = { sv10: "Destined Rivals", me2: "Phantasmal Flames", me1: "Mega Evolution", me3: "Perfect Order", me4: "Chaos Rising", cel30: "30th Celebration", fp1: "First Partner — Series 1", fp2: "First Partner — Series 2", fp3: "First Partner — Series 3", sv1: "Scarlet & Violet Base", sv3: "Obsidian Flames", sv4: "Paradox Rift", sv5: "Temporal Forces", sv6pt5: "Shrouded Fable", sv2: "Paldea Evolved", sv3pt5: "151", sv4pt5: "Paldean Fates", sv6: "Twilight Masquerade", sv7: "Stellar Crown", sv8: "Surging Sparks" };
 function setName(id) { const s = setById(id); return s ? s.name : (KNOWN_SET_NAMES[id] || id); }
+// Custom sets (src/customsets.js) have fixed retail pricing — never market-refresh them.
+const CUSTOM_SET_IDS = new Set(["fp1", "fp2", "fp3"]);
 // A special product's default allocation as [{setId, packs}] — keeps real ids even for
 // untracked sets (so we can offer to track them); "" = assorted/other.
 function defaultAlloc(sp) {
@@ -156,7 +158,7 @@ function setProgressStep(text, frac) {
 // upstream rate limits), with real set-by-set progress.
 async function refreshAllMarkets() {
   if (state.refreshingAll) return;
-  const sets = [...state.sets];
+  const sets = state.sets.filter((s) => !CUSTOM_SET_IDS.has(s.id));
   if (!sets.length) return;
   state.refreshingAll = true; render();
   startProgressManual("Refreshing all markets…");
@@ -1000,7 +1002,7 @@ function renderHub() {
         <div class="hub-name">${esc(s.name)}${(() => { const t = tierForSetId(s.id); return t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}" title="Ripping tier ${t.tier} · #${t.rank} — see ★ Tiers">${t.tier}</span>` : ""; })()}${printChip(s.id, s.releaseDate)}</div>
         <div class="hub-sub">${esc(s.series)}${s.release ? ' · ' + s.release : ''}</div>
         <div class="hub-stats"><span><b>${comp}%</b> complete</span><span><b>${drRem != null ? drRem : '—'}</b> to DR</span><span><b>${money(s.spent)}</b> spent</span><span><b>${s.ordersCount}</b> orders</span></div>
-        <div class="hub-acts"><button class="hub-open" data-act="opensetview" data-v="${s.id}">Open dashboard →</button><button class="hub-mini" data-act="hubaddorder" data-v="${s.id}">+ Order</button><button class="hub-mini" data-act="hubrefresh" data-v="${s.id}">↻ Refresh</button></div>
+        <div class="hub-acts"><button class="hub-open" data-act="opensetview" data-v="${s.id}">Open dashboard →</button><button class="hub-mini" data-act="hubaddorder" data-v="${s.id}">+ Order</button>${CUSTOM_SET_IDS.has(s.id) ? "" : `<button class="hub-mini" data-act="hubrefresh" data-v="${s.id}">↻ Refresh</button>`}</div>
       </div>
       <div class="hub-deal" style="background:${v.bg};border-left:1px solid ${v.border}">
         <div class="hub-deal-top"><span class="hub-verdict" style="color:${v.color}">${v.word}</span><span style="font-size:18px">${v.icon}</span></div>
