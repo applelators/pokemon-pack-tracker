@@ -1055,7 +1055,7 @@ function renderHub() {
 }
 
 // ---- SET VIEW ------------------------------------------------------------
-function selectSet(id) { const s = setById(id); if (!s) return; state.setId = id; state.dealTab = "loose"; state.loosePrice = round(marketOf(s)); state.bundlePrice = round(s.bundleMarket); persistPrefs(); render(); }
+function selectSet(id) { const s = setById(id); if (!s) return; state.setId = id; state.dealTab = "loose"; state.loosePrice = round(marketOf(s)); state.bundlePrice = round(s.bundleMarket); persistPrefs(); render(); loadPriceHistory(id); }
 function setTab(t) { state.dealTab = t; render(); }
 function stepPrice(d) { if (state.dealTab === "loose") state.loosePrice = Math.max(0, state.loosePrice + d); else state.bundlePrice = Math.max(0, state.bundlePrice + d); render(); }
 // Exact price typed into the hero (cents allowed, e.g. 8.44); commits on Enter/blur.
