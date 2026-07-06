@@ -1286,14 +1286,16 @@ function itemSetChips(it) {
   if (it.set_packs && it.set_packs.length) return it.set_packs.map((a) => chip(a.set_id)).join("");
   return it.set_id ? chip(it.set_id) : "";
 }
-// MSRP = at/close to a pack's original retail, or bought at Target (retail) — the best
-// possible case. Else Good deal / Fair / Overpaid vs the item's set(s).
+// MSRP = at/close to a pack's original retail, or bought at an MSRP retailer (Target,
+// Pokémon Center — the official store never charges above retail) — the best possible
+// case. Else Good deal / Fair / Overpaid vs the item's set(s).
+const MSRP_STORES = ["Target", "Pokémon Center"];
 function itemDeal(o, it) {
   const perPack = itemPerPack(it);
   const known = itemKnownSets(it);
   // MSRP reference = the set's recorded pack MSRP, else ~$5 (typical modern pack retail).
   const msrp = (known.length ? wAvg(known, (s) => s.msrp) : null) || 5;
-  if (o.store === "Target" || perPack <= msrp * 1.1) return { l: "MSRP", c: "var(--accent)", bg: "rgba(255,203,5,.16)" };
+  if (MSRP_STORES.includes(o.store) || perPack <= msrp * 1.1) return { l: "MSRP", c: "var(--accent)", bg: "rgba(255,203,5,.16)" };
   if (!known.length) return { l: "—", c: "var(--muted)", bg: "var(--panel3)" };
   const ceil = wAvg(known, (s) => s.ceiling), mkt = wAvg(known, (s) => marketOf(s));
   if (ceil != null && perPack <= ceil) return { l: "Good deal", c: "var(--good)", bg: "rgba(47,213,138,.12)" };
@@ -1478,7 +1480,7 @@ function renderComposer() {
             <label class="field">Vendor<input type="text" data-df="vendor" value="${esc(d.vendor)}" placeholder="e.g. Anime Expo — Booth 412"></label>
             <label class="field">Store
               <select data-df="store">
-                ${["", "Offcourt TCG", "Target", "TCGplayer", "Too Many Games", "Other"].map((o) => `<option value="${o}"${(d.store || "") === o ? " selected" : ""}>${o || "— none —"}</option>`).join("")}
+                ${["", "Offcourt TCG", "Pokémon Center", "Target", "TCGplayer", "Too Many Games", "Other"].map((o) => `<option value="${o}"${(d.store || "") === o ? " selected" : ""}>${o || "— none —"}</option>`).join("")}
               </select>
             </label>
             <label class="field">Sales tax %<input type="number" data-df="tax" step="0.001" min="0" value="${d.tax}"></label>
