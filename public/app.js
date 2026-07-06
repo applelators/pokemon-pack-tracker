@@ -1328,7 +1328,7 @@ function trendChartHTML(set, setOrders) {
     return card({ body: `<div style="font-size:13px;color:var(--muted);margin-top:10px;">${hist.length === 1 ? `Tracking started — 1 snapshot so far (${money(hist[0].market)}/pack on ${fmtDate(hist[0].day)}).` : "No price snapshots yet."} A new point lands automatically every evening; the trend line appears once there are two.</div>` });
   }
   const pts = hist.map((h) => ({ t: Date.parse(h.day), v: h.market }));
-  const W = 640, H = 190, L = 46, R = 16, T = 14, B = 26;
+  const W = 640, H = 200, L = 46, R = 16, T = 14, B = 36;
   const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
   let lo = Math.min(...pts.map((p) => p.v)), hi = Math.max(...pts.map((p) => p.v));
   const pad = Math.max((hi - lo) * 0.1, hi * 0.04);
@@ -1344,7 +1344,27 @@ function trendChartHTML(set, setOrders) {
   const gid = `phg-${set.id}`;
   const grid = [lo, (lo + hi) / 2, hi].map((v) => `<line x1="${L}" y1="${y(v).toFixed(1)}" x2="${W - R}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 7}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="var(--muted)" class="disp">${money(v)}</text>`).join("");
   const short = (t) => new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-  const xlabels = `<text x="${L}" y="${H - 8}" font-size="10.5" fill="var(--muted)" class="disp">${short(t0)}</text><text x="${W - R}" y="${H - 8}" text-anchor="end" font-size="10.5" fill="var(--muted)" class="disp">${short(t1)}</text>`;
+  // Bottom axis: ticks at every month boundary, month labels thinned to ≤ ~10, and a
+  // year row (start year + each January, with a faint full-height year gridline).
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthStarts = [];
+  { const d0 = new Date(t0); let m = Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + 1, 1);
+    while (m <= t1) { const dm = new Date(m); monthStarts.push(m); m = Date.UTC(dm.getUTCFullYear(), dm.getUTCMonth() + 1, 1); } }
+  let xlabels;
+  if (monthStarts.length >= 2) {
+    const axisY = (H - B).toFixed(1), step = Math.max(1, Math.ceil(monthStarts.length / 10)), parts = [];
+    monthStarts.forEach((t, i) => {
+      const X = x(t).toFixed(1), dt = new Date(t);
+      if (dt.getUTCMonth() === 0) parts.push(`<line x1="${X}" y1="${T}" x2="${X}" y2="${axisY}" stroke="var(--line)" stroke-width="1"/>`);
+      parts.push(`<line x1="${X}" y1="${axisY}" x2="${X}" y2="${Number(axisY) + 4}" stroke="var(--border)" stroke-width="1"/>`);
+      if (i % step === 0) parts.push(`<text x="${X}" y="${H - 18}" text-anchor="middle" font-size="10" fill="var(--muted)" class="disp">${MON[dt.getUTCMonth()]}</text>`);
+    });
+    parts.push(`<text x="${L}" y="${H - 5}" font-size="10" fill="var(--muted2)" class="disp">${new Date(t0).getUTCFullYear()}</text>`);
+    for (const t of monthStarts) { const dt = new Date(t); if (dt.getUTCMonth() === 0 && x(t) > L + 46) parts.push(`<text x="${x(t).toFixed(1)}" y="${H - 5}" text-anchor="middle" font-size="10" fill="var(--muted2)" class="disp">${dt.getUTCFullYear()}</text>`); }
+    xlabels = parts.join("");
+  } else { // young set (< 2 month boundaries) — endpoint dates read better than one tick
+    xlabels = `<text x="${L}" y="${H - 12}" font-size="10.5" fill="var(--muted)" class="disp">${short(t0)}, ${new Date(t0).getUTCFullYear()}</text><text x="${W - R}" y="${H - 12}" text-anchor="end" font-size="10.5" fill="var(--muted)" class="disp">${short(t1)}, ${new Date(t1).getUTCFullYear()}</text>`;
+  }
   // Order-day markers (dedup by day, clamped to the charted window).
   const seen = new Set(), marks = [];
   for (const o of setOrders || []) {
