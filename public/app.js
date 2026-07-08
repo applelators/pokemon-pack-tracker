@@ -749,7 +749,7 @@ function renderSealed() {
         const crazy = d > 1.5; // 2.5x retail and beyond — the wasting-money tier
         const c = d <= 0.1 ? "var(--good)" : d <= 0.5 ? "var(--fair)" : "var(--bad)";
         const tip = crazy ? "crazy tier — don't spend this much unless you like wasting money" : `typical US launch retail · best of TCG/eBay is ${d >= 0 ? "+" : ""}${Math.round(d * 100)}% vs retail`;
-        return `<span class="sd-msrp" title="${tip}">${money(r.msrp)} <span style="color:${c};${crazy ? "font-weight:700;" : ""}">${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%${crazy ? " 💀" : ""}</span></span>`;
+        return `<span class="sd-msrp" title="${tip}">${money(r.msrp)} <span style="color:${c};${crazy ? "font-weight:700;" : ""}">${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%${crazy ? " 🚫" : ""}</span></span>`;
       })()}
       <span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>
       ${ebayCell(r)}
@@ -783,7 +783,7 @@ function renderSealed() {
       <div class="sd-list">${list.map((r, i) => rowHTML(r, i, false)).join("")}</div>`;
     }).join("");
     app.innerHTML = headerHTML() + head + (sections || `<div class="muted" style="font-size:13px;margin-top:12px;">No products loaded yet.</div>`) + `
-      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail); delta tiers: <span style="color:var(--good)">≤ +10%</span> near retail · <span style="color:var(--fair)">≤ +50%</span> premium · <span style="color:var(--bad)">≤ +150%</span> steep · <span style="color:var(--bad);font-weight:700;">💀 beyond</span> = don't spend this much unless you like wasting money. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
+      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail); delta tiers: <span style="color:var(--good)">≤ +10%</span> near retail · <span style="color:var(--fair)">≤ +50%</span> premium · <span style="color:var(--bad)">≤ +150%</span> steep · <span style="color:var(--bad);font-weight:700;">🚫 beyond</span> = don't spend this much unless you like wasting money. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
     return;
   }
   app.innerHTML = headerHTML() + head + `
