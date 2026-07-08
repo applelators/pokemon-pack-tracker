@@ -581,13 +581,19 @@ input,select{font-family:inherit;}
   .sd-fig::before{content:"TCG ";color:var(--muted);font-size:10px;font-weight:400;}
   .sd-ebay:not(:empty)::before{content:"eBay ";color:var(--muted);font-size:10px;}
 }
-/* Mobile shelf-price check widget (hidden on desktop; grid item count must stay 7). */
+/* Mobile shelf-price check widget (hidden on desktop; grid item count must stay 7).
+   Tape-measure scrubber: ticks slide under a fixed accent needle, $1 per 8px. */
 .sd-check{display:none;}
 @media(max-width:760px){
-  .sd-check{display:flex;grid-column:1 / -1;align-items:center;gap:7px;margin-top:2px;}
-  .sd-check-b{width:32px;height:27px;border-radius:7px;background:var(--panel3);border:1px solid var(--border);color:var(--text);font-size:15px;line-height:1;}
-  .sd-check-in{width:64px;height:27px;background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--text);text-align:center;font-family:"Space Grotesk",sans-serif;font-size:13px;-moz-appearance:textfield;}
-  .sd-check-in::-webkit-outer-spin-button,.sd-check-in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .sd-check{display:flex;grid-column:1 / -1;align-items:center;gap:7px;margin-top:2px;flex-wrap:wrap;}
+  .sd-check-b{width:32px;height:30px;border-radius:7px;background:var(--panel3);border:1px solid var(--border);color:var(--text);font-size:15px;line-height:1;flex:0 0 auto;}
+  .sd-scrub{flex:1 1 120px;height:30px;position:relative;border:1px solid var(--border);border-radius:8px;background:var(--panel2);overflow:hidden;touch-action:pan-y;cursor:ew-resize;}
+  .sd-scrub-tape{position:absolute;inset:0;background:
+    repeating-linear-gradient(90deg,var(--border2) 0 1px,transparent 1px 40px),
+    repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 8px);}
+  .sd-scrub::after{content:"";position:absolute;left:50%;top:3px;bottom:3px;width:2px;border-radius:2px;background:var(--accent);}
+  .sd-check-read{width:100%;display:flex;align-items:baseline;gap:9px;}
+  .sd-check-val{font-weight:700;font-size:14px;min-width:38px;}
   .sd-check-out{font-size:11.5px;}
 }
 .sd-nogo-sum{cursor:pointer;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--bad);margin:8px 0 0 2px;opacity:.75;}

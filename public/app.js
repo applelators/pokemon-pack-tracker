@@ -639,21 +639,27 @@ function msrpDelta(d) {
     : "var(--bad)";
   return { crazy, c, txt: `${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%${crazy ? " 🚫" : ""}` };
 }
-// Mobile shelf-price check: type/step a whole-dollar price on a row, see the premium
-// over MSRP instantly. Patches the row's chip in place — no re-render, no scroll jump.
-function updateSealedCheck(w) {
-  const inp = w.querySelector(".sd-check-in"), out = w.querySelector(".sd-check-out");
-  const v = Math.round(Number(inp.value));
-  state.sealedCheck[w.dataset.name] = inp.value;
-  if (!(v > 0)) { out.innerHTML = `<span style="color:var(--muted)">shelf price?</span>`; return; }
+// Mobile shelf-price check: drag the tape-measure scrubber ($1 per 8px, steppers for
+// ±1) and see the premium over MSRP instantly. Patches the row's widgets in place —
+// no re-render, no scroll jump. touch-action:pan-y keeps vertical scrolling intact.
+const SC_PX_PER_DOLLAR = 8;
+function scGetVal(w) { const v = Math.round(Number(state.sealedCheck[w.dataset.name])); return v > 0 ? v : 0; }
+function scSetVal(w, v) {
+  v = Math.max(0, Math.round(v));
+  state.sealedCheck[w.dataset.name] = v > 0 ? String(v) : "";
+  const tape = w.querySelector(".sd-scrub-tape");
+  if (tape) tape.style.backgroundPosition = `${v * SC_PX_PER_DOLLAR}px 0, ${v * SC_PX_PER_DOLLAR}px 0`;
+  const val = w.querySelector(".sd-check-val");
+  if (val) val.textContent = v > 0 ? "$" + v : "—";
+  const out = w.querySelector(".sd-check-out");
+  if (!out) return;
+  if (!(v > 0)) { out.innerHTML = `<span style="color:var(--muted)">drag to set a shelf price</span>`; return; }
   const m = msrpDelta(v / Number(w.dataset.msrp) - 1);
   out.innerHTML = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(Number(w.dataset.msrp))} MSRP</span>`;
 }
 function stepSealedCheck(b) {
   const w = b.closest(".sd-check"); if (!w) return;
-  const inp = w.querySelector(".sd-check-in");
-  inp.value = Math.max(0, Math.round(Number(inp.value) || Number(inp.placeholder) || 0) + Number(b.dataset.v));
-  updateSealedCheck(w);
+  scSetVal(w, (scGetVal(w) || Number(w.dataset.seed) || 0) + Number(b.dataset.v));
 }
 
 function renderSealed() {
@@ -753,9 +759,14 @@ function renderSealed() {
       })()}<span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>${ebayCell(r)}<span class="sd-pk">${r.packs} pk</span><span class="sd-ppk disp">${money(r.ppk)}/pk</span></span>
       ${r.msrp != null ? (() => {
         const v = Math.round(Number(state.sealedCheck[r.name]));
-        let out = `<span style="color:var(--muted)">shelf price?</span>`;
+        let out = `<span style="color:var(--muted)">drag to set a shelf price</span>`;
         if (v > 0) { const m = msrpDelta(v / r.msrp - 1); out = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(r.msrp)} MSRP</span>`; }
-        return `<span class="sd-check" data-name="${esc(r.name)}" data-msrp="${r.msrp}"><button class="sd-check-b" data-act="scstep" data-v="-1">−</button><input class="sd-check-in" type="number" inputmode="numeric" step="1" min="0" value="${v > 0 ? v : ""}" placeholder="${Math.round(r.market)}"><button class="sd-check-b" data-act="scstep" data-v="1">+</button><span class="sd-check-out">${out}</span></span>`;
+        return `<span class="sd-check" data-name="${esc(r.name)}" data-msrp="${r.msrp}" data-seed="${Math.round(r.market)}">
+          <button class="sd-check-b" data-act="scstep" data-v="-1">−</button>
+          <span class="sd-scrub"><span class="sd-scrub-tape" style="background-position:${v > 0 ? v * 8 : 0}px 0, ${v > 0 ? v * 8 : 0}px 0"></span></span>
+          <button class="sd-check-b" data-act="scstep" data-v="1">+</button>
+          <span class="sd-check-read"><span class="sd-check-val disp">${v > 0 ? "$" + v : "—"}</span><span class="sd-check-out">${out}</span></span>
+        </span>`;
       })() : ""}
     </div>`;
   };
@@ -2183,13 +2194,21 @@ document.getElementById("app").addEventListener("change", (e) => {
   saveActual(t.dataset.actual, t.value);
 });
 
-// Typed shelf prices in the sealed price-check widget update their chip in place.
-document.getElementById("app").addEventListener("input", (e) => {
-  if (e.target.classList && e.target.classList.contains("sd-check-in")) {
-    const w = e.target.closest(".sd-check");
-    if (w) updateSealedCheck(w);
-  }
+// Tape-measure scrubber drags for the sealed shelf-price checker. Pointer capture on
+// the strip; the seed (TCG market) anchors the first drag so you start near reality.
+let scDrag = null;
+document.getElementById("app").addEventListener("pointerdown", (e) => {
+  const s = e.target.closest(".sd-scrub"); if (!s) return;
+  const w = s.closest(".sd-check");
+  scDrag = { w, startX: e.clientX, start: scGetVal(w) || Number(w.dataset.seed) || 0 };
+  s.setPointerCapture(e.pointerId);
+  scSetVal(w, scDrag.start); // seed shows immediately on touch
 });
+document.getElementById("app").addEventListener("pointermove", (e) => {
+  if (!scDrag) return;
+  scSetVal(scDrag.w, scDrag.start + (e.clientX - scDrag.startX) / SC_PX_PER_DOLLAR);
+});
+for (const ev of ["pointerup", "pointercancel"]) document.addEventListener(ev, () => { scDrag = null; });
 
 document.getElementById("composer").addEventListener("click", (e) => {
   const b = e.target.closest("[data-cact]"); if (!b) return;
