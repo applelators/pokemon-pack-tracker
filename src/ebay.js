@@ -2,6 +2,8 @@
 // Needs a free eBay developer app: client id + secret in settings.
 import { getRawSettings } from "./store.js";
 
+export async function ebayAppToken(db) { return appToken(db); }
+
 async function appToken(db) {
   const s = await getRawSettings(db);
   const id = (s.ebay_client_id || "").trim();
@@ -20,6 +22,35 @@ async function appToken(db) {
     throw new Error(`eBay auth ${res.status}: ${b.slice(0, 120)}`);
   }
   return (await res.json()).access_token;
+}
+
+// Junk listings that poison a product-price median regardless of product type.
+const JUNK = /(japanese|korean|chinese|empty|no\s*packs?|opened|resealed|damaged|custom|proxy|repack|box only|art only|read desc)/i;
+
+// Median asking price for ONE sealed product (query = product name). Asking ≠ sold:
+// callers must label this "ask". Returns { median, n } or null when nothing usable.
+export async function fetchEbayAskPrice(token, query) {
+  const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent("pokemon " + query)}&filter=buyingOptions:%7BFIXED_PRICE%7D&limit=25`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" },
+  });
+  if (!res.ok) throw new Error(`eBay ${res.status}`);
+  const items = (await res.json()).itemSummaries || [];
+  // Require the product's most distinctive tokens in the title (words ≥ 4 chars,
+  // ignoring brackets/punctuation) so "Chaos Rising ETB" hits don't count for packs.
+  const need = (query.toLowerCase().match(/[a-z]{4,}/g) || []).slice(0, 4);
+  const prices = items
+    .filter((i) => {
+      const t = (i.title || "").toLowerCase();
+      return !JUNK.test(t) && need.every((w) => t.includes(w));
+    })
+    .map((i) => Number(i.price && i.price.value))
+    .filter((v) => v > 2 && v < 5000);
+  if (!prices.length) return null;
+  prices.sort((a, b) => a - b);
+  const m = Math.floor(prices.length / 2);
+  const median = prices.length % 2 ? prices[m] : (prices[m - 1] + prices[m]) / 2;
+  return { median: Math.round(median * 100) / 100, n: prices.length };
 }
 
 // Median asking price of single-pack listings (filters out boxes/bundles/lots).

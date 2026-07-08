@@ -11,7 +11,7 @@ import { searchSets, importSet, listSetCards, searchCardsByName } from "./pokemo
 import { CUSTOM_SETS, customCards, customCurve } from "./customsets.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
 import { fetchSealedRipPrices, fetchPackBox, fetchSealedList } from "./tcgcsv.js";
-import { fetchEbayPackPrice } from "./ebay.js";
+import { fetchEbayPackPrice, fetchEbayAskPrice, ebayAppToken } from "./ebay.js";
 import { computeCurve, applyProgress, chaseEstimate } from "./estimator.js";
 
 const json = (data, status = 200) =>
@@ -517,6 +517,37 @@ export async function handleApi(request, env, url) {
       await db.prepare("INSERT INTO settings (key, value) VALUES ('sealed_deals_cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
         .bind(JSON.stringify(cache)).run();
       return json({ complete, updated: cache.updated, done: Object.keys(cache.sets).length, total: Object.keys(SEALED_GROUPS).length, sets: cache.sets });
+    }
+
+    // GET /api/sealedebay[?refresh=1] — eBay median ASKING price for every product in
+    // the sealed-deals cache. Chunked build (1 eBay search per product, ~35/call to
+    // stay under Worker subrequest caps); cached 24h. { none: true } = searched, no
+    // usable listings. Returns { disabled: true } when eBay keys aren't configured.
+    if (pathname === "/api/sealedebay" && method === "GET") {
+      const sdRow = await db.prepare("SELECT value FROM settings WHERE key = 'sealed_deals_cache'").first();
+      let sd = { sets: {} };
+      try { if (sdRow) sd = JSON.parse(sdRow.value) || sd; } catch { /* no products yet */ }
+      const names = [...new Set(Object.values(sd.sets || {}).flat().map((p) => p.name))];
+      const row = await db.prepare("SELECT value FROM settings WHERE key = 'sealed_ebay_cache'").first();
+      let cache = { updated: 0, items: {} };
+      try { if (row) cache = JSON.parse(row.value) || cache; } catch { /* rebuild */ }
+      const DAY = 24 * 3600 * 1000;
+      if (url.searchParams.get("refresh") === "1" || (cache.updated && Date.now() - cache.updated > DAY)) cache = { updated: 0, items: {} };
+      const missing = names.filter((n) => !(n in cache.items));
+      if (missing.length) {
+        let token;
+        try { token = await ebayAppToken(db); } catch { token = null; }
+        if (!token) return json({ disabled: true, complete: true, updated: 0, done: 0, total: names.length, items: {} });
+        for (const name of missing.slice(0, 35)) {
+          try { cache.items[name] = (await fetchEbayAskPrice(token, name)) || { none: true }; }
+          catch { cache.items[name] = { none: true }; } // errored → skip, retry on manual refresh
+        }
+      }
+      const complete = names.length > 0 && names.every((n) => n in cache.items);
+      if (complete && !cache.updated) cache.updated = Date.now();
+      await db.prepare("INSERT INTO settings (key, value) VALUES ('sealed_ebay_cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .bind(JSON.stringify(cache)).run();
+      return json({ complete, updated: cache.updated, done: Object.keys(cache.items).length, total: names.length, items: cache.items });
     }
 
     // /api/cards/search?q= — card lookup for tagging promo cards (any set)
