@@ -323,7 +323,6 @@ const state = {
   tierData: null, tierTab: "sv", tierSort: "rank", tierOpen: null, tierPrices: null, tierPricesComplete: false, // Tier-list view
   sealedData: null, sealedComplete: false, sealedUpdated: 0, sealedBusy: false, // Sealed-deals view
   sealedEbay: null, sealedEbayComplete: false, sealedEbayBusy: false, sealedEbayDisabled: false,
-  sealedScope: "closing", sealedSort: "msrp", // "closing" curated buckets | "all" grouped reference sheet
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -634,9 +633,8 @@ async function ensureSealedEbay(force) {
 function renderSealed() {
   const app = document.getElementById("app");
   if (!state.sealedData) { app.innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading sealed deals…</div>`; return; }
-  // Scope: "closing" = tracked sets past active printing (curated buckets, the
-  // original view). "all" = every tracked set, flat reference sheet.
-  const allScope = state.sealedScope === "all";
+  // One view: every tracked set, grouped newest-first, sorted by smallest premium
+  // over launch retail (vs MSRP).
   // Typical US launch retail (MSRP) by product config. The 2025 price step-up (ME era
   // + Black Bolt/White Flare, Jul 2025+) raised ETBs/tins; null = no standard retail
   // (cases, promos, oddball SKUs) — shown as "—" rather than a guess.
@@ -684,13 +682,10 @@ function renderSealed() {
     return null;
   };
   const rows = [];
-  const loose = {};
   for (const [sid, prods] of Object.entries(state.sealedData)) {
     if (!setById(sid)) continue;                 // untracked sets excluded
     const ps = printStatusOf(sid, null);
     for (const p of prods) {
-      if (p.packs === 1 && /booster pack$/i.test(p.name) && !/sleeved/i.test(p.name)) loose[sid] = Math.min(loose[sid] || 1e9, p.market);
-      if (!allScope && ps.tone === "good") continue;
       const eb = state.sealedEbay ? state.sealedEbay[p.name] : null;
       const ebay = eb && !eb.none ? eb : null;
       const msrp = msrpOf(p.name, sid);
@@ -701,29 +696,9 @@ function renderSealed() {
         dMsrp: msrp ? p.market / msrp - 1 : null });
     }
   }
-  // Sort: closest-to-retail first (default), $/pack ascending, or biggest
-  // eBay-over-TCG gap first (the OOP early-warning list). Unknown values sort last.
-  if (allScope && state.sealedSort === "gap") rows.sort((a, b) => (b.gap == null ? -1e9 : b.gap) - (a.gap == null ? -1e9 : a.gap));
-  else if (allScope && state.sealedSort === "msrp") rows.sort((a, b) => (a.dMsrp == null ? 1e9 : a.dMsrp) - (b.dMsrp == null ? 1e9 : b.dMsrp));
-  else rows.sort((a, b) => a.ppk - b.ppk);
+  // Closest-to-retail first; unknown MSRPs sort last.
+  rows.sort((a, b) => (a.dMsrp == null ? 1e9 : a.dMsrp) - (b.dMsrp == null ? 1e9 : b.dMsrp));
   const tierOf = (sid) => tierForSetId(sid);
-  // Buckets: best = S/A-tier at ≤ loose (multi-pack); fair = ≤ 25% over loose (the
-  // app-wide "overpriced ≥ 1.25×" line); no = pricier than that, or a C/D-tier set
-  // whose verdict says buy singles, not packs.
-  const classify = (r) => {
-    const t = tierOf(r.sid); const l = loose[r.sid];
-    if (t && (t.tier === "C" || t.tier === "D")) return "no";
-    if (t && (t.tier === "S" || t.tier === "A") && (l == null || r.ppk <= l * 1.03) && r.packs > 1) return "best";
-    if (l == null || r.ppk <= l * 1.25) return "fair";
-    return "no";
-  };
-  const buckets = { best: [], fair: [], no: [] };
-  for (const r of rows) buckets[classify(r)].push(r);
-  const noReason = (r) => {
-    const t = tierOf(r.sid); const l = loose[r.sid];
-    if (t && (t.tier === "C" || t.tier === "D")) return `${t.tier}-tier · ${esc(t.verdict)} set`;
-    return l ? `+${Math.round((r.ppk / l - 1) * 100)}% over loose` : "premium product";
-  };
   // eBay ask cell: median asking (not sold) + listing count; a colored gap chip when
   // asks diverge ≥15% from TCG market — asks running 40%+ hot = sellers front-running
   // an OOP transition; asks under market = worth a manual look.
@@ -741,7 +716,7 @@ function renderSealed() {
       <span class="sd-rank disp">${i + 1}</span>
       ${r.img ? `<img class="sd-img" src="${esc(r.img)}" alt="" loading="lazy" onerror="this.remove()">` : `<span class="sd-img"></span>`}
       <span class="setchip" style="color:${s ? s.tint : tintOf(r.sid)}">${setCode(r.sid)}</span>
-      <span class="sd-name">${esc(r.name)}${dim ? ` <span class="sd-why">${noReason(r)}</span>` : ""}</span>
+      <span class="sd-name">${esc(r.name)}</span>
       <span class="sd-tier">${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}</span>
       <span class="pstat pstat-${r.ps.tone}" title="${esc(r.ps.label)}">${esc(r.ps.label)}</span>
       ${(() => {
@@ -760,20 +735,12 @@ function renderSealed() {
       <span class="sd-ppk disp">${money(r.ppk)}/pk</span>
     </div>`;
   };
-  const recCards = buckets.best.slice(0, 8).map((r) => `<div class="sd-pick">${r.img ? `<img class="sd-pick-img" src="${esc(r.img)}" alt="" loading="lazy" onerror="this.remove()">` : ""}<div class="sd-pick-name">${esc(r.name)}</div><div class="sd-pick-fig disp">${money(r.market)} · ${money(r.ppk)}/pk</div><div class="sd-pick-why">${esc((tierOf(r.sid) || {}).tier || "")}-tier · at/under loose · ${esc(r.ps.label)}</div></div>`).join("");
   const ebayHint = state.sealedEbayDisabled ? "" : state.sealedEbayComplete ? " eBay column = median asking price (not sold)." : " eBay asks loading…";
-  const controls = `
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <div class="seg sq"><button data-act="sealedscope" data-v="closing" class="${on(!allScope)}">Closing windows</button><button data-act="sealedscope" data-v="all" class="${on(allScope)}">All sets</button></div>
-      ${allScope ? `<div class="seg sq"><button data-act="sealedsort" data-v="msrp" class="${on(state.sealedSort === "msrp")}">vs MSRP</button><button data-act="sealedsort" data-v="ppk" class="${on(state.sealedSort === "ppk")}">$/pack</button><button data-act="sealedsort" data-v="gap" class="${on(state.sealedSort === "gap")}">eBay gap</button></div>` : ""}
-      <button class="hub-mini" data-act="sealedrefresh"${state.sealedBusy ? " disabled" : ""}>${state.sealedBusy ? "↻ Refreshing…" : "↻ Update prices"}</button>
-    </div>`;
   const head = `<button class="backchip" data-act="gohub">← All sets</button>
-    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed ${allScope ? "prices — every product" : "deals — closing windows"}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${allScope ? "Every TCGplayer sealed product across all your tracked sets — MSRP · TCG market · eBay ask · $/pack." : "TCGplayer sealed products from your tracked sets that are no longer actively printing, ranked by $/pack. Columns: MSRP · TCG market · eBay ask · $/pack."} ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}${ebayHint}</div></div>
-      ${controls}</div>`;
-  if (allScope) {
-    // Grouped by set, newest release first (state.sets order); rows within each set
-    // keep the chosen sort ($/pack or eBay gap).
+    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed prices — vs MSRP</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">Every TCGplayer sealed product across your tracked sets, grouped by set (newest first), closest to retail on top — MSRP · TCG market · eBay ask · $/pack. ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}${ebayHint}</div></div>
+      <button class="hub-mini" data-act="sealedrefresh"${state.sealedBusy ? " disabled" : ""}>${state.sealedBusy ? "↻ Refreshing…" : "↻ Update prices"}</button></div>`;
+  {
+    // Grouped by set, newest release first (state.sets order).
     const bySet = new Map();
     for (const r of rows) { if (!bySet.has(r.sid)) bySet.set(r.sid, []); bySet.get(r.sid).push(r); }
     // Two columns per set: core pack line on the left, special/collector SKUs on the
@@ -805,17 +772,7 @@ function renderSealed() {
     }).join("");
     app.innerHTML = headerHTML() + head + (sections || `<div class="muted" style="font-size:13px;margin-top:12px;">No products loaded yet.</div>`) + `
       <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail); delta tiers: <span style="color:var(--good)">≤ +10%</span> near retail · <span style="color:var(--fair)">≤ +50%</span> premium · <span style="color:color-mix(in oklch, var(--fair) 45%, var(--bad))">≤ +100%</span> steep · <span style="color:var(--bad)">≤ +150%</span> severe · <span style="color:var(--bad);font-weight:700;">🚫 beyond</span> = don't spend this much unless you like wasting money. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
-    return;
   }
-  app.innerHTML = headerHTML() + head + `
-    ${buckets.best.length ? `<div class="uplabel" style="margin:14px 0 8px;">🔥 Best buys (S/A-tier set, at or under its loose price)</div><div class="sd-picks">${recCards}</div>` : ""}
-    <div class="uplabel" style="margin:18px 0 8px;">👍 Fair buys (≤ 25% over loose — reasonable if you want that set now)</div>
-    <div class="sd-list">${buckets.fair.map((r, i) => rowHTML(r, i, false)).join("") || `<div class="muted" style="font-size:13px;">Nothing in the fair band right now.</div>`}</div>
-    <details class="sd-no" ${buckets.no.length && !buckets.fair.length ? "open" : ""}>
-      <summary class="uplabel" style="margin:18px 0 8px;cursor:pointer;">🚫 Not recommended — ${buckets.no.length} product${buckets.no.length !== 1 ? "s" : ""} (overpriced vs loose, or C/D-tier singles sets)</summary>
-      <div class="sd-list">${buckets.no.map((r, i) => rowHTML(r, i, true)).join("")}</div>
-    </details>
-    <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Tracked sets only · pack counts from standard product configs · buckets follow your tier list + the app-wide "overpriced ≥ 1.25× loose" line · scope follows the hub's print-status chips (amber + red only).</div>`;
 }
 
 // ---- BINDERS (page previews + card finder) --------------------------------
@@ -2158,8 +2115,6 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "tiers") openTiers();
   else if (act === "sealed") openSealed();
   else if (act === "sealedrefresh") ensureSealedDeals(true);
-  else if (act === "sealedscope") { state.sealedScope = v; render(); }
-  else if (act === "sealedsort") { state.sealedSort = v; render(); }
   else if (act === "tiertab") { state.tierTab = v; state.tierOpen = null; render(); }
   else if (act === "tiersort") { state.tierSort = v; render(); }
   else if (act === "tierrow") { state.tierOpen = state.tierOpen === v ? null : v; render(); }
