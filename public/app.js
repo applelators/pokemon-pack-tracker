@@ -779,7 +779,10 @@ function renderSealed() {
     // Two columns per set: core pack line on the left, special/collector SKUs on the
     // right. Set-level cells (chip, tier, print status) are hidden in this layout —
     // they're identical per section and already shown in the header.
-    const isSpecial = (name) => !/checklane/i.test(name) && /collection|premium|\btins?\b|ex box|surprise|binder|poster|pouch|\bpin\b|sticker|illustration|figure|knock ?out|deluxe/i.test(name);
+    // Core = the standard pack line ONLY: booster pack, sleeved booster, booster
+    // bundle, booster box (incl. half/enhanced), and ETBs (incl. Pokemon Center).
+    // Everything else — blisters, checklanes, Build & Battle, tins, collections — is special.
+    const isSpecial = (name) => !/(booster pack$|sleeved booster|booster bundle|booster box|elite trainer)/i.test(name);
     const colHTML = (title, arr) => `<div><div class="sd-col-h">${title} · ${arr.length}</div><div class="sd-list">${arr.map((r, i) => rowHTML(r, i, false)).join("") || `<div class="muted" style="font-size:12px;">none</div>`}</div></div>`;
     const sections = state.sets.filter((s) => bySet.has(s.id)).map((s) => {
       const list = bySet.get(s.id);
