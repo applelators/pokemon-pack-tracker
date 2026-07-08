@@ -647,7 +647,8 @@ function renderSealed() {
       if (!allScope && ps.tone === "good") continue;
       const eb = state.sealedEbay ? state.sealedEbay[p.name] : null;
       const ebay = eb && !eb.none ? eb : null;
-      rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, gap: ebay ? ebay.median / p.market - 1 : null });
+      // Gap chip (and gap sorting) need a trustworthy median — require ≥5 listings.
+      rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, gap: ebay && ebay.n >= 5 ? ebay.median / p.market - 1 : null });
     }
   }
   // Sort: $/pack ascending, or biggest eBay-over-TCG gap first (the OOP early-warning list).
@@ -678,7 +679,7 @@ function renderSealed() {
     if (state.sealedEbayDisabled) return "";
     if (!r.ebay) return `<span class="sd-ebay">${state.sealedEbayComplete ? "—" : "…"}</span>`;
     const g = r.gap;
-    const chip = Math.abs(g) >= 0.15 ? ` <span style="color:${g > 0 ? (g >= 0.4 ? "var(--bad)" : "var(--fair)") : "var(--good)"}">${g > 0 ? "▲" : "▼"}${Math.round(Math.abs(g) * 100)}%</span>` : "";
+    const chip = g != null && Math.abs(g) >= 0.15 ? ` <span style="color:${g > 0 ? (g >= 0.4 ? "var(--bad)" : "var(--fair)") : "var(--good)"}">${g > 0 ? "▲" : "▼"}${Math.round(Math.abs(g) * 100)}%</span>` : "";
     return `<span class="sd-ebay" title="median asking price of ${r.ebay.n} eBay fixed-price listings">${money(r.ebay.median)} <span class="sd-ebn">(${r.ebay.n})</span>${chip}</span>`;
   };
   const rowHTML = (r, i, dim) => {
