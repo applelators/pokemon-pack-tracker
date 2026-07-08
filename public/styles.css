@@ -539,26 +539,31 @@ input,select{font-family:inherit;}
 .sd-pick-fig{font-size:15px;margin-top:6px;color:var(--good);font-weight:700;}
 .sd-pick-why{font-size:11px;color:var(--muted);margin-top:4px;}
 .sd-list{display:flex;flex-direction:column;gap:6px;}
-.sd-row{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:9px 13px;flex-wrap:wrap;}
+/* Sealed rows are an 11-column grid — every cell has a reserved track (rank, image,
+   set chip, name, tier, print chip, MSRP, TCG, eBay, packs, $/pack), the name column
+   takes all slack, and nothing can wrap to a stray second line. rowHTML must always
+   render 11 children (empty spans for missing tier/eBay). Mobile falls back to flex. */
+.sd-row{display:grid;grid-template-columns:26px 44px auto minmax(90px,1fr) auto minmax(0,110px) 104px 80px 150px 40px 88px;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:9px 13px;}
 .sd-row.rec{border-color:color-mix(in oklch,var(--good) 45%,var(--border));}
-.sd-rank{width:26px;color:var(--muted);font-size:11.5px;flex:0 0 auto;}
-.sd-img{width:44px;height:44px;object-fit:contain;border-radius:6px;background:var(--panel2);flex:0 0 auto;}
+.sd-rank{color:var(--muted);font-size:11.5px;}
+.sd-img{width:44px;height:44px;object-fit:contain;border-radius:6px;background:var(--panel2);}
 .sd-pick-img{width:64px;height:64px;object-fit:contain;border-radius:8px;background:var(--panel2);float:right;margin:0 0 6px 8px;}
-@media(max-width:640px){.sd-img{width:34px;height:34px;}}
-.sd-name{flex:1 1 220px;min-width:140px;font-size:13px;}
-/* Long print labels ("quiet since Mar 2026") were forcing the $/pack cell to wrap
-   to a stray second line — clamp the chip (full text in its title tooltip) and
-   right-align the $/pack cell if it ever does wrap. */
-.sd-row .pstat{max-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto;}
-.sd-ppk{margin-left:auto;}
+.sd-name{font-size:13px;min-width:0;}
+.sd-row .pstat{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sd-fire{font-size:12px;}
-.sd-fig{width:76px;text-align:right;font-weight:700;font-size:13.5px;flex:0 0 auto;}
-.sd-pk{width:42px;text-align:right;color:var(--muted);font-size:11.5px;flex:0 0 auto;}
-.sd-msrp{width:104px;text-align:right;font-size:11.5px;color:var(--muted);flex:0 0 auto;}
-.sd-ebay{width:132px;text-align:right;font-size:12px;color:var(--soft);flex:0 0 auto;}
+.sd-fig{text-align:right;font-weight:700;font-size:13.5px;}
+.sd-pk{text-align:right;color:var(--muted);font-size:11.5px;}
+.sd-msrp{text-align:right;font-size:11.5px;color:var(--muted);}
+.sd-ebay{text-align:right;font-size:12px;color:var(--soft);}
 .sd-ebn{color:var(--muted);font-size:10.5px;}
-.sd-ppk{width:84px;text-align:right;font-weight:700;font-size:13.5px;color:var(--accent);flex:0 0 auto;}
-@media(max-width:640px){.sd-rank{display:none;}}
+.sd-ppk{text-align:right;font-weight:700;font-size:13.5px;color:var(--accent);}
+@media(max-width:760px){
+  .sd-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .sd-rank{display:none;}
+  .sd-img{width:34px;height:34px;}
+  .sd-name{flex:1 1 160px;min-width:140px;}
+  .sd-ppk{margin-left:auto;}
+}
 
 /* ---- Sealed Deals buckets ---- */
 .sd-row.no{opacity:.55;}

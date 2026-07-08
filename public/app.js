@@ -728,8 +728,9 @@ function renderSealed() {
   // eBay ask cell: median asking (not sold) + listing count; a colored gap chip when
   // asks diverge ≥15% from TCG market — asks running 40%+ hot = sellers front-running
   // an OOP transition; asks under market = worth a manual look.
+  // Rows are CSS grid — every cell must render (empty spans keep the column map).
   const ebayCell = (r) => {
-    if (state.sealedEbayDisabled) return "";
+    if (state.sealedEbayDisabled) return `<span class="sd-ebay"></span>`;
     if (!r.ebay) return `<span class="sd-ebay">${state.sealedEbayComplete ? "—" : "…"}</span>`;
     const g = r.gap;
     const chip = g != null && Math.abs(g) >= 0.15 ? ` <span style="color:${g > 0 ? (g >= 0.4 ? "var(--bad)" : "var(--fair)") : "var(--good)"}">${g > 0 ? "▲" : "▼"}${Math.round(Math.abs(g) * 100)}%</span>` : "";
@@ -742,7 +743,7 @@ function renderSealed() {
       ${r.img ? `<img class="sd-img" src="${esc(r.img)}" alt="" loading="lazy" onerror="this.remove()">` : `<span class="sd-img"></span>`}
       <span class="setchip" style="color:${s ? s.tint : tintOf(r.sid)}">${setCode(r.sid)}</span>
       <span class="sd-name">${esc(r.name)}${dim ? ` <span class="sd-why">${noReason(r)}</span>` : ""}</span>
-      ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}
+      ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : `<span></span>`}
       <span class="pstat pstat-${r.ps.tone}" title="${esc(r.ps.label)}">${esc(r.ps.label)}</span>
       ${(() => {
         if (r.msrp == null) return `<span class="sd-msrp" title="no standard retail">—</span>`;
