@@ -323,7 +323,7 @@ const state = {
   tierData: null, tierTab: "sv", tierSort: "rank", tierOpen: null, tierPrices: null, tierPricesComplete: false, // Tier-list view
   sealedData: null, sealedComplete: false, sealedUpdated: 0, sealedBusy: false, // Sealed-deals view
   sealedEbay: null, sealedEbayComplete: false, sealedEbayBusy: false, sealedEbayDisabled: false,
-  sealedScope: "closing", sealedSort: "ppk", // "closing" curated buckets | "all" flat reference sheet
+  sealedScope: "closing", sealedSort: "msrp", // "closing" curated buckets | "all" grouped reference sheet
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -637,41 +637,6 @@ function renderSealed() {
   // Scope: "closing" = tracked sets past active printing (curated buckets, the
   // original view). "all" = every tracked set, flat reference sheet.
   const allScope = state.sealedScope === "all";
-  const rows = [];
-  const loose = {};
-  for (const [sid, prods] of Object.entries(state.sealedData)) {
-    if (!setById(sid)) continue;                 // untracked sets excluded
-    const ps = printStatusOf(sid, null);
-    for (const p of prods) {
-      if (p.packs === 1 && /booster pack$/i.test(p.name) && !/sleeved/i.test(p.name)) loose[sid] = Math.min(loose[sid] || 1e9, p.market);
-      if (!allScope && ps.tone === "good") continue;
-      const eb = state.sealedEbay ? state.sealedEbay[p.name] : null;
-      const ebay = eb && !eb.none ? eb : null;
-      // Gap chip (and gap sorting) need a trustworthy median — require ≥5 listings.
-      rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, gap: ebay && ebay.n >= 5 ? ebay.median / p.market - 1 : null });
-    }
-  }
-  // Sort: $/pack ascending, or biggest eBay-over-TCG gap first (the OOP early-warning list).
-  if (allScope && state.sealedSort === "gap") rows.sort((a, b) => (b.gap == null ? -1e9 : b.gap) - (a.gap == null ? -1e9 : a.gap));
-  else rows.sort((a, b) => a.ppk - b.ppk);
-  const tierOf = (sid) => tierForSetId(sid);
-  // Buckets: best = S/A-tier at ≤ loose (multi-pack); fair = ≤ 25% over loose (the
-  // app-wide "overpriced ≥ 1.25×" line); no = pricier than that, or a C/D-tier set
-  // whose verdict says buy singles, not packs.
-  const classify = (r) => {
-    const t = tierOf(r.sid); const l = loose[r.sid];
-    if (t && (t.tier === "C" || t.tier === "D")) return "no";
-    if (t && (t.tier === "S" || t.tier === "A") && (l == null || r.ppk <= l * 1.03) && r.packs > 1) return "best";
-    if (l == null || r.ppk <= l * 1.25) return "fair";
-    return "no";
-  };
-  const buckets = { best: [], fair: [], no: [] };
-  for (const r of rows) buckets[classify(r)].push(r);
-  const noReason = (r) => {
-    const t = tierOf(r.sid); const l = loose[r.sid];
-    if (t && (t.tier === "C" || t.tier === "D")) return `${t.tier}-tier · ${esc(t.verdict)} set`;
-    return l ? `+${Math.round((r.ppk / l - 1) * 100)}% over loose` : "premium product";
-  };
   // Typical US launch retail (MSRP) by product config. The 2025 price step-up (ME era
   // + Black Bolt/White Flare, Jul 2025+) raised ETBs/tins; null = no standard retail
   // (cases, promos, oddball SKUs) — shown as "—" rather than a guess.
@@ -699,6 +664,48 @@ function renderSealed() {
     for (const [rx, v] of RULES) if (rx.test(name)) return v;
     return null;
   };
+  const rows = [];
+  const loose = {};
+  for (const [sid, prods] of Object.entries(state.sealedData)) {
+    if (!setById(sid)) continue;                 // untracked sets excluded
+    const ps = printStatusOf(sid, null);
+    for (const p of prods) {
+      if (p.packs === 1 && /booster pack$/i.test(p.name) && !/sleeved/i.test(p.name)) loose[sid] = Math.min(loose[sid] || 1e9, p.market);
+      if (!allScope && ps.tone === "good") continue;
+      const eb = state.sealedEbay ? state.sealedEbay[p.name] : null;
+      const ebay = eb && !eb.none ? eb : null;
+      const msrp = msrpOf(p.name, sid);
+      // Best achievable price = the cheaper of TCG market and a trustworthy eBay ask
+      // (≥5 listings); dMsrp = how far that sits above launch retail.
+      const best = Math.min(p.market, ebay && ebay.n >= 5 ? ebay.median : Infinity);
+      rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, msrp,
+        gap: ebay && ebay.n >= 5 ? ebay.median / p.market - 1 : null,
+        dMsrp: msrp ? best / msrp - 1 : null });
+    }
+  }
+  // Sort: closest-to-retail first (default), $/pack ascending, or biggest
+  // eBay-over-TCG gap first (the OOP early-warning list). Unknown values sort last.
+  if (allScope && state.sealedSort === "gap") rows.sort((a, b) => (b.gap == null ? -1e9 : b.gap) - (a.gap == null ? -1e9 : a.gap));
+  else if (allScope && state.sealedSort === "msrp") rows.sort((a, b) => (a.dMsrp == null ? 1e9 : a.dMsrp) - (b.dMsrp == null ? 1e9 : b.dMsrp));
+  else rows.sort((a, b) => a.ppk - b.ppk);
+  const tierOf = (sid) => tierForSetId(sid);
+  // Buckets: best = S/A-tier at ≤ loose (multi-pack); fair = ≤ 25% over loose (the
+  // app-wide "overpriced ≥ 1.25×" line); no = pricier than that, or a C/D-tier set
+  // whose verdict says buy singles, not packs.
+  const classify = (r) => {
+    const t = tierOf(r.sid); const l = loose[r.sid];
+    if (t && (t.tier === "C" || t.tier === "D")) return "no";
+    if (t && (t.tier === "S" || t.tier === "A") && (l == null || r.ppk <= l * 1.03) && r.packs > 1) return "best";
+    if (l == null || r.ppk <= l * 1.25) return "fair";
+    return "no";
+  };
+  const buckets = { best: [], fair: [], no: [] };
+  for (const r of rows) buckets[classify(r)].push(r);
+  const noReason = (r) => {
+    const t = tierOf(r.sid); const l = loose[r.sid];
+    if (t && (t.tier === "C" || t.tier === "D")) return `${t.tier}-tier · ${esc(t.verdict)} set`;
+    return l ? `+${Math.round((r.ppk / l - 1) * 100)}% over loose` : "premium product";
+  };
   // eBay ask cell: median asking (not sold) + listing count; a colored gap chip when
   // asks diverge ≥15% from TCG market — asks running 40%+ hot = sellers front-running
   // an OOP transition; asks under market = worth a manual look.
@@ -717,7 +724,12 @@ function renderSealed() {
       <span class="sd-name">${esc(r.name)}${dim ? ` <span class="sd-why">${noReason(r)}</span>` : ""}</span>
       ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}
       <span class="pstat pstat-${r.ps.tone}">${esc(r.ps.label)}</span>
-      ${(() => { const m = msrpOf(r.name, r.sid); return `<span class="sd-msrp" title="typical US launch retail">${m != null ? money(m) : "—"}</span>`; })()}
+      ${(() => {
+        if (r.msrp == null) return `<span class="sd-msrp" title="no standard retail">—</span>`;
+        const d = r.dMsrp;
+        const c = d <= 0.1 ? "var(--good)" : d <= 0.5 ? "var(--fair)" : "var(--bad)";
+        return `<span class="sd-msrp" title="typical US launch retail · best of TCG/eBay is ${d >= 0 ? "+" : ""}${Math.round(d * 100)}% vs retail">${money(r.msrp)} <span style="color:${c}">${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%</span></span>`;
+      })()}
       <span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>
       ${ebayCell(r)}
       <span class="sd-pk">${r.packs} pk</span>
@@ -729,7 +741,7 @@ function renderSealed() {
   const controls = `
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <div class="seg sq"><button data-act="sealedscope" data-v="closing" class="${on(!allScope)}">Closing windows</button><button data-act="sealedscope" data-v="all" class="${on(allScope)}">All sets</button></div>
-      ${allScope ? `<div class="seg sq"><button data-act="sealedsort" data-v="ppk" class="${on(state.sealedSort === "ppk")}">$/pack</button><button data-act="sealedsort" data-v="gap" class="${on(state.sealedSort === "gap")}">eBay gap</button></div>` : ""}
+      ${allScope ? `<div class="seg sq"><button data-act="sealedsort" data-v="msrp" class="${on(state.sealedSort === "msrp")}">vs MSRP</button><button data-act="sealedsort" data-v="ppk" class="${on(state.sealedSort === "ppk")}">$/pack</button><button data-act="sealedsort" data-v="gap" class="${on(state.sealedSort === "gap")}">eBay gap</button></div>` : ""}
       <button class="hub-mini" data-act="sealedrefresh"${state.sealedBusy ? " disabled" : ""}>${state.sealedBusy ? "↻ Refreshing…" : "↻ Update prices"}</button>
     </div>`;
   const head = `<button class="backchip" data-act="gohub">← All sets</button>
