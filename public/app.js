@@ -739,6 +739,7 @@ function renderSealed() {
     const s = setById(r.sid); const t = tierOf(r.sid);
     return `<div class="sd-row${dim ? " no" : ""}">
       <span class="sd-rank disp">${i + 1}</span>
+      ${r.img ? `<img class="sd-img" src="${esc(r.img)}" alt="" loading="lazy" onerror="this.remove()">` : `<span class="sd-img"></span>`}
       <span class="setchip" style="color:${s ? s.tint : tintOf(r.sid)}">${setCode(r.sid)}</span>
       <span class="sd-name">${esc(r.name)}${dim ? ` <span class="sd-why">${noReason(r)}</span>` : ""}</span>
       ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}
@@ -759,7 +760,7 @@ function renderSealed() {
       <span class="sd-ppk disp">${money(r.ppk)}/pk</span>
     </div>`;
   };
-  const recCards = buckets.best.slice(0, 8).map((r) => `<div class="sd-pick"><div class="sd-pick-name">${esc(r.name)}</div><div class="sd-pick-fig disp">${money(r.market)} · ${money(r.ppk)}/pk</div><div class="sd-pick-why">${esc((tierOf(r.sid) || {}).tier || "")}-tier · at/under loose · ${esc(r.ps.label)}</div></div>`).join("");
+  const recCards = buckets.best.slice(0, 8).map((r) => `<div class="sd-pick">${r.img ? `<img class="sd-pick-img" src="${esc(r.img)}" alt="" loading="lazy" onerror="this.remove()">` : ""}<div class="sd-pick-name">${esc(r.name)}</div><div class="sd-pick-fig disp">${money(r.market)} · ${money(r.ppk)}/pk</div><div class="sd-pick-why">${esc((tierOf(r.sid) || {}).tier || "")}-tier · at/under loose · ${esc(r.ps.label)}</div></div>`).join("");
   const ebayHint = state.sealedEbayDisabled ? "" : state.sealedEbayComplete ? " eBay column = median asking price (not sold)." : " eBay asks loading…";
   const controls = `
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">

@@ -147,7 +147,7 @@ export async function fetchSealedList(groupId) {
     let packs;
     for (const [rx, c] of SEALED_PACKS) { if (rx.test(n)) { packs = c; break; } }
     if (!packs) continue;
-    out.push({ name: n, market: Math.round(v * 100) / 100, packs });
+    out.push({ name: n, market: Math.round(v * 100) / 100, packs, img: p.imageUrl || null });
   }
   return out;
 }
