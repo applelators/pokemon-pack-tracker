@@ -565,6 +565,16 @@ input,select{font-family:inherit;}
   .sd-ppk{margin-left:auto;}
 }
 
+/* All-sets scope: core vs special columns per set. Set-level cells (rank, set chip,
+   tier, print chip) are hidden here — redundant within a set section — which is what
+   lets two compact 7-column rows fit side by side. */
+.sd-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+.sd-col-h{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 7px 2px;font-weight:700;}
+.sd-cols .sd-row{grid-template-columns:44px minmax(90px,1fr) 104px 80px 150px 40px 88px;}
+.sd-cols :is(.sd-rank,.setchip,.sd-tier,.pstat){display:none;}
+@media(max-width:1400px){.sd-cols{grid-template-columns:1fr;}}
+@media(max-width:760px){.sd-cols .sd-row{display:flex;flex-wrap:wrap;}}
+
 /* ---- Sealed Deals buckets ---- */
 .sd-row.no{opacity:.55;}
 .sd-why{font-size:10.5px;color:var(--bad);font-weight:600;margin-left:6px;}

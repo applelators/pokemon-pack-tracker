@@ -742,7 +742,7 @@ function renderSealed() {
       ${r.img ? `<img class="sd-img" src="${esc(r.img)}" alt="" loading="lazy" onerror="this.remove()">` : `<span class="sd-img"></span>`}
       <span class="setchip" style="color:${s ? s.tint : tintOf(r.sid)}">${setCode(r.sid)}</span>
       <span class="sd-name">${esc(r.name)}${dim ? ` <span class="sd-why">${noReason(r)}</span>` : ""}</span>
-      ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : `<span></span>`}
+      <span class="sd-tier">${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}</span>
       <span class="pstat pstat-${r.ps.tone}" title="${esc(r.ps.label)}">${esc(r.ps.label)}</span>
       ${(() => {
         if (r.msrp == null) return `<span class="sd-msrp" title="no standard retail">—</span>`;
@@ -776,14 +776,20 @@ function renderSealed() {
     // keep the chosen sort ($/pack or eBay gap).
     const bySet = new Map();
     for (const r of rows) { if (!bySet.has(r.sid)) bySet.set(r.sid, []); bySet.get(r.sid).push(r); }
+    // Two columns per set: core pack line on the left, special/collector SKUs on the
+    // right. Set-level cells (chip, tier, print status) are hidden in this layout —
+    // they're identical per section and already shown in the header.
+    const isSpecial = (name) => !/checklane/i.test(name) && /collection|premium|\btins?\b|ex box|surprise|binder|poster|pouch|\bpin\b|sticker|illustration|figure|knock ?out|deluxe/i.test(name);
+    const colHTML = (title, arr) => `<div><div class="sd-col-h">${title} · ${arr.length}</div><div class="sd-list">${arr.map((r, i) => rowHTML(r, i, false)).join("") || `<div class="muted" style="font-size:12px;">none</div>`}</div></div>`;
     const sections = state.sets.filter((s) => bySet.has(s.id)).map((s) => {
       const list = bySet.get(s.id);
       const ps = printStatusOf(s.id, null);
+      const norm = list.filter((r) => !isSpecial(r.name)), spec = list.filter((r) => isSpecial(r.name));
       return `<div class="uplabel" style="margin:20px 0 8px;display:flex;align-items:center;gap:9px;">
         <span class="setchip" style="color:${s.tint}">${s.code}</span><span>${esc(s.name)}</span>
         <span class="pstat pstat-${ps.tone}">${esc(ps.label)}</span>
         <span style="color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;">${s.release ? esc(s.release) + " · " : ""}${list.length} product${list.length !== 1 ? "s" : ""}</span></div>
-      <div class="sd-list">${list.map((r, i) => rowHTML(r, i, false)).join("")}</div>`;
+      <div class="sd-cols">${colHTML("Core / pack products", norm)}${colHTML("Special products", spec)}</div>`;
     }).join("");
     app.innerHTML = headerHTML() + head + (sections || `<div class="muted" style="font-size:13px;margin-top:12px;">No products loaded yet.</div>`) + `
       <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail); delta tiers: <span style="color:var(--good)">≤ +10%</span> near retail · <span style="color:var(--fair)">≤ +50%</span> premium · <span style="color:color-mix(in oklch, var(--fair) 45%, var(--bad))">≤ +100%</span> steep · <span style="color:var(--bad)">≤ +150%</span> severe · <span style="color:var(--bad);font-weight:700;">🚫 beyond</span> = don't spend this much unless you like wasting money. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
