@@ -647,14 +647,23 @@ function scGetVal(w) { const v = Math.round(Number(state.sealedCheck[w.dataset.n
 function scSetVal(w, v) {
   v = Math.max(0, Math.round(v));
   state.sealedCheck[w.dataset.name] = v > 0 ? String(v) : "";
+  const m = v > 0 ? msrpDelta(v / Number(w.dataset.msrp) - 1) : null;
   const tape = w.querySelector(".sd-scrub-tape");
   if (tape) tape.style.backgroundPosition = `${v * SC_PX_PER_DOLLAR}px 0, ${v * SC_PX_PER_DOLLAR}px 0`;
+  // Tint the whole strip (needle, border, wash) by the verdict tier as you drag.
+  const scrub = w.querySelector(".sd-scrub");
+  if (scrub) {
+    if (m) {
+      scrub.style.setProperty("--sc", m.c);
+      scrub.style.setProperty("--sc-b", `color-mix(in oklch, ${m.c} 50%, var(--border))`);
+      scrub.style.setProperty("--sc-bg", `color-mix(in oklch, ${m.c} 10%, var(--panel2))`);
+    } else for (const p of ["--sc", "--sc-b", "--sc-bg"]) scrub.style.removeProperty(p);
+  }
   const val = w.querySelector(".sd-check-val");
-  if (val) val.textContent = v > 0 ? "$" + v : "—";
+  if (val) { val.textContent = v > 0 ? "$" + v : "—"; val.style.color = m ? m.c : ""; }
   const out = w.querySelector(".sd-check-out");
   if (!out) return;
-  if (!(v > 0)) { out.innerHTML = `<span style="color:var(--muted)">drag to set a shelf price</span>`; return; }
-  const m = msrpDelta(v / Number(w.dataset.msrp) - 1);
+  if (!m) { out.innerHTML = `<span style="color:var(--muted)">drag to set a shelf price</span>`; return; }
   out.innerHTML = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(Number(w.dataset.msrp))} MSRP</span>`;
 }
 function stepSealedCheck(b) {
@@ -761,11 +770,13 @@ function renderSealed() {
         const v = Math.round(Number(state.sealedCheck[r.name]));
         let out = `<span style="color:var(--muted)">drag to set a shelf price</span>`;
         if (v > 0) { const m = msrpDelta(v / r.msrp - 1); out = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(r.msrp)} MSRP</span>`; }
+        const mm = v > 0 ? msrpDelta(v / r.msrp - 1) : null;
+        const tint = mm ? `--sc:${mm.c};--sc-b:color-mix(in oklch, ${mm.c} 50%, var(--border));--sc-bg:color-mix(in oklch, ${mm.c} 10%, var(--panel2));` : "";
         return `<span class="sd-check" data-name="${esc(r.name)}" data-msrp="${r.msrp}" data-seed="${Math.round(r.market)}">
           <button class="sd-check-b" data-act="scstep" data-v="-1">−</button>
-          <span class="sd-scrub"><span class="sd-scrub-tape" style="background-position:${v > 0 ? v * 8 : 0}px 0, ${v > 0 ? v * 8 : 0}px 0"></span></span>
+          <span class="sd-scrub" style="${tint}"><span class="sd-scrub-tape" style="background-position:${v > 0 ? v * 8 : 0}px 0, ${v > 0 ? v * 8 : 0}px 0"></span></span>
           <button class="sd-check-b" data-act="scstep" data-v="1">+</button>
-          <span class="sd-check-read"><span class="sd-check-val disp">${v > 0 ? "$" + v : "—"}</span><span class="sd-check-out">${out}</span></span>
+          <span class="sd-check-read"><span class="sd-check-val disp"${mm ? ` style="color:${mm.c}"` : ""}>${v > 0 ? "$" + v : "—"}</span><span class="sd-check-out">${out}</span></span>
         </span>`;
       })() : ""}
     </div>`;
