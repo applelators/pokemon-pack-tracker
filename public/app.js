@@ -783,7 +783,16 @@ function renderSealed() {
     // bundle, booster box (incl. half/enhanced), and ETBs (incl. Pokemon Center).
     // Everything else — blisters, checklanes, Build & Battle, tins, collections — is special.
     const isSpecial = (name) => !/(booster pack$|sleeved booster|booster bundle|booster box|elite trainer)/i.test(name);
-    const colHTML = (title, arr) => `<div><div class="sd-col-h">${title} · ${arr.length}</div><div class="sd-list">${arr.map((r, i) => rowHTML(r, i, false)).join("") || `<div class="muted" style="font-size:12px;">none</div>`}</div></div>`;
+    // 🚫-tier rows (>2.5x retail) collapse into a closed-by-default no-go section
+    // per column, so the default view only shows prices worth considering.
+    const colHTML = (title, arr) => {
+      const ok = arr.filter((r) => r.dMsrp == null || r.dMsrp <= 1.5);
+      const nogo = arr.filter((r) => r.dMsrp != null && r.dMsrp > 1.5);
+      return `<div><div class="sd-col-h">${title} · ${arr.length}</div>
+        <div class="sd-list">${ok.map((r, i) => rowHTML(r, i, false)).join("") || `<div class="muted" style="font-size:12px;">${nogo.length ? "nothing under the 🚫 line" : "none"}</div>`}</div>
+        ${nogo.length ? `<details class="sd-no"><summary class="sd-nogo-sum">🚫 ${nogo.length} no-go — over 2.5× retail</summary><div class="sd-list sd-nogo">${nogo.map((r, i) => rowHTML(r, i, false)).join("")}</div></details>` : ""}
+      </div>`;
+    };
     const sections = state.sets.filter((s) => bySet.has(s.id)).map((s) => {
       const list = bySet.get(s.id);
       const ps = printStatusOf(s.id, null);

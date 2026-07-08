@@ -574,6 +574,9 @@ input,select{font-family:inherit;}
 .sd-cols :is(.sd-rank,.setchip,.sd-tier,.pstat){display:none;}
 @media(max-width:1400px){.sd-cols{grid-template-columns:1fr;}}
 @media(max-width:760px){.sd-cols .sd-row{display:flex;flex-wrap:wrap;}}
+.sd-nogo-sum{cursor:pointer;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--bad);margin:8px 0 0 2px;opacity:.75;}
+.sd-nogo{margin-top:6px;}
+.sd-nogo .sd-row{opacity:.6;}
 
 /* ---- Sealed Deals buckets ---- */
 .sd-row.no{opacity:.55;}
