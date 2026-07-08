@@ -694,12 +694,11 @@ function renderSealed() {
       const eb = state.sealedEbay ? state.sealedEbay[p.name] : null;
       const ebay = eb && !eb.none ? eb : null;
       const msrp = msrpOf(p.name, sid);
-      // Best achievable price = the cheaper of TCG market and a trustworthy eBay ask
-      // (≥5 listings); dMsrp = how far that sits above launch retail.
-      const best = Math.min(p.market, ebay && ebay.n >= 5 ? ebay.median : Infinity);
+      // dMsrp = TCGplayer market over launch retail (eBay asks deliberately excluded —
+      // asking prices aren't sold prices, so they'd distort the retail-premium signal).
       rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, msrp,
         gap: ebay && ebay.n >= 5 ? ebay.median / p.market - 1 : null,
-        dMsrp: msrp ? best / msrp - 1 : null });
+        dMsrp: msrp ? p.market / msrp - 1 : null });
     }
   }
   // Sort: closest-to-retail first (default), $/pack ascending, or biggest
@@ -752,7 +751,7 @@ function renderSealed() {
         const c = d <= 0.1 ? "var(--good)" : d <= 0.5 ? "var(--fair)"
           : d <= 1 ? "color-mix(in oklch, var(--fair) 45%, var(--bad))" // orange: steep but under 2x retail
           : "var(--bad)";
-        const tip = crazy ? "crazy tier — don't spend this much unless you like wasting money" : `typical US launch retail · best of TCG/eBay is ${d >= 0 ? "+" : ""}${Math.round(d * 100)}% vs retail`;
+        const tip = crazy ? "crazy tier — don't spend this much unless you like wasting money" : `typical US launch retail · TCGplayer market is ${d >= 0 ? "+" : ""}${Math.round(d * 100)}% vs retail`;
         return `<span class="sd-msrp" title="${tip}">${money(r.msrp)} <span style="color:${c};${crazy ? "font-weight:700;" : ""}">${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%${crazy ? " 🚫" : ""}</span></span>`;
       })()}
       <span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>
