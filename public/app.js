@@ -672,6 +672,33 @@ function renderSealed() {
     if (t && (t.tier === "C" || t.tier === "D")) return `${t.tier}-tier · ${esc(t.verdict)} set`;
     return l ? `+${Math.round((r.ppk / l - 1) * 100)}% over loose` : "premium product";
   };
+  // Typical US launch retail (MSRP) by product config. The 2025 price step-up (ME era
+  // + Black Bolt/White Flare, Jul 2025+) raised ETBs/tins; null = no standard retail
+  // (cases, promos, oddball SKUs) — shown as "—" rather than a guess.
+  const msrpOf = (name, sid) => {
+    const up = /^me/.test(sid) || sid === "zsv10pt5" || sid === "rsv10pt5"; // post-Jul-2025 pricing
+    const RULES = [
+      [/case\b|display\b|bundle \+|5-pack/i, null],
+      [/half booster box/i, 80.82],
+      [/enhanced booster box/i, null],
+      [/booster box/i, 161.64],
+      [/booster bundle/i, 26.94],
+      [/sleeved booster/i, 4.49],
+      [/booster pack$/i, 4.49],
+      [/pokemon center.*elite|elite.*pokemon center/i, up ? 69.99 : 59.99],
+      [/elite trainer/i, up ? 59.99 : 49.99],
+      [/build & battle stadium/i, 59.99],
+      [/build & battle/i, 21.99],
+      [/moonlit tin/i, 24.99],
+      [/mini tin/i, up ? 10.99 : 9.99],
+      [/ex box\b/i, 21.99],
+      [/3[- ]pack blister|three[- ]booster/i, up ? 14.99 : 14.49],
+      [/2[- ]pack blister/i, 11.99],
+      [/pin collection/i, 24.99],
+    ];
+    for (const [rx, v] of RULES) if (rx.test(name)) return v;
+    return null;
+  };
   // eBay ask cell: median asking (not sold) + listing count; a colored gap chip when
   // asks diverge ≥15% from TCG market — asks running 40%+ hot = sellers front-running
   // an OOP transition; asks under market = worth a manual look.
@@ -690,6 +717,7 @@ function renderSealed() {
       <span class="sd-name">${esc(r.name)}${dim ? ` <span class="sd-why">${noReason(r)}</span>` : ""}</span>
       ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}
       <span class="pstat pstat-${r.ps.tone}">${esc(r.ps.label)}</span>
+      ${(() => { const m = msrpOf(r.name, r.sid); return `<span class="sd-msrp" title="typical US launch retail">${m != null ? money(m) : "—"}</span>`; })()}
       <span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>
       ${ebayCell(r)}
       <span class="sd-pk">${r.packs} pk</span>
@@ -705,7 +733,7 @@ function renderSealed() {
       <button class="hub-mini" data-act="sealedrefresh"${state.sealedBusy ? " disabled" : ""}>${state.sealedBusy ? "↻ Refreshing…" : "↻ Update prices"}</button>
     </div>`;
   const head = `<button class="backchip" data-act="gohub">← All sets</button>
-    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed ${allScope ? "prices — every product" : "deals — closing windows"}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${allScope ? "Every TCGplayer sealed product across all your tracked sets — TCG market · eBay ask · $/pack." : "TCGplayer sealed products from your tracked sets that are no longer actively printing, ranked by $/pack."} ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}${ebayHint}</div></div>
+    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed ${allScope ? "prices — every product" : "deals — closing windows"}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${allScope ? "Every TCGplayer sealed product across all your tracked sets — MSRP · TCG market · eBay ask · $/pack." : "TCGplayer sealed products from your tracked sets that are no longer actively printing, ranked by $/pack. Columns: MSRP · TCG market · eBay ask · $/pack."} ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}${ebayHint}</div></div>
       ${controls}</div>`;
   if (allScope) {
     // Grouped by set, newest release first (state.sets order); rows within each set
@@ -722,7 +750,7 @@ function renderSealed() {
       <div class="sd-list">${list.map((r, i) => rowHTML(r, i, false)).join("")}</div>`;
     }).join("");
     app.innerHTML = headerHTML() + head + (sections || `<div class="muted" style="font-size:13px;margin-top:12px;">No products loaded yet.</div>`) + `
-      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail, which beats every market price here. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
+      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail). eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
     return;
   }
   app.innerHTML = headerHTML() + head + `
