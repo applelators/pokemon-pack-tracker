@@ -708,9 +708,21 @@ function renderSealed() {
     <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed ${allScope ? "prices — every product" : "deals — closing windows"}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">${allScope ? "Every TCGplayer sealed product across all your tracked sets — TCG market · eBay ask · $/pack." : "TCGplayer sealed products from your tracked sets that are no longer actively printing, ranked by $/pack."} ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}${ebayHint}</div></div>
       ${controls}</div>`;
   if (allScope) {
-    app.innerHTML = headerHTML() + head + `
-      <div class="sd-list" style="margin-top:12px;">${rows.map((r, i) => rowHTML(r, i, false)).join("") || `<div class="muted" style="font-size:13px;">No products loaded yet.</div>`}</div>
-      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Reference sheet, not recommendations — green in-print sets restock at retail, which beats every market price here. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
+    // Grouped by set, newest release first (state.sets order); rows within each set
+    // keep the chosen sort ($/pack or eBay gap).
+    const bySet = new Map();
+    for (const r of rows) { if (!bySet.has(r.sid)) bySet.set(r.sid, []); bySet.get(r.sid).push(r); }
+    const sections = state.sets.filter((s) => bySet.has(s.id)).map((s) => {
+      const list = bySet.get(s.id);
+      const ps = printStatusOf(s.id, null);
+      return `<div class="uplabel" style="margin:20px 0 8px;display:flex;align-items:center;gap:9px;">
+        <span class="setchip" style="color:${s.tint}">${s.code}</span><span>${esc(s.name)}</span>
+        <span class="pstat pstat-${ps.tone}">${esc(ps.label)}</span>
+        <span style="color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;">${s.release ? esc(s.release) + " · " : ""}${list.length} product${list.length !== 1 ? "s" : ""}</span></div>
+      <div class="sd-list">${list.map((r, i) => rowHTML(r, i, false)).join("")}</div>`;
+    }).join("");
+    app.innerHTML = headerHTML() + head + (sections || `<div class="muted" style="font-size:13px;margin-top:12px;">No products loaded yet.</div>`) + `
+      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail, which beats every market price here. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
     return;
   }
   app.innerHTML = headerHTML() + head + `
