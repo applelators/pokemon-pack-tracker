@@ -743,7 +743,7 @@ function renderSealed() {
       <span class="setchip" style="color:${s ? s.tint : tintOf(r.sid)}">${setCode(r.sid)}</span>
       <span class="sd-name">${esc(r.name)}${dim ? ` <span class="sd-why">${noReason(r)}</span>` : ""}</span>
       ${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}
-      <span class="pstat pstat-${r.ps.tone}">${esc(r.ps.label)}</span>
+      <span class="pstat pstat-${r.ps.tone}" title="${esc(r.ps.label)}">${esc(r.ps.label)}</span>
       ${(() => {
         if (r.msrp == null) return `<span class="sd-msrp" title="no standard retail">—</span>`;
         const d = r.dMsrp;

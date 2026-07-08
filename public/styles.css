@@ -545,7 +545,12 @@ input,select{font-family:inherit;}
 .sd-img{width:44px;height:44px;object-fit:contain;border-radius:6px;background:var(--panel2);flex:0 0 auto;}
 .sd-pick-img{width:64px;height:64px;object-fit:contain;border-radius:8px;background:var(--panel2);float:right;margin:0 0 6px 8px;}
 @media(max-width:640px){.sd-img{width:34px;height:34px;}}
-.sd-name{flex:1 1 220px;min-width:180px;font-size:13px;}
+.sd-name{flex:1 1 220px;min-width:140px;font-size:13px;}
+/* Long print labels ("quiet since Mar 2026") were forcing the $/pack cell to wrap
+   to a stray second line — clamp the chip (full text in its title tooltip) and
+   right-align the $/pack cell if it ever does wrap. */
+.sd-row .pstat{max-width:96px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto;}
+.sd-ppk{margin-left:auto;}
 .sd-fire{font-size:12px;}
 .sd-fig{width:76px;text-align:right;font-weight:700;font-size:13.5px;flex:0 0 auto;}
 .sd-pk{width:42px;text-align:right;color:var(--muted);font-size:11.5px;flex:0 0 auto;}
