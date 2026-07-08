@@ -25,7 +25,11 @@ async function appToken(db) {
 }
 
 // Junk listings that poison a product-price median regardless of product type.
-const JUNK = /(japanese|korean|chinese|empty|no\s*packs?|opened|resealed|damaged|custom|proxy|repack|box only|art only|read desc)/i;
+const JUNK = /(japanese|korean|chinese|empty|no\s*packs?|opened|resealed|damaged|custom|proxy|repack|box only|art only|read desc|\blots?\b|bulk)/i;
+// For single-pack queries, also reject anything bigger than one pack (x10 lots,
+// boxes, bundles…) — same guard fetchEbayPackPrice uses. Only applied when the
+// query itself ends in "booster pack", so "3 Pack Blister" queries stay unharmed.
+const MULTI = /(box|bundle|case|etb|elite|collection|tin|display|blister|\bx\s*\d|\d+\s*(packs?|ct|count)\b)/i;
 
 // Median asking price for ONE sealed product (query = product name). Asking ≠ sold:
 // callers must label this "ask". Returns { median, n } or null when nothing usable.
@@ -39,10 +43,11 @@ export async function fetchEbayAskPrice(token, query) {
   // Require the product's most distinctive tokens in the title (words ≥ 4 chars,
   // ignoring brackets/punctuation) so "Chaos Rising ETB" hits don't count for packs.
   const need = (query.toLowerCase().match(/[a-z]{4,}/g) || []).slice(0, 4);
+  const singlePack = /booster pack$/i.test(query.trim());
   const prices = items
     .filter((i) => {
       const t = (i.title || "").toLowerCase();
-      return !JUNK.test(t) && need.every((w) => t.includes(w));
+      return !JUNK.test(t) && !(singlePack && MULTI.test(t)) && need.every((w) => t.includes(w));
     })
     .map((i) => Number(i.price && i.price.value))
     .filter((v) => v > 2 && v < 5000);
