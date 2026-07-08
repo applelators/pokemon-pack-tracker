@@ -11,7 +11,7 @@ import { searchSets, importSet, listSetCards, searchCardsByName } from "./pokemo
 import { CUSTOM_SETS, customCards, customCurve } from "./customsets.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
 import { fetchSealedRipPrices, fetchPackBox, fetchSealedList } from "./tcgcsv.js";
-import { fetchEbayPackPrice, fetchEbayAskPrice, ebayAppToken } from "./ebay.js";
+import { fetchEbayPackPrice, fetchEbayAskPrice, ebayAppToken, fetchEbayItem, fetchEbaySellerListings } from "./ebay.js";
 import { computeCurve, applyProgress, chaseEstimate } from "./estimator.js";
 
 const json = (data, status = 200) =>
@@ -548,6 +548,19 @@ export async function handleApi(request, env, url) {
       await db.prepare("INSERT INTO settings (key, value) VALUES ('sealed_ebay_cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
         .bind(JSON.stringify(cache)).run();
       return json({ complete, updated: cache.updated, done: Object.keys(cache.items).length, total: names.length, items: cache.items });
+    }
+
+    // GET /api/ebay/item?id=<itemNumber> · /api/ebay/seller?name=<user>[&q=] —
+    // read-only eBay Browse lookups (listing sanity checks / seller-store scans).
+    if (pathname === "/api/ebay/item" && method === "GET") {
+      const id = url.searchParams.get("id");
+      if (!id) return json({ error: "id required" }, 400);
+      return json(await fetchEbayItem(db, id));
+    }
+    if (pathname === "/api/ebay/seller" && method === "GET") {
+      const name = url.searchParams.get("name");
+      if (!name) return json({ error: "name required" }, 400);
+      return json(await fetchEbaySellerListings(db, name, url.searchParams.get("q")));
     }
 
     // /api/cards/search?q= — card lookup for tagging promo cards (any set)

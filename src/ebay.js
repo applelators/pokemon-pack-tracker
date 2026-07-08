@@ -58,6 +58,42 @@ export async function fetchEbayAskPrice(token, query) {
   return { median: Math.round(median * 100) / 100, n: prices.length };
 }
 
+// One listing by its public item number (the number in an ebay.com/itm/ URL).
+export async function fetchEbayItem(db, legacyId) {
+  const token = await appToken(db);
+  if (!token) return { error: "eBay keys not configured" };
+  const res = await fetch(`https://api.ebay.com/buy/browse/v1/item/get_item_by_legacy_id?legacy_item_id=${encodeURIComponent(legacyId)}`, {
+    headers: { Authorization: `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" },
+  });
+  const d = await res.json();
+  if (!res.ok) return { error: `eBay ${res.status}`, detail: d.errors };
+  return {
+    title: d.title, price: d.price, condition: d.condition,
+    seller: d.seller && { username: d.seller.username, feedbackPercentage: d.seller.feedbackPercentage, feedbackScore: d.seller.feedbackScore },
+    shipping: (d.shippingOptions || []).map((o) => o.shippingCost && o.shippingCost.value),
+    location: d.itemLocation, returnsAccepted: d.returnTerms && d.returnTerms.returnsAccepted,
+    topRated: d.topRatedBuyingExperience, availability: d.estimatedAvailabilities,
+    shortDescription: d.shortDescription, itemWebUrl: d.itemWebUrl,
+  };
+}
+
+// A seller's current fixed-price listings (for "is anything in this store a deal?").
+export async function fetchEbaySellerListings(db, username, q) {
+  const token = await appToken(db);
+  if (!token) return { error: "eBay keys not configured" };
+  const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(q || "pokemon")}&filter=${encodeURIComponent(`sellers:{${username}},buyingOptions:{FIXED_PRICE}`)}&limit=200`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } });
+  const d = await res.json();
+  if (!res.ok) return { error: `eBay ${res.status}`, detail: d.errors };
+  return {
+    total: d.total,
+    items: (d.itemSummaries || []).map((i) => ({
+      title: i.title, price: i.price && i.price.value, shipping: i.shippingOptions && i.shippingOptions[0] && i.shippingOptions[0].shippingCost && i.shippingOptions[0].shippingCost.value,
+      condition: i.condition, itemId: i.legacyItemId, url: i.itemWebUrl,
+    })),
+  };
+}
+
 // Median asking price of single-pack listings (filters out boxes/bundles/lots).
 export async function fetchEbayPackPrice(db, setName) {
   const token = await appToken(db);
