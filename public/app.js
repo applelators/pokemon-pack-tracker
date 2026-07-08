@@ -642,7 +642,14 @@ function renderSealed() {
   // (cases, promos, oddball SKUs) — shown as "—" rather than a guess.
   const msrpOf = (name, sid) => {
     const up = /^me/.test(sid) || sid === "zsv10pt5" || sid === "rsv10pt5"; // post-Jul-2025 pricing
+    // Confirmed (researched Jul 2026): AH tins $21.99, AH premium posters $49.99,
+    // pin collection $24.99, PE surprise box $22.99, PE accessory pouch $29.99,
+    // PE tech sticker $14.99, Sam's binder+poster bundle $39.98, Unova poster ~$23.
+    // Best-estimate (standard config pricing, no published source): premium checklane,
+    // binder collection, illustration collection, super-premium $119.99, figure $59.99.
     const RULES = [
+      [/mini tins? 5-pack/i, up ? 54.95 : 49.95],          // = five mini tins
+      [/binder & .*poster collection/i, 39.98],            // Sam's Club bundle shelf price
       [/case\b|display\b|bundle \+|5-pack/i, null],
       [/half booster box/i, 80.82],
       [/enhanced booster box/i, null],
@@ -656,7 +663,19 @@ function renderSealed() {
       [/build & battle/i, 21.99],
       [/moonlit tin/i, 24.99],
       [/mini tin/i, up ? 10.99 : 9.99],
+      [/super-?premium collection/i, 119.99],
+      [/premium figure collection/i, 59.99],
+      [/premium poster collection/i, 49.99],
+      [/premium checklane/i, up ? 10.99 : 9.99],
+      [/checklane/i, up ? 5.99 : 5.49],
+      [/accessory pouch/i, 29.99],
+      [/tech sticker/i, up ? 15.99 : 14.99],
+      [/binder collection/i, 24.99],
+      [/poster collection/i, up ? 22.99 : 19.99],
+      [/illustration collection/i, 29.99],
+      [/surprise box/i, 22.99],
       [/ex box\b/i, 21.99],
+      [/\btin\b/i, 21.99],                                  // ex tins (AH Mega tins confirmed)
       [/3[- ]pack blister|three[- ]booster/i, up ? 14.99 : 14.49],
       [/2[- ]pack blister/i, 11.99],
       [/pin collection/i, 24.99],
