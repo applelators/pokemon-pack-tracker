@@ -719,7 +719,7 @@ function renderSealed() {
       <span class="sd-name">${esc(r.name)}</span>
       <span class="sd-tier">${t ? `<span class="tbadge sm" style="color:${TIER_STYLE[t.tier]};border-color:${TIER_STYLE[t.tier]}">${t.tier}</span>` : ""}</span>
       <span class="pstat pstat-${r.ps.tone}" title="${esc(r.ps.label)}">${esc(r.ps.label)}</span>
-      ${(() => {
+      <span class="sd-sub">${(() => {
         if (r.msrp == null) return `<span class="sd-msrp" title="no standard retail">—</span>`;
         const d = r.dMsrp;
         const crazy = d > 1.5; // 2.5x retail and beyond — the wasting-money tier
@@ -728,11 +728,7 @@ function renderSealed() {
           : "var(--bad)";
         const tip = crazy ? "crazy tier — don't spend this much unless you like wasting money" : `typical US launch retail · TCGplayer market is ${d >= 0 ? "+" : ""}${Math.round(d * 100)}% vs retail`;
         return `<span class="sd-msrp" title="${tip}">${money(r.msrp)} <span style="color:${c};${crazy ? "font-weight:700;" : ""}">${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%${crazy ? " 🚫" : ""}</span></span>`;
-      })()}
-      <span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>
-      ${ebayCell(r)}
-      <span class="sd-pk">${r.packs} pk</span>
-      <span class="sd-ppk disp">${money(r.ppk)}/pk</span>
+      })()}<span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>${ebayCell(r)}<span class="sd-pk">${r.packs} pk</span><span class="sd-ppk disp">${money(r.ppk)}/pk</span></span>
     </div>`;
   };
   const ebayHint = state.sealedEbayDisabled ? "" : state.sealedEbayComplete ? " eBay column = median asking price (not sold)." : " eBay asks loading…";
@@ -764,7 +760,7 @@ function renderSealed() {
       const list = bySet.get(s.id);
       const ps = printStatusOf(s.id, null);
       const norm = list.filter((r) => !isSpecial(r.name)), spec = list.filter((r) => isSpecial(r.name));
-      return `<div class="uplabel" style="margin:20px 0 8px;display:flex;align-items:center;gap:9px;">
+      return `<div class="uplabel" style="margin:20px 0 8px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
         <span class="setchip" style="color:${s.tint}">${s.code}</span><span>${esc(s.name)}</span>
         <span class="pstat pstat-${ps.tone}">${esc(ps.label)}</span>
         <span style="color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;">${s.release ? esc(s.release) + " · " : ""}${list.length} product${list.length !== 1 ? "s" : ""}</span></div>
