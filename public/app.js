@@ -323,6 +323,7 @@ const state = {
   tierData: null, tierTab: "sv", tierSort: "rank", tierOpen: null, tierPrices: null, tierPricesComplete: false, // Tier-list view
   sealedData: null, sealedComplete: false, sealedUpdated: 0, sealedBusy: false, // Sealed-deals view
   sealedEbay: null, sealedEbayComplete: false, sealedEbayBusy: false, sealedEbayDisabled: false,
+  sealedCheck: {},     // product name -> typed shelf price (mobile price-check widget)
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -630,6 +631,31 @@ async function ensureSealedEbay(force) {
   state.sealedEbayBusy = false;
   if (state.view === "sealed") render();
 }
+// Shared vs-MSRP delta presentation (sealed rows + the mobile price-check widget).
+function msrpDelta(d) {
+  const crazy = d > 1.5; // 2.5x retail and beyond — the wasting-money tier
+  const c = d <= 0.1 ? "var(--good)" : d <= 0.5 ? "var(--fair)"
+    : d <= 1 ? "color-mix(in oklch, var(--fair) 45%, var(--bad))" // orange: steep but under 2x retail
+    : "var(--bad)";
+  return { crazy, c, txt: `${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%${crazy ? " 🚫" : ""}` };
+}
+// Mobile shelf-price check: type/step a whole-dollar price on a row, see the premium
+// over MSRP instantly. Patches the row's chip in place — no re-render, no scroll jump.
+function updateSealedCheck(w) {
+  const inp = w.querySelector(".sd-check-in"), out = w.querySelector(".sd-check-out");
+  const v = Math.round(Number(inp.value));
+  state.sealedCheck[w.dataset.name] = inp.value;
+  if (!(v > 0)) { out.innerHTML = `<span style="color:var(--muted)">shelf price?</span>`; return; }
+  const m = msrpDelta(v / Number(w.dataset.msrp) - 1);
+  out.innerHTML = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(Number(w.dataset.msrp))} MSRP</span>`;
+}
+function stepSealedCheck(b) {
+  const w = b.closest(".sd-check"); if (!w) return;
+  const inp = w.querySelector(".sd-check-in");
+  inp.value = Math.max(0, Math.round(Number(inp.value) || Number(inp.placeholder) || 0) + Number(b.dataset.v));
+  updateSealedCheck(w);
+}
+
 function renderSealed() {
   const app = document.getElementById("app");
   if (!state.sealedData) { app.innerHTML = headerHTML() + `<div class="loading" style="display:flex;align-items:center;justify-content:center;gap:11px;"><span class="pt-spin"></span>Loading sealed deals…</div>`; return; }
@@ -721,14 +747,16 @@ function renderSealed() {
       <span class="pstat pstat-${r.ps.tone}" title="${esc(r.ps.label)}">${esc(r.ps.label)}</span>
       <span class="sd-sub">${(() => {
         if (r.msrp == null) return `<span class="sd-msrp" title="no standard retail">—</span>`;
-        const d = r.dMsrp;
-        const crazy = d > 1.5; // 2.5x retail and beyond — the wasting-money tier
-        const c = d <= 0.1 ? "var(--good)" : d <= 0.5 ? "var(--fair)"
-          : d <= 1 ? "color-mix(in oklch, var(--fair) 45%, var(--bad))" // orange: steep but under 2x retail
-          : "var(--bad)";
-        const tip = crazy ? "crazy tier — don't spend this much unless you like wasting money" : `typical US launch retail · TCGplayer market is ${d >= 0 ? "+" : ""}${Math.round(d * 100)}% vs retail`;
-        return `<span class="sd-msrp" title="${tip}">${money(r.msrp)} <span style="color:${c};${crazy ? "font-weight:700;" : ""}">${d >= 0 ? "+" : "−"}${Math.abs(Math.round(d * 100))}%${crazy ? " 🚫" : ""}</span></span>`;
+        const m = msrpDelta(r.dMsrp);
+        const tip = m.crazy ? "crazy tier — don't spend this much unless you like wasting money" : `typical US launch retail · TCGplayer market is ${r.dMsrp >= 0 ? "+" : ""}${Math.round(r.dMsrp * 100)}% vs retail`;
+        return `<span class="sd-msrp" title="${tip}">${money(r.msrp)} <span style="color:${m.c};${m.crazy ? "font-weight:700;" : ""}">${m.txt}</span></span>`;
       })()}<span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>${ebayCell(r)}<span class="sd-pk">${r.packs} pk</span><span class="sd-ppk disp">${money(r.ppk)}/pk</span></span>
+      ${r.msrp != null ? (() => {
+        const v = Math.round(Number(state.sealedCheck[r.name]));
+        let out = `<span style="color:var(--muted)">shelf price?</span>`;
+        if (v > 0) { const m = msrpDelta(v / r.msrp - 1); out = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(r.msrp)} MSRP</span>`; }
+        return `<span class="sd-check" data-name="${esc(r.name)}" data-msrp="${r.msrp}"><button class="sd-check-b" data-act="scstep" data-v="-1">−</button><input class="sd-check-in" type="number" inputmode="numeric" step="1" min="0" value="${v > 0 ? v : ""}" placeholder="${Math.round(r.market)}"><button class="sd-check-b" data-act="scstep" data-v="1">+</button><span class="sd-check-out">${out}</span></span>`;
+      })() : ""}
     </div>`;
   };
   const ebayHint = state.sealedEbayDisabled ? "" : state.sealedEbayComplete ? " eBay column = median asking price (not sold)." : " eBay asks loading…";
@@ -2111,6 +2139,7 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "tiers") openTiers();
   else if (act === "sealed") openSealed();
   else if (act === "sealedrefresh") ensureSealedDeals(true);
+  else if (act === "scstep") stepSealedCheck(b);
   else if (act === "tiertab") { state.tierTab = v; state.tierOpen = null; render(); }
   else if (act === "tiersort") { state.tierSort = v; render(); }
   else if (act === "tierrow") { state.tierOpen = state.tierOpen === v ? null : v; render(); }
@@ -2152,6 +2181,14 @@ document.getElementById("app").addEventListener("change", (e) => {
   }
   if (t.dataset.actual === undefined) return;
   saveActual(t.dataset.actual, t.value);
+});
+
+// Typed shelf prices in the sealed price-check widget update their chip in place.
+document.getElementById("app").addEventListener("input", (e) => {
+  if (e.target.classList && e.target.classList.contains("sd-check-in")) {
+    const w = e.target.closest(".sd-check");
+    if (w) updateSealedCheck(w);
+  }
 });
 
 document.getElementById("composer").addEventListener("click", (e) => {
