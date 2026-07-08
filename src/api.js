@@ -11,7 +11,7 @@ import { searchSets, importSet, listSetCards, searchCardsByName } from "./pokemo
 import { CUSTOM_SETS, customCards, customCurve } from "./customsets.js";
 import { fetchPriceChartingPoints } from "./pricecharting.js";
 import { fetchSealedRipPrices, fetchPackBox, fetchSealedList } from "./tcgcsv.js";
-import { fetchEbayPackPrice, fetchEbayAskPrice, ebayAppToken, fetchEbayItem, fetchEbaySellerListings } from "./ebay.js";
+import { fetchEbayPackPrice, fetchEbayAskPrice, ebayAppToken, fetchEbayItem, fetchEbaySellerListings, fetchEbaySearch } from "./ebay.js";
 import { computeCurve, applyProgress, chaseEstimate } from "./estimator.js";
 
 const json = (data, status = 200) =>
@@ -561,6 +561,11 @@ export async function handleApi(request, env, url) {
       const name = url.searchParams.get("name");
       if (!name) return json({ error: "name required" }, 400);
       return json(await fetchEbaySellerListings(db, name, url.searchParams.get("q")));
+    }
+    if (pathname === "/api/ebay/search" && method === "GET") {
+      const q = url.searchParams.get("q");
+      if (!q) return json({ error: "q required" }, 400);
+      return json(await fetchEbaySearch(db, q, Number(url.searchParams.get("limit")) || 50));
     }
 
     // /api/cards/search?q= — card lookup for tagging promo cards (any set)

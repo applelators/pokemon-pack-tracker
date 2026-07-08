@@ -77,6 +77,26 @@ export async function fetchEbayItem(db, legacyId) {
   };
 }
 
+// Raw fixed-price search results incl. seller reputation (deal-scan tooling).
+export async function fetchEbaySearch(db, q, limit = 50) {
+  const token = await appToken(db);
+  if (!token) return { error: "eBay keys not configured" };
+  const url = `https://api.ebay.com/buy/browse/v1/item_summary/search?q=${encodeURIComponent(q)}&filter=${encodeURIComponent("buyingOptions:{FIXED_PRICE},itemLocationCountry:US")}&limit=${limit}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, "X-EBAY-C-MARKETPLACE-ID": "EBAY_US" } });
+  const d = await res.json();
+  if (!res.ok) return { error: `eBay ${res.status}`, detail: d.errors };
+  return {
+    total: d.total,
+    items: (d.itemSummaries || []).map((i) => ({
+      title: i.title, price: i.price && Number(i.price.value),
+      shipping: i.shippingOptions && i.shippingOptions[0] && i.shippingOptions[0].shippingCost ? Number(i.shippingOptions[0].shippingCost.value) : null,
+      condition: i.condition,
+      seller: i.seller && { username: i.seller.username, pct: Number(i.seller.feedbackPercentage), score: i.seller.feedbackScore },
+      itemId: i.legacyItemId, url: i.itemWebUrl,
+    })),
+  };
+}
+
 // A seller's current fixed-price listings (for "is anything in this store a deal?").
 export async function fetchEbaySellerListings(db, username, q) {
   const token = await appToken(db);
