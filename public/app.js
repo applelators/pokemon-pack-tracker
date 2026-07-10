@@ -734,25 +734,27 @@ function renderSealed() {
     for (const [rx, v] of RULES) if (rx.test(name)) return v;
     return null;
   };
-  // "Pay this or less" — a judgment, not a quote. Starts from the obtainable price
-  // (cheaper of TCG market / trustworthy eBay ask), then applies: print-status
-  // anchoring (in-print → retail+10%; fading → −8%; OOP → −5% under market), eBay
-  // ask pressure, set-tier demand, and a loose-pack value cap (packs bought loose
-  // +25% accessory allowance; no allowance for pure boxes/bundles). Tooltip = the why.
+  // "Pay this or less" — a realistic grab-it price for a shop shelf or listing, NOT
+  // a retail-wave fantasy (the vs-MSRP delta already tells that story). Base = the
+  // obtainable price today (cheaper of TCG market / trustworthy eBay ask), then:
+  // in-print wants ~10% under market (supply keeps coming), fading ~7%, OOP ~5% (a
+  // real find); soft eBay asks push a little lower; weak-tier sets a little lower;
+  // pure boxes/bundles capped near loose-pack value (you can always rip loose);
+  // floored at MSRP+5% — anything near retail is an instant buy anywhere.
   const smartPay = (r, loosePk, tier) => {
     let v = Math.min(r.market, r.ebay && r.ebay.n >= 5 ? r.ebay.median : Infinity);
     const why = [];
-    if (r.ps.tone === "good" && r.msrp && r.msrp * 1.1 < v) { v = r.msrp * 1.1; why.push("in print — hold near retail (MSRP+10%)"); }
-    else if (r.ps.tone === "fair") { v = Math.max(r.msrp || 0, v * 0.92); why.push("fading — patience haircut −8%"); }
-    else if (r.ps.tone === "bad") { v *= 0.95; why.push("OOP — target just under market"); }
-    if (r.gap != null && r.gap <= -0.1) { v *= 0.95; why.push("eBay asks undercutting market −5%"); }
-    else if (r.gap != null && r.gap >= 0.4) why.push("asks heating — don't expect a discount");
-    if (tier && (tier.tier === "C" || tier.tier === "D")) { v *= 0.95; why.push(`${tier.tier}-tier set, weak demand −5%`); }
-    if (loosePk && r.packs > 1) {
-      const pure = /booster box|booster bundle/i.test(r.name);
-      const cap = loosePk * r.packs * (pure ? 1 : 1.25);
-      if (cap < v) { v = cap; why.push(pure ? "capped at loose-pack value" : "capped at loose-pack value +25% for extras"); }
+    if (r.ps.tone === "good") { v *= 0.90; why.push("in print — want ~10% under market"); }
+    else if (r.ps.tone === "fair") { v *= 0.93; why.push("fading — ~7% under market is a fair find"); }
+    else { v *= 0.95; why.push("OOP — a few % under market is a win"); }
+    if (r.gap != null && r.gap <= -0.1) { v *= 0.97; why.push("eBay sellers undercutting"); }
+    else if (r.gap != null && r.gap >= 0.4) why.push("asks heating — discounts unlikely");
+    if (tier && (tier.tier === "C" || tier.tier === "D")) { v *= 0.95; why.push(`${tier.tier}-tier set, weak demand`); }
+    if (loosePk && r.packs > 1 && /booster box|booster bundle/i.test(r.name)) {
+      const cap = loosePk * r.packs * 1.1;
+      if (cap < v) { v = cap; why.push("capped near loose-pack value"); }
     }
+    if (r.msrp && v < r.msrp * 1.05) { v = r.msrp * 1.05; why.push("near retail — instant buy"); }
     return { v: Math.max(1, Math.floor(v)), why: why.join(" · ") || "cheaper of TCG market and eBay asks" };
   };
   const rows = [];
