@@ -581,20 +581,28 @@ input,select{font-family:inherit;}
   .sd-fig::before{content:"TCG ";color:var(--muted);font-size:10px;font-weight:400;}
   .sd-ebay:not(:empty)::before{content:"eBay ";color:var(--muted);font-size:10px;}
 }
-/* Mobile shelf-price check widget (hidden on desktop; grid item count must stay 7).
-   Tape-measure scrubber: ticks slide under a fixed accent needle, $1 per 8px. */
-.sd-check{display:none;}
+/* Shelf-price check widget — tape-measure scrubber: ticks slide under a fixed needle,
+   $1 per 8px, tinted by verdict tier. Always visible on mobile; on desktop it expands
+   inline when its row is clicked (.pc-open). Hidden cells keep the grid count at 7. */
+.sd-check{display:none;grid-column:1 / -1;align-items:center;gap:7px;margin-top:2px;flex-wrap:wrap;}
+.sd-check-b{width:32px;height:30px;border-radius:7px;background:var(--panel3);border:1px solid var(--border);color:var(--text);font-size:15px;line-height:1;flex:0 0 auto;cursor:pointer;}
+.sd-scrub{flex:1 1 120px;height:30px;position:relative;border:1px solid var(--sc-b,var(--border));border-radius:8px;background:var(--sc-bg,var(--panel2));overflow:hidden;touch-action:pan-y;cursor:ew-resize;transition:border-color .15s,background-color .15s;}
+.sd-scrub-tape{position:absolute;inset:0;background:
+  repeating-linear-gradient(90deg,var(--border2) 0 1px,transparent 1px 40px),
+  repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 8px);}
+.sd-scrub::after{content:"";position:absolute;left:50%;top:3px;bottom:3px;width:2px;border-radius:2px;background:var(--sc,var(--accent));}
+.sd-check-read{width:100%;display:flex;align-items:baseline;gap:9px;}
+.sd-check-val{font-weight:700;font-size:14px;min-width:38px;}
+.sd-check-out{font-size:11.5px;}
 @media(max-width:760px){
-  .sd-check{display:flex;grid-column:1 / -1;align-items:center;gap:7px;margin-top:2px;flex-wrap:wrap;}
-  .sd-check-b{width:32px;height:30px;border-radius:7px;background:var(--panel3);border:1px solid var(--border);color:var(--text);font-size:15px;line-height:1;flex:0 0 auto;}
-  .sd-scrub{flex:1 1 120px;height:30px;position:relative;border:1px solid var(--sc-b,var(--border));border-radius:8px;background:var(--sc-bg,var(--panel2));overflow:hidden;touch-action:pan-y;cursor:ew-resize;transition:border-color .15s,background-color .15s;}
-  .sd-scrub-tape{position:absolute;inset:0;background:
-    repeating-linear-gradient(90deg,var(--border2) 0 1px,transparent 1px 40px),
-    repeating-linear-gradient(90deg,var(--line) 0 1px,transparent 1px 8px);}
-  .sd-scrub::after{content:"";position:absolute;left:50%;top:3px;bottom:3px;width:2px;border-radius:2px;background:var(--sc,var(--accent));}
-  .sd-check-read{width:100%;display:flex;align-items:baseline;gap:9px;}
-  .sd-check-val{font-weight:700;font-size:14px;min-width:38px;}
-  .sd-check-out{font-size:11.5px;}
+  .sd-check{display:flex;}
+}
+@media(min-width:761px){
+  .sd-row[data-act="pcheck"]{cursor:pointer;}
+  .sd-row[data-act="pcheck"]:hover{border-color:var(--border2);}
+  .sd-row.pc-open .sd-check{display:flex;margin-top:6px;}
+  .sd-row.pc-open .sd-scrub{max-width:440px;}
+  .sd-row.pc-open .sd-check-read{width:auto;}
 }
 .sd-nogo-sum{cursor:pointer;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--bad);margin:8px 0 0 2px;opacity:.75;}
 .sd-nogo{margin-top:6px;}

@@ -323,7 +323,8 @@ const state = {
   tierData: null, tierTab: "sv", tierSort: "rank", tierOpen: null, tierPrices: null, tierPricesComplete: false, // Tier-list view
   sealedData: null, sealedComplete: false, sealedUpdated: 0, sealedBusy: false, // Sealed-deals view
   sealedEbay: null, sealedEbayComplete: false, sealedEbayBusy: false, sealedEbayDisabled: false,
-  sealedCheck: {},     // product name -> typed shelf price (mobile price-check widget)
+  sealedCheck: {},     // product name -> entered shelf price (price-check widget)
+  sealedOpen: null,    // product name whose price-checker is expanded (desktop)
   bannerPos: (() => { try { return JSON.parse(localStorage.getItem("ppt_bannerpos")) || {}; } catch { return {}; } })(),
   spendSet: null, spendStore: null,   // Spending-view filters
   loading: true,
@@ -670,6 +671,15 @@ function stepSealedCheck(b) {
   const w = b.closest(".sd-check"); if (!w) return;
   scSetVal(w, (scGetVal(w) || Number(w.dataset.seed) || 0) + Number(b.dataset.v));
 }
+// Desktop: clicking a row expands its price-checker inline (mobile always shows it).
+// Pure DOM toggle — no re-render — with state kept so re-renders preserve it.
+function togglePriceCheck(rowEl) {
+  if (window.innerWidth <= 760) return;
+  const name = rowEl.dataset.v;
+  state.sealedOpen = state.sealedOpen === name ? null : name;
+  document.querySelectorAll(".sd-row.pc-open").forEach((el) => el.classList.remove("pc-open"));
+  if (state.sealedOpen === name) rowEl.classList.add("pc-open");
+}
 
 function renderSealed() {
   const app = document.getElementById("app");
@@ -753,7 +763,7 @@ function renderSealed() {
   };
   const rowHTML = (r, i, dim) => {
     const s = setById(r.sid); const t = tierOf(r.sid);
-    return `<div class="sd-row${dim ? " no" : ""}">
+    return `<div class="sd-row${dim ? " no" : ""}${state.sealedOpen === r.name ? " pc-open" : ""}"${r.msrp != null ? ` data-act="pcheck" data-v="${esc(r.name)}"` : ""}>
       <span class="sd-rank disp">${i + 1}</span>
       ${r.img ? `<img class="sd-img" src="${esc(r.img)}" alt="" loading="lazy" onerror="this.remove()">` : `<span class="sd-img"></span>`}
       <span class="setchip" style="color:${s ? s.tint : tintOf(r.sid)}">${setCode(r.sid)}</span>
@@ -2162,6 +2172,7 @@ document.getElementById("app").addEventListener("click", (e) => {
   else if (act === "sealed") openSealed();
   else if (act === "sealedrefresh") ensureSealedDeals(true);
   else if (act === "scstep") stepSealedCheck(b);
+  else if (act === "pcheck") { if (!e.target.closest(".sd-check")) togglePriceCheck(b); }
   else if (act === "tiertab") { state.tierTab = v; state.tierOpen = null; render(); }
   else if (act === "tiersort") { state.tierSort = v; render(); }
   else if (act === "tierrow") { state.tierOpen = state.tierOpen === v ? null : v; render(); }
