@@ -566,9 +566,10 @@ input,select{font-family:inherit;}
    lets two compact 7-column rows fit side by side. */
 .sd-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
 .sd-col-h{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 7px 2px;font-weight:700;}
-.sd-cols .sd-row{grid-template-columns:44px minmax(90px,1fr) 104px 80px 150px 40px 88px;}
+.sd-cols .sd-row{grid-template-columns:44px minmax(90px,1fr) 104px 78px 80px 150px 40px 88px;}
+.sd-pay{text-align:right;font-size:11.5px;font-weight:700;color:var(--good);}
 .sd-cols :is(.sd-rank,.setchip,.sd-tier,.pstat){display:none;}
-@media(max-width:1400px){.sd-cols{grid-template-columns:1fr;}}
+@media(max-width:1520px){.sd-cols{grid-template-columns:1fr;}}
 /* Mobile: two-line card — thumb + name on top, a labeled stats line below. */
 @media(max-width:760px){
   .sd-cols .sd-row{display:grid;grid-template-columns:34px 1fr;gap:5px 9px;align-items:center;padding:8px 11px;}
@@ -578,6 +579,7 @@ input,select{font-family:inherit;}
   .sd-sub>span{text-align:left;font-size:11.5px;}
   .sd-fig,.sd-ppk{font-size:12.5px;}
   .sd-msrp::before{content:"MSRP ";color:var(--muted);font-size:10px;}
+  .sd-pay::before{content:"pay ";color:var(--muted);font-size:10px;font-weight:400;}
   .sd-fig::before{content:"TCG ";color:var(--muted);font-size:10px;font-weight:400;}
   .sd-ebay:not(:empty)::before{content:"eBay ";color:var(--muted);font-size:10px;}
 }

@@ -665,7 +665,9 @@ function scSetVal(w, v) {
   const out = w.querySelector(".sd-check-out");
   if (!out) return;
   if (!m) { out.innerHTML = `<span style="color:var(--muted)">drag to set a shelf price</span>`; return; }
-  out.innerHTML = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(Number(w.dataset.msrp))} MSRP</span>`;
+  const pay = Number(w.dataset.pay);
+  const payChip = pay > 0 ? (v <= pay ? ` <span style="color:var(--good)">· ≤$${pay} ✓</span>` : ` <b style="color:var(--bad)">· over the $${pay} pay line ✗</b>`) : "";
+  out.innerHTML = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(Number(w.dataset.msrp))} MSRP</span>${payChip}`;
 }
 function stepSealedCheck(b) {
   const w = b.closest(".sd-check"); if (!w) return;
@@ -742,7 +744,10 @@ function renderSealed() {
       const msrp = msrpOf(p.name, sid);
       // dMsrp = TCGplayer market over launch retail (eBay asks deliberately excluded —
       // asking prices aren't sold prices, so they'd distort the retail-premium signal).
-      rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, msrp,
+      // "Pay this or less": if you're buying anyway, never pay above the cheaper of
+      // TCG market and the current eBay ask — that's the obtainable price today.
+      const payMax = Math.floor(Math.min(p.market, ebay && ebay.n >= 5 ? ebay.median : Infinity));
+      rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, msrp, payMax,
         gap: ebay && ebay.n >= 5 ? ebay.median / p.market - 1 : null,
         dMsrp: msrp ? p.market / msrp - 1 : null });
     }
@@ -775,14 +780,14 @@ function renderSealed() {
         const m = msrpDelta(r.dMsrp);
         const tip = m.crazy ? "crazy tier — don't spend this much unless you like wasting money" : `typical US launch retail · TCGplayer market is ${r.dMsrp >= 0 ? "+" : ""}${Math.round(r.dMsrp * 100)}% vs retail`;
         return `<span class="sd-msrp" title="${tip}">${money(r.msrp)} <span style="color:${m.c};${m.crazy ? "font-weight:700;" : ""}">${m.txt}</span></span>`;
-      })()}<span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>${ebayCell(r)}<span class="sd-pk">${r.packs} pk</span><span class="sd-ppk disp">${money(r.ppk)}/pk</span></span>
+      })()}<span class="sd-pay disp" title="if you're buying anyway, pay this or less — the cheaper of TCG market and current eBay asks">≤ $${r.payMax}</span><span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>${ebayCell(r)}<span class="sd-pk">${r.packs} pk</span><span class="sd-ppk disp">${money(r.ppk)}/pk</span></span>
       ${r.msrp != null ? (() => {
         const v = Math.round(Number(state.sealedCheck[r.name]));
         let out = `<span style="color:var(--muted)">drag to set a shelf price</span>`;
-        if (v > 0) { const m = msrpDelta(v / r.msrp - 1); out = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(r.msrp)} MSRP</span>`; }
+        if (v > 0) { const m = msrpDelta(v / r.msrp - 1); const pc = v <= r.payMax ? ` <span style="color:var(--good)">· ≤$${r.payMax} ✓</span>` : ` <b style="color:var(--bad)">· over the $${r.payMax} pay line ✗</b>`; out = `<b style="color:${m.c}">${m.txt}</b> <span style="color:var(--muted)">vs ${money(r.msrp)} MSRP</span>${pc}`; }
         const mm = v > 0 ? msrpDelta(v / r.msrp - 1) : null;
         const tint = mm ? `--sc:${mm.c};--sc-b:color-mix(in oklch, ${mm.c} 50%, var(--border));--sc-bg:color-mix(in oklch, ${mm.c} 10%, var(--panel2));` : "";
-        return `<span class="sd-check" data-name="${esc(r.name)}" data-msrp="${r.msrp}" data-seed="${Math.round(r.market)}">
+        return `<span class="sd-check" data-name="${esc(r.name)}" data-msrp="${r.msrp}" data-pay="${r.payMax}" data-seed="${Math.round(r.market)}">
           <button class="sd-check-b" data-act="scstep" data-v="-1">−</button>
           <span class="sd-scrub" style="${tint}"><span class="sd-scrub-tape" style="background-position:${v > 0 ? v * 8 : 0}px 0, ${v > 0 ? v * 8 : 0}px 0"></span></span>
           <button class="sd-check-b" data-act="scstep" data-v="1">+</button>
@@ -793,7 +798,7 @@ function renderSealed() {
   };
   const ebayHint = state.sealedEbayDisabled ? "" : state.sealedEbayComplete ? " eBay column = median asking price (not sold)." : " eBay asks loading…";
   const head = `<button class="backchip" data-act="gohub">← All sets</button>
-    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed prices — vs MSRP</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">Every TCGplayer sealed product across your tracked sets, grouped by set (newest first), closest to retail on top — MSRP · TCG market · eBay ask · $/pack. ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}${ebayHint}</div></div>
+    <div class="sec-head" style="margin-top:2px;"><div><div class="sec-title">🛒 Sealed prices — vs MSRP</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px;">Every TCGplayer sealed product across your tracked sets, grouped by set (newest first), closest to retail on top — MSRP · <b style="color:var(--good)">pay ≤</b> · TCG market · eBay ask · $/pack. ${state.sealedUpdated ? "Prices updated " + fmtDate(new Date(state.sealedUpdated).toISOString()) + "." : ""}${ebayHint}</div></div>
       <button class="hub-mini" data-act="sealedrefresh"${state.sealedBusy ? " disabled" : ""}>${state.sealedBusy ? "↻ Refreshing…" : "↻ Update prices"}</button></div>`;
   {
     // Grouped by set, newest release first (state.sets order).
@@ -827,7 +832,7 @@ function renderSealed() {
       <div class="sd-cols">${colHTML("Core / pack products", norm)}${colHTML("Special products", spec)}</div>`;
     }).join("");
     app.innerHTML = headerHTML() + head + (sections || `<div class="muted" style="font-size:13px;margin-top:12px;">No products loaded yet.</div>`) + `
-      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail); delta tiers: <span style="color:var(--good)">≤ +10%</span> near retail · <span style="color:var(--fair)">≤ +50%</span> premium · <span style="color:color-mix(in oklch, var(--fair) 45%, var(--bad))">≤ +100%</span> steep · <span style="color:var(--bad)">≤ +150%</span> severe · <span style="color:var(--bad);font-weight:700;">🚫 beyond</span> = don't spend this much unless you like wasting money. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
+      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail); <span style="color:var(--good)">≤ $X</span> = if you're buying anyway, pay this or less (the cheaper of TCG market and current eBay asks); delta tiers: <span style="color:var(--good)">≤ +10%</span> near retail · <span style="color:var(--fair)">≤ +50%</span> premium · <span style="color:color-mix(in oklch, var(--fair) 45%, var(--bad))">≤ +100%</span> steep · <span style="color:var(--bad)">≤ +150%</span> severe · <span style="color:var(--bad);font-weight:700;">🚫 beyond</span> = don't spend this much unless you like wasting money. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
   }
 }
 
