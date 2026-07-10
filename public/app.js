@@ -714,7 +714,7 @@ function renderSealed() {
       [/build & battle/i, 21.99],
       [/moonlit tin/i, 24.99],
       [/mini tin/i, up ? 10.99 : 9.99],
-      [/super-?premium collection/i, 119.99],
+      [/super-?premium collection/i, 89.99],   // PE SPC confirmed (Pokemon Center)
       [/premium figure collection/i, 59.99],
       [/premium poster collection/i, 49.99],
       [/premium checklane/i, up ? 10.99 : 9.99],
