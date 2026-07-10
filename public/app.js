@@ -734,21 +734,44 @@ function renderSealed() {
     for (const [rx, v] of RULES) if (rx.test(name)) return v;
     return null;
   };
+  // "Pay this or less" — a judgment, not a quote. Starts from the obtainable price
+  // (cheaper of TCG market / trustworthy eBay ask), then applies: print-status
+  // anchoring (in-print → retail+10%; fading → −8%; OOP → −5% under market), eBay
+  // ask pressure, set-tier demand, and a loose-pack value cap (packs bought loose
+  // +25% accessory allowance; no allowance for pure boxes/bundles). Tooltip = the why.
+  const smartPay = (r, loosePk, tier) => {
+    let v = Math.min(r.market, r.ebay && r.ebay.n >= 5 ? r.ebay.median : Infinity);
+    const why = [];
+    if (r.ps.tone === "good" && r.msrp && r.msrp * 1.1 < v) { v = r.msrp * 1.1; why.push("in print — hold near retail (MSRP+10%)"); }
+    else if (r.ps.tone === "fair") { v = Math.max(r.msrp || 0, v * 0.92); why.push("fading — patience haircut −8%"); }
+    else if (r.ps.tone === "bad") { v *= 0.95; why.push("OOP — target just under market"); }
+    if (r.gap != null && r.gap <= -0.1) { v *= 0.95; why.push("eBay asks undercutting market −5%"); }
+    else if (r.gap != null && r.gap >= 0.4) why.push("asks heating — don't expect a discount");
+    if (tier && (tier.tier === "C" || tier.tier === "D")) { v *= 0.95; why.push(`${tier.tier}-tier set, weak demand −5%`); }
+    if (loosePk && r.packs > 1) {
+      const pure = /booster box|booster bundle/i.test(r.name);
+      const cap = loosePk * r.packs * (pure ? 1 : 1.25);
+      if (cap < v) { v = cap; why.push(pure ? "capped at loose-pack value" : "capped at loose-pack value +25% for extras"); }
+    }
+    return { v: Math.max(1, Math.floor(v)), why: why.join(" · ") || "cheaper of TCG market and eBay asks" };
+  };
   const rows = [];
   for (const [sid, prods] of Object.entries(state.sealedData)) {
     if (!setById(sid)) continue;                 // untracked sets excluded
     const ps = printStatusOf(sid, null);
+    const tier = tierForSetId(sid);
+    let loosePk = null;
+    for (const p of prods) if (p.packs === 1 && /booster pack$/i.test(p.name) && !/sleeved/i.test(p.name)) loosePk = Math.min(loosePk ?? 1e9, p.market);
     for (const p of prods) {
       const eb = state.sealedEbay ? state.sealedEbay[p.name] : null;
       const ebay = eb && !eb.none ? eb : null;
       const msrp = msrpOf(p.name, sid);
       // dMsrp = TCGplayer market over launch retail (eBay asks deliberately excluded —
       // asking prices aren't sold prices, so they'd distort the retail-premium signal).
-      // "Pay this or less": if you're buying anyway, never pay above the cheaper of
-      // TCG market and the current eBay ask — that's the obtainable price today.
-      const payMax = Math.floor(Math.min(p.market, ebay && ebay.n >= 5 ? ebay.median : Infinity));
-      rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, msrp, payMax,
-        gap: ebay && ebay.n >= 5 ? ebay.median / p.market - 1 : null,
+      const gap = ebay && ebay.n >= 5 ? ebay.median / p.market - 1 : null;
+      const sp = smartPay({ name: p.name, market: p.market, packs: p.packs, ebay, msrp, ps, gap }, loosePk, tier);
+      rows.push({ sid, ps, ...p, ppk: p.market / p.packs, ebay, msrp, gap,
+        payMax: sp.v, payWhy: sp.why,
         dMsrp: msrp ? p.market / msrp - 1 : null });
     }
   }
@@ -780,7 +803,7 @@ function renderSealed() {
         const m = msrpDelta(r.dMsrp);
         const tip = m.crazy ? "crazy tier — don't spend this much unless you like wasting money" : `typical US launch retail · TCGplayer market is ${r.dMsrp >= 0 ? "+" : ""}${Math.round(r.dMsrp * 100)}% vs retail`;
         return `<span class="sd-msrp" title="${tip}">${money(r.msrp)} <span style="color:${m.c};${m.crazy ? "font-weight:700;" : ""}">${m.txt}</span></span>`;
-      })()}<span class="sd-pay disp" title="if you're buying anyway, pay this or less — the cheaper of TCG market and current eBay asks">≤ $${r.payMax}</span><span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>${ebayCell(r)}<span class="sd-pk">${r.packs} pk</span><span class="sd-ppk disp">${money(r.ppk)}/pk</span></span>
+      })()}<span class="sd-pay disp" title="if you're buying anyway, pay this or less — ${esc(r.payWhy)}">≤ $${r.payMax}</span><span class="sd-fig disp" title="TCGplayer market">${money(r.market)}</span>${ebayCell(r)}<span class="sd-pk">${r.packs} pk</span><span class="sd-ppk disp">${money(r.ppk)}/pk</span></span>
       ${r.msrp != null ? (() => {
         const v = Math.round(Number(state.sealedCheck[r.name]));
         let out = `<span style="color:var(--muted)">drag to set a shelf price</span>`;
@@ -832,7 +855,7 @@ function renderSealed() {
       <div class="sd-cols">${colHTML("Core / pack products", norm)}${colHTML("Special products", spec)}</div>`;
     }).join("");
     app.innerHTML = headerHTML() + head + (sections || `<div class="muted" style="font-size:13px;margin-top:12px;">No products loaded yet.</div>`) + `
-      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail); <span style="color:var(--good)">≤ $X</span> = if you're buying anyway, pay this or less (the cheaper of TCG market and current eBay asks); delta tiers: <span style="color:var(--good)">≤ +10%</span> near retail · <span style="color:var(--fair)">≤ +50%</span> premium · <span style="color:color-mix(in oklch, var(--fair) 45%, var(--bad))">≤ +100%</span> steep · <span style="color:var(--bad)">≤ +150%</span> severe · <span style="color:var(--bad);font-weight:700;">🚫 beyond</span> = don't spend this much unless you like wasting money. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
+      <div style="font-size:11.5px;color:var(--muted);margin-top:12px;">Grouped by set, newest first · reference sheet, not recommendations — green in-print sets restock at retail (the MSRP column), which beats every market price here. MSRP = typical US launch retail per product config ("—" = no standard retail); <span style="color:var(--good)">≤ $X</span> = if you're buying anyway, pay this or less — judged from obtainable price (TCG market vs eBay asks), print status, ask pressure, set tier, and loose-pack value (hover it for the reasoning); delta tiers: <span style="color:var(--good)">≤ +10%</span> near retail · <span style="color:var(--fair)">≤ +50%</span> premium · <span style="color:color-mix(in oklch, var(--fair) 45%, var(--bad))">≤ +100%</span> steep · <span style="color:var(--bad)">≤ +150%</span> severe · <span style="color:var(--bad);font-weight:700;">🚫 beyond</span> = don't spend this much unless you like wasting money. eBay figures are median <b>asking</b> prices (listing count in parens); ▲ = asks above TCG market (40%+ often precedes an OOP price move), ▼ = asks below market.</div>`;
   }
 }
 
