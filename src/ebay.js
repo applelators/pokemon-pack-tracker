@@ -74,6 +74,7 @@ export async function fetchEbayItem(db, legacyId) {
     location: d.itemLocation, returnsAccepted: d.returnTerms && d.returnTerms.returnsAccepted,
     topRated: d.topRatedBuyingExperience, availability: d.estimatedAvailabilities,
     shortDescription: d.shortDescription, itemWebUrl: d.itemWebUrl,
+    group: d.itemGroupType || null, buyingOptions: d.buyingOptions,
   };
 }
 
@@ -93,6 +94,9 @@ export async function fetchEbaySearch(db, q, limit = 50) {
       condition: i.condition,
       seller: i.seller && { username: i.seller.username, pct: Number(i.seller.feedbackPercentage), score: i.seller.feedbackScore },
       itemId: i.legacyItemId, url: i.itemWebUrl,
+      // SELLER_DEFINED_VARIATIONS = multi-product dropdown listing: the price shown is
+      // the LOWEST variation, which may not be the product in the title. Must be flagged.
+      group: i.itemGroupType || null,
     })),
   };
 }
